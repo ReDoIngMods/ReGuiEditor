@@ -164,7 +164,10 @@ MainWindow::MainWindow(GtkApplication* app, const std::string& initialPath) {
     });
     mCanvas->setOnDragEnd([this]() { mPropertiesPanel->setNode(mCanvas->selectedNode()); });
     // Cheap in-place update, not a full grid rebuild - fires every mouse-move tick while dragging.
-    mCanvas->setOnDragUpdate([this]() { mPropertiesPanel->updateLiveValues(mCanvas->selectedNode()); });
+    mCanvas->setOnDragUpdate([this]() {
+        markDirty();
+        mPropertiesPanel->updateLiveValues(mCanvas->selectedNode());
+    });
     mCanvas->setOnContextMenuRequested([this](model::WidgetNode* node, double x, double y) {
         if (node) {
             // Right-click also selects, so the menu target matches the rest of the editor.

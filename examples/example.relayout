@@ -15,11 +15,11 @@
                         "y": 0.5
                     },
                     "x": {
-                        "pixel": 690,
+                        "pixel": 820,
                         "scale": 0
                     },
                     "y": {
-                        "pixel": 390,
+                        "pixel": 540,
                         "scale": 0
                     },
                     "width": {
@@ -31,7 +31,7 @@
                         "scale": 0.5
                     }
                 },
-                "skin": "<skin name>",
+                "skin": "CameraBorder",
                 "callbacks": {
                     "onClick": "cl_onWidgetClick",
                     "onHover": "cl_onWidgetHover"
@@ -49,11 +49,11 @@
                                 "y": 0.5
                             },
                             "x": {
-                                "pixel": 0,
+                                "pixel": 720,
                                 "scale": 0
                             },
                             "y": {
-                                "pixel": 0,
+                                "pixel": 405,
                                 "scale": 0
                             },
                             "width": {
