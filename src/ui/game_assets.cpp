@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <vector>
+#include <iostream>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -115,14 +116,18 @@ std::optional<std::string> loadStoredGuiPath() {
     std::ifstream in(storePath());
     std::string line;
     if (std::getline(in, line) && !line.empty() && isValidGuiPath(line)) {
+        std::cout << "Loaded stored GUI path: " << line << "\n";
         return line;
     }
+    std::cout << "No valid stored GUI path found.\n";
     return std::nullopt;
 }
 
 void storeGuiPath(const std::string& guiPath) {
     std::ofstream out(storePath(), std::ios::trunc);
     out << guiPath << "\n";
+
+    std::cout << "Stored assets path: " << guiPath << "\n";
 }
 
 std::optional<std::string> searchKnownLocations() {
