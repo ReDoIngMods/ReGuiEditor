@@ -120,6 +120,17 @@ public:
         mOnContextMenuRequested = std::move(callback);
     }
 
+    // User-controlled view zoom, on top of the fixed reference-resolution
+    // scale - 1.0 is "no extra zoom". Ctrl+scroll and the header's +/-
+    // buttons drive this; it never touches widget data, only the view.
+    double zoom() const { return mZoom; }
+    void zoomIn() { zoomBy(kZoomStepFactor, mViewWidth / 2.0, mViewHeight / 2.0); }
+    void zoomOut() { zoomBy(1.0 / kZoomStepFactor, mViewWidth / 2.0, mViewHeight / 2.0); }
+    // Back to 1.0 zoom, no pan.
+    void resetView();
+    // Fired whenever zoom() changes, so the header can show a live percentage.
+    void setOnZoomChanged(std::function<void(double)> callback) { mOnZoomChanged = std::move(callback); }
+
 private:
     enum class HandleKind { TopLeft, TopRight, BottomLeft, BottomRight, Anchor };
     enum class DragMode { None, Move, ResizeTopLeft, ResizeTopRight, ResizeBottomLeft, ResizeBottomRight, Anchor };
@@ -139,6 +150,25 @@ private:
     std::vector<MyGUI::Widget*> mOverlayWidgets;
     int mViewWidth = 1;
     int mViewHeight = 1;
+    // Frozen at the first real resize (and recomputed only when the
+    // reference resolution itself changes) so widgets keep a fixed on-screen
+    // size across window resizes/moves instead of growing/shrinking with them.
+    double mFixedScale = 1.0;
+    bool mScaleInitialized = false;
+
+    // User pan/zoom, layered on top of mFixedScale - purely a view
+    // transform, same as mFixedScale itself; never touches widget data.
+    static constexpr double kZoomStepFactor = 1.25; // per scroll tick / button click
+    static constexpr double kMinZoom = 0.1;
+    static constexpr double kMaxZoom = 8.0;
+    double mZoom = 1.0;
+    double mPanX = 0.0; // screen pixels
+    double mPanY = 0.0;
+    double mPanDragStartX = 0.0;
+    double mPanDragStartY = 0.0;
+    double mLastPointerX = 0.0; // tracked via mMotionController, for scroll-to-zoom's anchor point
+    double mLastPointerY = 0.0;
+    std::function<void(double)> mOnZoomChanged;
 
     // Resolved rect per widget, depth-first, refreshed each rebuild - used
     // for hit-testing/drag math without walking MyGUI's own tree.
@@ -226,15 +256,29 @@ private:
     DragMode hitTestHandle(double x, double y) const;
 
     // Fixed reference resolution regardless of window size - resizing the
-    // editor only changes the view (scale + letterbox), never the layout math.
+    // editor only changes the view (letterbox offset), never the layout math
+    // or the scale (see mFixedScale).
     double viewScale() const;
+    void recomputeFixedScale();
     model::Rect referenceToScreen(const model::Rect& rect) const;
     void screenToReference(double screenX, double screenY, double& refX, double& refY) const;
+
+    // Multiplies mZoom by `factor` (clamped to [kMinZoom, kMaxZoom]),
+    // adjusting mPanX/mPanY so the reference-space point currently under
+    // (anchorScreenX, anchorScreenY) stays under it on screen.
+    void zoomBy(double factor, double anchorScreenX, double anchorScreenY);
 
     void onDragBegin(double x, double y);
     void onDragUpdate(double offsetX, double offsetY);
     void onDragEnd(double offsetX, double offsetY);
+    // A history-view label/detail pair for the just-finished drag (mDragMode),
+    // e.g. {"Widget Moved & Resized", "Moved from {X=0,Y=0} to {X=10,Y=0}, resized from ..."}.
+    std::pair<std::string, std::string> describeDragChange(const model::Rect& before, const model::Rect& after) const;
     void onRightClick(double screenX, double screenY);
+    void onMotion(double x, double y);
+    gboolean onScroll(GtkEventControllerScroll* controller, double dx, double dy);
+    void onPanDragBegin();
+    void onPanDragUpdate(double offsetX, double offsetY);
 
     // Repositions/resizes just mDragNode's widget (children ride along via
     // MyGUI's own transform) instead of rebuilding the whole tree per tick.
@@ -249,6 +293,10 @@ private:
     static void dragUpdateThunk(GtkGestureDrag* gesture, double offsetX, double offsetY, gpointer userData);
     static void dragEndThunk(GtkGestureDrag* gesture, double offsetX, double offsetY, gpointer userData);
     static void rightClickThunk(GtkGestureClick* gesture, gint nPress, gdouble x, gdouble y, gpointer userData);
+    static void motionThunk(GtkEventControllerMotion* controller, double x, double y, gpointer userData);
+    static gboolean scrollThunk(GtkEventControllerScroll* controller, double dx, double dy, gpointer userData);
+    static void panDragBeginThunk(GtkGestureDrag* gesture, double x, double y, gpointer userData);
+    static void panDragUpdateThunk(GtkGestureDrag* gesture, double offsetX, double offsetY, gpointer userData);
 };
 
 } // namespace regui::canvas

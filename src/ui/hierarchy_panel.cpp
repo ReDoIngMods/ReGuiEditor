@@ -265,6 +265,8 @@ void HierarchyPanel::onEmptyMenuItemClicked(GtkButton*, gpointer userData) {
 
 void HierarchyPanel::showObjectMenu(GtkWidget* anchor, double x, double y, model::WidgetNode* node) {
     GtkWidget* popover = gtk_popover_new();
+    gtk_popover_set_has_arrow(GTK_POPOVER(popover), FALSE); // flat context menu, not a speech bubble
+    gtk_widget_add_css_class(popover, "menu");
     gtk_widget_set_parent(popover, anchor);
     GdkRectangle rect{static_cast<int>(x), static_cast<int>(y), 1, 1};
     gtk_popover_set_pointing_to(GTK_POPOVER(popover), &rect);
@@ -292,6 +294,8 @@ void HierarchyPanel::showObjectMenu(GtkWidget* anchor, double x, double y, model
 
 void HierarchyPanel::showEmptySpaceMenu(GtkWidget* anchor, double x, double y) {
     GtkWidget* popover = gtk_popover_new();
+    gtk_popover_set_has_arrow(GTK_POPOVER(popover), FALSE); // flat context menu, not a speech bubble
+    gtk_widget_add_css_class(popover, "menu");
     gtk_widget_set_parent(popover, anchor);
     GdkRectangle rect{static_cast<int>(x), static_cast<int>(y), 1, 1};
     gtk_popover_set_pointing_to(GTK_POPOVER(popover), &rect);

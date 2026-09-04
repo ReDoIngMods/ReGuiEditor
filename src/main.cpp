@@ -10,6 +10,7 @@
 #endif
 
 #include "canvas/mygui_canvas.h"
+#include "ui/asset_setup.h"
 #include "ui/center_window.h"
 #include "ui/loading_window.h"
 #include "ui/main_window.h"
@@ -31,18 +32,18 @@ void attachDevConsole() {
 }
 #endif
 
-void showWelcomeScreen(GtkApplication* app);
+void showWelcomeScreen(GtkApplication* app, std::string guiAssetsPath);
 
 // Needs a display connection, which only exists once "activate"/"open" runs - called from both.
 void ensureDarkTheme() { g_object_set(gtk_settings_get_default(), "gtk-application-prefer-dark-theme", TRUE, nullptr); }
 
 // Builds MainWindow, shows LoadingWindow while loadAssets() runs synchronously, then swaps it for the editor.
-void openFile(GtkApplication* app, const std::string& path) {
+void openFile(GtkApplication* app, std::string guiAssetsPath, const std::string& path) {
     ensureDarkTheme();
     regui::ui::recent_files::addAndSave(path);
 
     // Registers itself as an app window immediately, so the app is never briefly down to zero windows.
-    auto* mainWindow = new regui::ui::MainWindow(app, path);
+    auto* mainWindow = new regui::ui::MainWindow(app, std::move(guiAssetsPath), path);
 
     regui::ui::LoadingWindow loadingWindow(app);
     gtk_window_present(GTK_WINDOW(loadingWindow.window()));
@@ -61,30 +62,39 @@ void openFile(GtkApplication* app, const std::string& path) {
     // Intentionally leaked for the app's lifetime - GTK owns the window.
 }
 
-void showWelcomeScreen(GtkApplication* app) {
+void showWelcomeScreen(GtkApplication* app, std::string guiAssetsPath) {
     ensureDarkTheme();
     // Indirection cell: the callback needs to close the window, but the WelcomeWindow* doesn't exist yet.
     auto self = std::make_shared<regui::ui::WelcomeWindow*>(nullptr);
-    *self = new regui::ui::WelcomeWindow(app, [app, self](std::string path) {
+    *self = new regui::ui::WelcomeWindow(app, [app, self, guiAssetsPath](std::string path) {
         gtk_window_destroy(GTK_WINDOW((*self)->window()));
-        openFile(app, path);
+        openFile(app, guiAssetsPath, path);
     });
     gtk_window_present(GTK_WINDOW((*self)->window()));
     regui::ui::centerWindowOnScreen(GTK_WINDOW((*self)->window()));
 }
 
-void onActivate(GtkApplication* app, gpointer) { showWelcomeScreen(app); }
+void onActivate(GtkApplication* app, gpointer) {
+    regui::ui::asset_setup::resolveGuiAssetsPath(
+        app, [app](std::string guiAssetsPath) { showWelcomeScreen(app, std::move(guiAssetsPath)); });
+}
 
 // Fired instead of "activate" when launched with a file argument; skips the welcome screen.
 void onOpen(GtkApplication* app, GFile** files, gint nFiles, const gchar* /*hint*/, gpointer) {
+    std::string filePath;
     if (nFiles > 0) {
         if (char* path = g_file_get_path(files[0])) {
-            openFile(app, path);
+            filePath = path;
             g_free(path);
-            return;
         }
     }
-    showWelcomeScreen(app);
+    regui::ui::asset_setup::resolveGuiAssetsPath(app, [app, filePath](std::string guiAssetsPath) {
+        if (!filePath.empty()) {
+            openFile(app, std::move(guiAssetsPath), filePath);
+        } else {
+            showWelcomeScreen(app, std::move(guiAssetsPath));
+        }
+    });
 }
 
 } // namespace

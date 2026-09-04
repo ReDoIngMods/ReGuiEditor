@@ -1,11 +1,14 @@
 #include "ui/main_window.h"
 
 #include "app_info.h"
+#include "ui/layout_settings.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 #include <iterator>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -35,21 +38,108 @@ constexpr int kDefaultResolutionIndex = 1; // 1920x1080
 // Mirrors MyGuiCanvas's own default - buildHeaderBar() runs before mCanvas exists.
 constexpr double kDefaultGridSpacing = 10.0;
 
-// The window opens maximized, so the paned divider needs the real screen width up front. Falls back to 1280.
-int primaryMonitorWidth() {
+// The window opens maximized, so the dock-slot defaults need the real screen
+// size up front. Falls back to a plausible 1280x800 desktop.
+GdkRectangle primaryMonitorGeometry() {
+    GdkRectangle geometry{0, 0, 1280, 800};
     GdkDisplay* display = gdk_display_get_default();
     if (!display) {
-        return 1280;
+        return geometry;
     }
     GListModel* monitors = gdk_display_get_monitors(display);
     if (!monitors || g_list_model_get_n_items(monitors) == 0) {
-        return 1280;
+        return geometry;
     }
     GdkMonitor* monitor = GDK_MONITOR(g_list_model_get_item(monitors, 0));
-    GdkRectangle geometry;
     gdk_monitor_get_geometry(monitor, &geometry);
     g_object_unref(monitor);
-    return geometry.width;
+    return geometry;
+}
+
+// How close to an edge (in px) a drag has to be to dock there; anything
+// farther from every edge than this counts as the "float it" center zone.
+constexpr double kDockEdgeBand = 100.0;
+
+DockZone classifyDockZone(double x, double y, double width, double height) {
+    double distances[] = {x, width - x, y, height - y}; // left, right, top, bottom
+    int nearest = 0;
+    for (int i = 1; i < 4; ++i) {
+        if (distances[i] < distances[nearest]) {
+            nearest = i;
+        }
+    }
+    if (distances[nearest] > kDockEdgeBand) {
+        return DockZone::Center;
+    }
+    switch (nearest) {
+        case 0:
+            return DockZone::Left;
+        case 1:
+            return DockZone::Right;
+        case 2:
+            return DockZone::Top;
+        default:
+            return DockZone::Bottom;
+    }
+}
+
+DockEdge dockZoneToEdge(DockZone zone) {
+    switch (zone) {
+        case DockZone::Left:
+            return DockEdge::Left;
+        case DockZone::Right:
+            return DockEdge::Right;
+        case DockZone::Top:
+            return DockEdge::Top;
+        default:
+            return DockEdge::Bottom;
+    }
+}
+
+// A translucent highlight rect for one dock-zone indicator, sized/aligned to
+// hug the edge it represents (or centered, for "float here").
+GtkWidget* buildDockIndicator(GtkAlign halign, GtkAlign valign, int width, int height) {
+    GtkWidget* indicator = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_add_css_class(indicator, "regui-dock-indicator");
+    gtk_widget_set_halign(indicator, halign);
+    gtk_widget_set_valign(indicator, valign);
+    gtk_widget_set_size_request(indicator, width, height);
+    gtk_widget_set_can_target(indicator, FALSE); // purely decorative - never steals the drop
+    gtk_widget_set_visible(indicator, FALSE); // shown for the duration of a drag, not at rest
+    gtk_widget_set_margin_start(indicator, 12);
+    gtk_widget_set_margin_end(indicator, 12);
+    gtk_widget_set_margin_top(indicator, 12);
+    gtk_widget_set_margin_bottom(indicator, 12);
+    return indicator;
+}
+
+void ensureDockCssLoaded() {
+    static bool loaded = false;
+    if (loaded) {
+        return;
+    }
+    loaded = true;
+    GtkCssProvider* provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_string(
+        provider,
+        // All 5 zones show this outline for the whole drag, so the user can
+        // see every option at once; only the currently-hovered one also gets
+        // .regui-dock-indicator-active's fill.
+        ".regui-dock-indicator {"
+        "  background-color: rgba(255, 255, 255, 0.06);"
+        "  border: 2px dashed rgba(255, 255, 255, 0.4);"
+        "  border-radius: 8px;"
+        "}"
+        ".regui-dock-indicator.regui-dock-indicator-active {"
+        "  background-color: rgba(53, 132, 228, 0.35);"
+        "  border: 2px solid rgba(53, 132, 228, 0.9);"
+        "}"
+        // The app always forces a dark theme (see main.cpp's ensureDarkTheme()), so a light,
+        // low-alpha line reads as a subtle separator rather than guessing at a theme color.
+        ".regui-dock-header { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }");
+    gtk_style_context_add_provider_for_display(
+        gdk_display_get_default(), GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(provider);
 }
 
 // A right-click popup for the canvas, same idea as HierarchyPanel's own row/empty-space menus.
@@ -83,6 +173,8 @@ GtkWidget* newMenuButton(const std::string& label) {
 void showCanvasContextMenu(
     GtkWidget* anchor, double x, double y, std::vector<std::pair<std::string, std::function<void()>>> entries) {
     GtkWidget* popover = gtk_popover_new();
+    gtk_popover_set_has_arrow(GTK_POPOVER(popover), FALSE); // flat context menu, not a speech bubble
+    gtk_widget_add_css_class(popover, "menu");
     gtk_widget_set_parent(popover, anchor);
     GdkRectangle rect{static_cast<int>(x), static_cast<int>(y), 1, 1};
     gtk_popover_set_pointing_to(GTK_POPOVER(popover), &rect);
@@ -115,6 +207,8 @@ GtkWidget* buildHeaderMenu(const char* label, std::vector<HeaderMenuEntry> entri
     gtk_menu_button_set_label(GTK_MENU_BUTTON(menuButton), label);
 
     GtkWidget* popover = gtk_popover_new();
+    gtk_popover_set_has_arrow(GTK_POPOVER(popover), FALSE); // flat dropdown, not a speech bubble
+    gtk_widget_add_css_class(popover, "menu");
     GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     gtk_popover_set_child(GTK_POPOVER(popover), box);
 
@@ -136,23 +230,45 @@ GtkWidget* buildHeaderMenu(const char* label, std::vector<HeaderMenuEntry> entri
 
 } // namespace
 
-MainWindow::MainWindow(GtkApplication* app, const std::string& initialPath) {
+MainWindow::MainWindow(GtkApplication* app, std::string guiAssetsPath, const std::string& initialPath) {
+    ensureDockCssLoaded();
+    layout_settings::LayoutSettings settings = layout_settings::load();
+
     mPropertiesPanel = std::make_unique<PropertiesPanel>(&mRegistry, &mUndoStack);
 
     mWindow = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(mWindow), "ReGui Editor");
     g_signal_connect(mWindow, "close-request", G_CALLBACK(onCloseRequest), this);
-    gtk_window_set_default_size(GTK_WINDOW(mWindow), 1280, 800);
+    gtk_window_set_default_size(GTK_WINDOW(mWindow), settings.windowWidth, settings.windowHeight);
     GtkWidget* headerBar = buildHeaderBar();
     gtk_window_set_titlebar(GTK_WINDOW(mWindow), headerBar);
     mPropertiesPanel->setParentWindow(GTK_WINDOW(mWindow)); // for the skin field's picker popup
 
-    mOuterPaned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_set_resize_start_child(GTK_PANED(mOuterPaned), FALSE);
-    gtk_paned_set_shrink_start_child(GTK_PANED(mOuterPaned), FALSE);
-    gtk_widget_set_size_request(mOuterPaned, -1, -1);
+    mHierarchyDetach = std::make_unique<DetachablePanel>(GTK_WINDOW(mWindow), "Hierarchy");
+    mHierarchyDetach->enableDragSource();
+    mHierarchyDetach->setNextFloatGeometry(
+        settings.hierarchyFloatX, settings.hierarchyFloatY, settings.hierarchyFloatWidth, settings.hierarchyFloatHeight);
+    mHierarchyDetach->setOnFloatCloseRequested([this]() { setPanelEdge(mHierarchyDetach.get(), mHierarchyEdge); });
 
-    mCanvas = std::make_unique<canvas::MyGuiCanvas>(REGUIEDITOR_ASSETS_ROOT "/scrapmechanic-gui");
+    mPropertiesDetach = std::make_unique<DetachablePanel>(GTK_WINDOW(mWindow), "Properties");
+    mPropertiesDetach->enableDragSource();
+    mPropertiesDetach->setContent(mPropertiesPanel->widget());
+    mPropertiesDetach->setNextFloatGeometry(
+        settings.propertiesFloatX, settings.propertiesFloatY, settings.propertiesFloatWidth,
+        settings.propertiesFloatHeight);
+    mPropertiesDetach->setOnFloatCloseRequested([this]() { setPanelEdge(mPropertiesDetach.get(), mPropertiesEdge); });
+
+    mHierarchyEdge = settings.hierarchyEdge;
+    mPropertiesEdge = settings.propertiesEdge;
+    if (mHierarchyEdge == mPropertiesEdge) {
+        // A hand-edited (or otherwise corrupt) settings file asked for both
+        // panels at the same edge - fall back to the original default split
+        // rather than silently orphaning one of them.
+        mHierarchyEdge = DockEdge::Left;
+        mPropertiesEdge = DockEdge::Right;
+    }
+
+    mCanvas = std::make_unique<canvas::MyGuiCanvas>(std::move(guiAssetsPath));
     mCanvas->setUndoStack(&mUndoStack);
     // Live reference - starts empty, fills in once the canvas loads the skin XML.
     mPropertiesPanel->setAvailableSkins(&mCanvas->availableSkins());
@@ -190,6 +306,7 @@ MainWindow::MainWindow(GtkApplication* app, const std::string& initialPath) {
                 });
         }
     });
+    mCanvas->setOnZoomChanged([this](double zoom) { updateZoomLabel(zoom); });
 
     mPropertiesPanel->setOnLiveChange([this]() {
         markDirty();
@@ -202,35 +319,100 @@ MainWindow::MainWindow(GtkApplication* app, const std::string& initialPath) {
         mCanvas->refresh();
     });
 
-    GtkWidget* innerPaned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    // The canvas should soak up extra width on window grow, not the properties panel.
-    gtk_paned_set_resize_start_child(GTK_PANED(innerPaned), TRUE);
-    gtk_paned_set_resize_end_child(GTK_PANED(innerPaned), FALSE);
-    gtk_paned_set_shrink_end_child(GTK_PANED(innerPaned), FALSE);
-    gtk_paned_set_start_child(GTK_PANED(innerPaned), mCanvas->widget());
-    gtk_paned_set_end_child(GTK_PANED(innerPaned), mPropertiesPanel->widget());
-
-    constexpr int kSidebarWidth = 240;
-    constexpr int kPropertiesPanelWidth = 495;
-    int canvasWidth = std::max(400, primaryMonitorWidth() - kSidebarWidth - kPropertiesPanelWidth);
-    gtk_paned_set_position(GTK_PANED(innerPaned), canvasWidth);
-
-    gtk_paned_set_end_child(GTK_PANED(mOuterPaned), innerPaned);
-    gtk_paned_set_position(GTK_PANED(mOuterPaned), kSidebarWidth);
-
-    gtk_window_set_child(GTK_WINDOW(mWindow), mOuterPaned);
-    gtk_window_maximize(GTK_WINDOW(mWindow));
+    GtkWidget* dockArea = buildDockArea(settings);
+    gtk_window_set_child(GTK_WINDOW(mWindow), dockArea);
+    if (settings.windowMaximized) {
+        gtk_window_maximize(GTK_WINDOW(mWindow));
+    }
 
     loadAddonsFromDirectory(REGUIEDITOR_ADDONS_ROOT);
     rebuildHierarchyPanel(); // starts empty (no document loaded yet)
+    // Both panels' wrappers only exist once mHierarchyDetach/mPropertiesDetach
+    // are constructed and rebuildHierarchyPanel() has populated content -
+    // now place them at their (possibly restored) edges.
+    setSlotChild(mHierarchyEdge, mHierarchyDetach->widget());
+    setSlotChild(mPropertiesEdge, mPropertiesDetach->widget());
 
     GtkEventController* keyController = gtk_event_controller_key_new();
     g_signal_connect(keyController, "key-pressed", G_CALLBACK(onKeyPressed), this);
     gtk_widget_add_controller(mWindow, keyController);
 
+    mPendingHierarchyFloating = settings.hierarchyFloating;
+    mPendingPropertiesFloating = settings.propertiesFloating;
+    if (mPendingHierarchyFloating || mPendingPropertiesFloating) {
+        // Deferred to first map so a restored floating panel never appears
+        // before the main window itself does (this constructor runs before
+        // the caller presents mWindow at all).
+        mFirstMapHandlerId = g_signal_connect(mWindow, "map", G_CALLBACK(onFirstMap), this);
+    }
+
     if (!initialPath.empty()) {
         loadDocument(initialPath);
     }
+}
+
+GtkWidget* MainWindow::buildDockArea(const layout_settings::LayoutSettings& settings) {
+    constexpr int kDefaultLeftWidth = 240;
+    constexpr int kDefaultRightWidth = 495;
+    constexpr int kDefaultTopHeight = 200;
+    constexpr int kDefaultBottomHeight = 200;
+
+    GdkRectangle screen = primaryMonitorGeometry();
+    int leftWidth = settings.leftSlotWidth >= 0 ? settings.leftSlotWidth : kDefaultLeftWidth;
+    int rightWidth = settings.rightSlotWidth >= 0 ? settings.rightSlotWidth : kDefaultRightWidth;
+    int topHeight = settings.topSlotHeight >= 0 ? settings.topSlotHeight : kDefaultTopHeight;
+    int bottomHeight = settings.bottomSlotHeight >= 0 ? settings.bottomSlotHeight : kDefaultBottomHeight;
+    int canvasWidth = std::max(400, screen.width - leftWidth - rightWidth);
+
+    mDockMidHorizontalInner = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_paned_set_resize_start_child(GTK_PANED(mDockMidHorizontalInner), FALSE);
+    gtk_paned_set_shrink_start_child(GTK_PANED(mDockMidHorizontalInner), FALSE);
+    gtk_paned_set_resize_end_child(GTK_PANED(mDockMidHorizontalInner), TRUE); // the canvas soaks up extra width
+    gtk_paned_set_end_child(GTK_PANED(mDockMidHorizontalInner), mCanvas->widget());
+    gtk_paned_set_position(GTK_PANED(mDockMidHorizontalInner), leftWidth);
+
+    mDockMidHorizontalOuter = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_paned_set_resize_start_child(GTK_PANED(mDockMidHorizontalOuter), TRUE);
+    gtk_paned_set_resize_end_child(GTK_PANED(mDockMidHorizontalOuter), FALSE);
+    gtk_paned_set_shrink_end_child(GTK_PANED(mDockMidHorizontalOuter), FALSE);
+    gtk_paned_set_start_child(GTK_PANED(mDockMidHorizontalOuter), mDockMidHorizontalInner);
+    gtk_paned_set_position(GTK_PANED(mDockMidHorizontalOuter), leftWidth + canvasWidth);
+
+    mDockMidVertical = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+    gtk_paned_set_resize_start_child(GTK_PANED(mDockMidVertical), FALSE);
+    gtk_paned_set_shrink_start_child(GTK_PANED(mDockMidVertical), FALSE);
+    gtk_paned_set_resize_end_child(GTK_PANED(mDockMidVertical), TRUE);
+    gtk_paned_set_end_child(GTK_PANED(mDockMidVertical), mDockMidHorizontalOuter);
+    gtk_paned_set_position(GTK_PANED(mDockMidVertical), topHeight);
+
+    mDockOuterVertical = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+    gtk_paned_set_resize_start_child(GTK_PANED(mDockOuterVertical), TRUE);
+    gtk_paned_set_resize_end_child(GTK_PANED(mDockOuterVertical), FALSE);
+    gtk_paned_set_shrink_end_child(GTK_PANED(mDockOuterVertical), FALSE);
+    gtk_paned_set_start_child(GTK_PANED(mDockOuterVertical), mDockMidVertical);
+    gtk_paned_set_position(GTK_PANED(mDockOuterVertical), std::max(400, screen.height - bottomHeight));
+
+    mDockOverlay = gtk_overlay_new();
+    gtk_overlay_set_child(GTK_OVERLAY(mDockOverlay), mDockOuterVertical);
+
+    mDockIndicatorLeft = buildDockIndicator(GTK_ALIGN_START, GTK_ALIGN_FILL, 140, -1);
+    mDockIndicatorRight = buildDockIndicator(GTK_ALIGN_END, GTK_ALIGN_FILL, 140, -1);
+    mDockIndicatorTop = buildDockIndicator(GTK_ALIGN_FILL, GTK_ALIGN_START, -1, 100);
+    mDockIndicatorBottom = buildDockIndicator(GTK_ALIGN_FILL, GTK_ALIGN_END, -1, 100);
+    mDockIndicatorCenter = buildDockIndicator(GTK_ALIGN_CENTER, GTK_ALIGN_CENTER, 200, 150);
+    for (GtkWidget* indicator :
+         {mDockIndicatorLeft, mDockIndicatorRight, mDockIndicatorTop, mDockIndicatorBottom, mDockIndicatorCenter}) {
+        gtk_overlay_add_overlay(GTK_OVERLAY(mDockOverlay), indicator);
+    }
+
+    GtkDropTarget* dropTarget = gtk_drop_target_new(G_TYPE_STRING, GDK_ACTION_MOVE);
+    g_signal_connect(dropTarget, "enter", G_CALLBACK(onDockDragEnter), this);
+    g_signal_connect(dropTarget, "motion", G_CALLBACK(onDockDragMotion), this);
+    g_signal_connect(dropTarget, "leave", G_CALLBACK(onDockDragLeave), this);
+    g_signal_connect(dropTarget, "drop", G_CALLBACK(onDockDrop), this);
+    gtk_widget_add_controller(mDockOverlay, GTK_EVENT_CONTROLLER(dropTarget));
+
+    return mDockOverlay;
 }
 
 void MainWindow::loadAssets(std::function<void(const canvas::LoadProgress&)> onProgress) {
@@ -283,8 +465,30 @@ GtkWidget* MainWindow::buildHeaderBar() {
         "Edit", {
                     {"Undo", [this]() { undo(); }, "Undo (Ctrl+Z)"},
                     {"Redo", [this]() { redo(); }, "Redo (Ctrl+Y)"},
+                    {"History\xE2\x80\xA6", [this]() { showHistoryWindow(); }, "Browse recent actions"},
                 });
     gtk_header_bar_pack_start(GTK_HEADER_BAR(headerBar), editMenu);
+
+    // Zoom controls, packed first so they land at the very right edge of the header bar.
+    GtkWidget* zoomBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+    GtkWidget* zoomOutButton = gtk_button_new_with_label("\xE2\x88\x92"); // U+2212 MINUS SIGN
+    gtk_widget_add_css_class(zoomOutButton, "flat");
+    gtk_widget_set_tooltip_text(zoomOutButton, "Zoom out (Ctrl+Scroll)");
+    g_signal_connect(zoomOutButton, "clicked", G_CALLBACK(onZoomOutClicked), this);
+    gtk_box_append(GTK_BOX(zoomBox), zoomOutButton);
+
+    mZoomLabel = gtk_button_new_with_label("100%");
+    gtk_widget_add_css_class(mZoomLabel, "flat");
+    gtk_widget_set_tooltip_text(mZoomLabel, "Reset zoom and pan");
+    g_signal_connect(mZoomLabel, "clicked", G_CALLBACK(onZoomResetClicked), this);
+    gtk_box_append(GTK_BOX(zoomBox), mZoomLabel);
+
+    GtkWidget* zoomInButton = gtk_button_new_with_label("+");
+    gtk_widget_add_css_class(zoomInButton, "flat");
+    gtk_widget_set_tooltip_text(zoomInButton, "Zoom in (Ctrl+Scroll)");
+    g_signal_connect(zoomInButton, "clicked", G_CALLBACK(onZoomInClicked), this);
+    gtk_box_append(GTK_BOX(zoomBox), zoomInButton);
+    gtk_header_bar_pack_end(GTK_HEADER_BAR(headerBar), zoomBox);
 
     std::vector<const char*> resolutionLabels;
     for (const ResolutionPreset& preset : kResolutionPresets) {
@@ -331,7 +535,9 @@ void MainWindow::rebuildHierarchyPanel() {
     mHierarchyPanel->setOnDeleteRequested([this](model::WidgetNode* node) { deleteNode(node); });
     mHierarchyPanel->setOnCopyRequested([this](model::WidgetNode* node) { copyNode(node); });
     mHierarchyPanel->setOnInsertRequested([this]() { pasteClipboard(); });
-    gtk_paned_set_start_child(GTK_PANED(mOuterPaned), mHierarchyPanel->widget());
+    // Swaps content only - whichever dock slot (or floating window)
+    // mHierarchyDetach->widget() itself currently lives in is untouched.
+    mHierarchyDetach->setContent(mHierarchyPanel->widget());
 
     model::WidgetNode* toSelect = previousSelection ? previousSelection : (roots.empty() ? nullptr : &roots[0]);
     mCanvas->setSelection(toSelect);
@@ -346,6 +552,10 @@ void MainWindow::reparentNode(model::WidgetNode* dragged, model::WidgetNode* new
     if (oldParent == newParent) {
         return; // dropped back onto its current parent - nothing to do
     }
+
+    // Captured before the move - `dragged`/`newParent` are dangling or reused afterward.
+    std::string draggedName = dragged->name;
+    std::string newParentName = newParent ? newParent->name : "Root";
 
     // `dragged` is dangling once moveWidgetNode() returns - use its output pointer instead.
     // Selection is cleared first since the move can invalidate it too.
@@ -395,7 +605,8 @@ void MainWindow::reparentNode(model::WidgetNode* dragged, model::WidgetNode* new
             mHierarchyPanel->selectNode(redone);
             mPropertiesPanel->setNode(redone);
             markDirty();
-        });
+        },
+        "Widget Reparented", "Moved '" + draggedName + "' under '" + newParentName + "'");
 }
 
 void MainWindow::undo() {
@@ -414,6 +625,27 @@ void MainWindow::redo() {
     bool canRedo = mUndoStack.canRedo();
     mUndoStack.redo();
     if (canRedo) {
+        markDirty();
+    }
+    if (mHierarchyPanel) {
+        mHierarchyPanel->selectNode(mCanvas->selectedNode());
+    }
+    mPropertiesPanel->setNode(mCanvas->selectedNode());
+}
+
+void MainWindow::showHistoryWindow() {
+    if (!mHistoryWindow) {
+        mHistoryWindow = std::make_unique<HistoryWindow>(
+            GTK_WINDOW(mWindow), &mUndoStack, [this](bool isRedoTab, size_t displayIndex) {
+                jumpToHistoryEntry(isRedoTab, displayIndex);
+            });
+    }
+    mHistoryWindow->present();
+}
+
+void MainWindow::jumpToHistoryEntry(bool isRedoTab, size_t displayIndex) {
+    bool changed = isRedoTab ? mUndoStack.redoTo(displayIndex + 1) : mUndoStack.undoTo(displayIndex);
+    if (changed) {
         markDirty();
     }
     if (mHierarchyPanel) {
@@ -497,7 +729,8 @@ void MainWindow::pasteClipboard() {
             mHierarchyPanel->selectNode(redone);
             mPropertiesPanel->setNode(redone);
             markDirty();
-        });
+        },
+        "Widget Created");
 }
 
 void MainWindow::deleteNode(model::WidgetNode* node) {
@@ -529,6 +762,7 @@ void MainWindow::deleteNode(model::WidgetNode* node) {
 
     auto removedCopy = std::make_shared<model::WidgetNode>(std::move(removed));
     auto current = std::make_shared<model::WidgetNode*>(nullptr);
+    std::string removedName = removedCopy->name;
     mUndoStack.push(
         [this, removedCopy, current, parent, index]() {
             model::WidgetNode* restored = model::insertWidgetNode(mDocument->roots, parent, index, *removedCopy);
@@ -553,7 +787,8 @@ void MainWindow::deleteNode(model::WidgetNode* node) {
             rebuildHierarchyPanel();
             mPropertiesPanel->setNode(mCanvas->selectedNode());
             markDirty();
-        });
+        },
+        "Widget Deleted", "Deleted '" + removedName + "'");
 }
 
 void MainWindow::loadDocument(const std::string& path) {
@@ -808,8 +1043,30 @@ void MainWindow::onGridEnabledToggled(GtkCheckButton* button, gpointer userData)
     self->mCanvas->setGridEnabled(gtk_check_button_get_active(button));
 }
 
+void MainWindow::onZoomInClicked(GtkButton*, gpointer userData) {
+    static_cast<MainWindow*>(userData)->mCanvas->zoomIn();
+}
+
+void MainWindow::onZoomOutClicked(GtkButton*, gpointer userData) {
+    static_cast<MainWindow*>(userData)->mCanvas->zoomOut();
+}
+
+void MainWindow::onZoomResetClicked(GtkButton*, gpointer userData) {
+    static_cast<MainWindow*>(userData)->mCanvas->resetView();
+}
+
+void MainWindow::updateZoomLabel(double zoom) {
+    gtk_button_set_label(GTK_BUTTON(mZoomLabel), (std::to_string(static_cast<int>(std::lround(zoom * 100))) + "%").c_str());
+}
+
 gboolean MainWindow::onCloseRequest(GtkWindow*, gpointer userData) {
     auto* self = static_cast<MainWindow*>(userData);
+    // Captured here, synchronously, while every floating window is still
+    // guaranteed alive - not on mWindow's own "destroy" signal, since a
+    // floating panel's window is torn down via destroy-with-parent as part
+    // of that same teardown, in an order this code shouldn't have to guess at.
+    self->saveLayoutSettings();
+
     if (!self->mDirty) {
         return FALSE;
     }
@@ -839,6 +1096,277 @@ void MainWindow::onCloseConfirmChoice(GObject* source, GAsyncResult* result, gpo
     } else if (choice == 1) {
         gtk_window_destroy(GTK_WINDOW(self->mWindow));
     }
+}
+
+void MainWindow::onFirstMap(GtkWidget* window, gpointer userData) {
+    auto* self = static_cast<MainWindow*>(userData);
+    if (self->mPendingHierarchyFloating) {
+        self->setPanelFloating(self->mHierarchyDetach.get());
+    }
+    if (self->mPendingPropertiesFloating) {
+        self->setPanelFloating(self->mPropertiesDetach.get());
+    }
+    g_signal_handler_disconnect(window, self->mFirstMapHandlerId);
+    self->mFirstMapHandlerId = 0;
+}
+
+void MainWindow::saveLayoutSettings() {
+    layout_settings::LayoutSettings settings;
+
+    settings.windowMaximized = gtk_window_is_maximized(GTK_WINDOW(mWindow));
+    if (!settings.windowMaximized) {
+        settings.windowWidth = gtk_widget_get_width(mWindow);
+        settings.windowHeight = gtk_widget_get_height(mWindow);
+    }
+
+    settings.leftSlotWidth = gtk_paned_get_position(GTK_PANED(mDockMidHorizontalInner));
+    settings.topSlotHeight = gtk_paned_get_position(GTK_PANED(mDockMidVertical));
+    int outerWidth = gtk_widget_get_width(mDockMidHorizontalOuter);
+    int outerHeight = gtk_widget_get_height(mDockOuterVertical);
+    settings.rightSlotWidth = outerWidth > 0 ? outerWidth - gtk_paned_get_position(GTK_PANED(mDockMidHorizontalOuter)) : -1;
+    settings.bottomSlotHeight = outerHeight > 0 ? outerHeight - gtk_paned_get_position(GTK_PANED(mDockOuterVertical)) : -1;
+
+    settings.hierarchyEdge = mHierarchyEdge;
+    settings.hierarchyFloating = mHierarchyDetach->isFloating();
+    mHierarchyDetach->currentFloatGeometry(
+        settings.hierarchyFloatX, settings.hierarchyFloatY, settings.hierarchyFloatWidth, settings.hierarchyFloatHeight);
+
+    settings.propertiesEdge = mPropertiesEdge;
+    settings.propertiesFloating = mPropertiesDetach->isFloating();
+    mPropertiesDetach->currentFloatGeometry(
+        settings.propertiesFloatX, settings.propertiesFloatY, settings.propertiesFloatWidth,
+        settings.propertiesFloatHeight);
+
+    layout_settings::save(settings);
+}
+
+void MainWindow::setSlotChild(DockEdge edge, GtkWidget* widget) {
+    switch (edge) {
+        case DockEdge::Left:
+            gtk_paned_set_start_child(GTK_PANED(mDockMidHorizontalInner), widget);
+            break;
+        case DockEdge::Right:
+            gtk_paned_set_end_child(GTK_PANED(mDockMidHorizontalOuter), widget);
+            break;
+        case DockEdge::Top:
+            gtk_paned_set_start_child(GTK_PANED(mDockMidVertical), widget);
+            break;
+        case DockEdge::Bottom:
+            gtk_paned_set_end_child(GTK_PANED(mDockOuterVertical), widget);
+            break;
+    }
+}
+
+namespace {
+bool edgeIsWidthBased(DockEdge edge) {
+    return edge == DockEdge::Left || edge == DockEdge::Right;
+}
+} // namespace
+
+int MainWindow::slotSize(DockEdge edge) {
+    switch (edge) {
+        case DockEdge::Left:
+            return gtk_paned_get_position(GTK_PANED(mDockMidHorizontalInner));
+        case DockEdge::Right: {
+            int total = gtk_widget_get_width(mDockMidHorizontalOuter);
+            return total > 0 ? total - gtk_paned_get_position(GTK_PANED(mDockMidHorizontalOuter)) : -1;
+        }
+        case DockEdge::Top:
+            return gtk_paned_get_position(GTK_PANED(mDockMidVertical));
+        case DockEdge::Bottom: {
+            int total = gtk_widget_get_height(mDockOuterVertical);
+            return total > 0 ? total - gtk_paned_get_position(GTK_PANED(mDockOuterVertical)) : -1;
+        }
+    }
+    return -1;
+}
+
+void MainWindow::setSlotSize(DockEdge edge, int size) {
+    switch (edge) {
+        case DockEdge::Left:
+            gtk_paned_set_position(GTK_PANED(mDockMidHorizontalInner), size);
+            break;
+        case DockEdge::Right: {
+            int total = gtk_widget_get_width(mDockMidHorizontalOuter);
+            if (total > 0) {
+                gtk_paned_set_position(GTK_PANED(mDockMidHorizontalOuter), total - size);
+            }
+            break;
+        }
+        case DockEdge::Top:
+            gtk_paned_set_position(GTK_PANED(mDockMidVertical), size);
+            break;
+        case DockEdge::Bottom: {
+            int total = gtk_widget_get_height(mDockOuterVertical);
+            if (total > 0) {
+                gtk_paned_set_position(GTK_PANED(mDockOuterVertical), total - size);
+            }
+            break;
+        }
+    }
+}
+
+int MainWindow::panelSizeIfApplicable(DetachablePanel* panel, bool wantWidth) {
+    if (panel->isFloating()) {
+        int x, y, w, h;
+        panel->currentFloatGeometry(x, y, w, h);
+        int size = wantWidth ? w : h;
+        return size > 0 ? size : -1;
+    }
+    DockEdge edge = edgeFieldFor(panel);
+    if (edgeIsWidthBased(edge) != wantWidth) {
+        return -1; // e.g. currently docked Top (a height) but asked for its width - no such thing
+    }
+    return slotSize(edge);
+}
+
+DockEdge& MainWindow::edgeFieldFor(DetachablePanel* panel) {
+    return panel == mHierarchyDetach.get() ? mHierarchyEdge : mPropertiesEdge;
+}
+
+DetachablePanel* MainWindow::otherPanel(DetachablePanel* panel) {
+    return panel == mHierarchyDetach.get() ? mPropertiesDetach.get() : mHierarchyDetach.get();
+}
+
+void MainWindow::setPanelEdge(DetachablePanel* panel, DockEdge edge) {
+    DetachablePanel* other = otherPanel(panel);
+    DockEdge& panelEdgeField = edgeFieldFor(panel);
+    DockEdge& otherEdgeField = edgeFieldFor(other);
+
+    bool collision = !other->isFloating() && otherEdgeField == edge;
+    bool panelWasFloating = panel->isFloating();
+    DockEdge panelOldEdge = panelEdgeField;
+    // Read before `panel` is extracted below, while its old slot/float
+    // geometry is still current - the size it should carry to the new edge,
+    // if the two edges share an axis (moving Left<->Right keeps the width,
+    // Top<->Bottom keeps the height; Left->Top etc. has nothing to carry).
+    int carriedSize = panelSizeIfApplicable(panel, edgeIsWidthBased(edge));
+
+    // 1. Extract `panel` from wherever it currently is.
+    if (panelWasFloating) {
+        panel->setFloating(false); // leaves panel->widget() unparented
+    } else {
+        setSlotChild(panelOldEdge, nullptr);
+    }
+
+    // 2. If the target edge is occupied by `other`, extract it too before overwriting that slot.
+    if (collision) {
+        setSlotChild(edge, nullptr);
+    }
+
+    // 3. Place `panel` at the new edge, carrying its size over if applicable.
+    setSlotChild(edge, panel->widget());
+    panelEdgeField = edge;
+    if (carriedSize > 0) {
+        setSlotSize(edge, carriedSize);
+    }
+
+    // 4. Give `other` panel's old spot, if it got displaced.
+    if (collision) {
+        if (panelWasFloating) {
+            other->setFloating(true); // otherEdgeField is untouched - it's still where `other` should redock later
+        } else {
+            setSlotChild(panelOldEdge, other->widget());
+            otherEdgeField = panelOldEdge;
+        }
+    }
+
+    saveLayoutSettings();
+}
+
+void MainWindow::setPanelFloating(DetachablePanel* panel) {
+    if (panel->isFloating()) {
+        return; // e.g. dropped on the center zone while already floating
+    }
+    // Carry its current on-screen size into the floating window so it
+    // doesn't visibly resize just from being undocked.
+    int dockedWidth = gtk_widget_get_width(panel->widget());
+    int dockedHeight = gtk_widget_get_height(panel->widget());
+    if (dockedWidth > 0 && dockedHeight > 0) {
+        int x, y, oldWidth, oldHeight;
+        panel->currentFloatGeometry(x, y, oldWidth, oldHeight);
+        panel->setNextFloatGeometry(x, y, dockedWidth, dockedHeight);
+    }
+    setSlotChild(edgeFieldFor(panel), nullptr);
+    panel->setFloating(true);
+    saveLayoutSettings();
+}
+
+namespace {
+void setIndicatorActive(GtkWidget* indicator, bool active) {
+    if (active) {
+        gtk_widget_add_css_class(indicator, "regui-dock-indicator-active");
+    } else {
+        gtk_widget_remove_css_class(indicator, "regui-dock-indicator-active");
+    }
+}
+} // namespace
+
+// All 5 zones are shown for the duration of the drag so every option is
+// visible at once; only `zone` also gets the blue "this is where it'll land" fill.
+void MainWindow::showDockIndicator(DockZone zone) {
+    for (GtkWidget* indicator :
+         {mDockIndicatorLeft, mDockIndicatorRight, mDockIndicatorTop, mDockIndicatorBottom, mDockIndicatorCenter}) {
+        gtk_widget_set_visible(indicator, TRUE);
+    }
+    setIndicatorActive(mDockIndicatorLeft, zone == DockZone::Left);
+    setIndicatorActive(mDockIndicatorRight, zone == DockZone::Right);
+    setIndicatorActive(mDockIndicatorTop, zone == DockZone::Top);
+    setIndicatorActive(mDockIndicatorBottom, zone == DockZone::Bottom);
+    setIndicatorActive(mDockIndicatorCenter, zone == DockZone::Center);
+}
+
+void MainWindow::hideDockIndicators() {
+    for (GtkWidget* indicator :
+         {mDockIndicatorLeft, mDockIndicatorRight, mDockIndicatorTop, mDockIndicatorBottom, mDockIndicatorCenter}) {
+        gtk_widget_set_visible(indicator, FALSE);
+        setIndicatorActive(indicator, false);
+    }
+}
+
+void MainWindow::updateDockIndicatorForPosition(double x, double y) {
+    double width = gtk_widget_get_width(mDockOverlay);
+    double height = gtk_widget_get_height(mDockOverlay);
+    showDockIndicator(classifyDockZone(x, y, width, height));
+}
+
+GdkDragAction MainWindow::onDockDragEnter(GtkDropTarget*, double x, double y, gpointer userData) {
+    static_cast<MainWindow*>(userData)->updateDockIndicatorForPosition(x, y);
+    return GDK_ACTION_MOVE;
+}
+
+GdkDragAction MainWindow::onDockDragMotion(GtkDropTarget*, double x, double y, gpointer userData) {
+    static_cast<MainWindow*>(userData)->updateDockIndicatorForPosition(x, y);
+    return GDK_ACTION_MOVE;
+}
+
+void MainWindow::onDockDragLeave(GtkDropTarget*, gpointer userData) {
+    static_cast<MainWindow*>(userData)->hideDockIndicators();
+}
+
+gboolean MainWindow::onDockDrop(GtkDropTarget* target, const GValue*, double x, double y, gpointer userData) {
+    auto* self = static_cast<MainWindow*>(userData);
+    self->hideDockIndicators();
+
+    GdkDrop* drop = gtk_drop_target_get_current_drop(target);
+    GdkDrag* drag = drop ? gdk_drop_get_drag(drop) : nullptr;
+    if (!drag) {
+        return FALSE; // not a same-process drag we recognize
+    }
+    auto* panel = static_cast<DetachablePanel*>(g_object_get_data(G_OBJECT(drag), "regui-dock-panel-id"));
+    if (panel != self->mHierarchyDetach.get() && panel != self->mPropertiesDetach.get()) {
+        return FALSE;
+    }
+
+    double width = gtk_widget_get_width(self->mDockOverlay);
+    double height = gtk_widget_get_height(self->mDockOverlay);
+    DockZone zone = classifyDockZone(x, y, width, height);
+    if (zone == DockZone::Center) {
+        self->setPanelFloating(panel);
+    } else {
+        self->setPanelEdge(panel, dockZoneToEdge(zone));
+    }
+    return TRUE;
 }
 
 gboolean MainWindow::onKeyPressed(

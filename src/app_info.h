@@ -11,7 +11,7 @@ constexpr const char* kAppDescription =
 // Null-terminated.
 constexpr const char* kAppCreators[] = {
     "UchStalker",
-    "The ReDoIngMods Team",
+    "The ReDoIng Mods Team",
     nullptr,
 };
 

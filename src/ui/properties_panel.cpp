@@ -537,6 +537,8 @@ void PropertiesPanel::onFocusLeave(GtkEventControllerFocus*, gpointer userData) 
         Snapshot before = self->mEditSnapshot;
         Snapshot after = {node->name, node->properties};
         PropertiesPanel* panel = self;
+        std::string description = before.name != after.name ? "Widget Renamed" : "Widget Properties Changed";
+        std::string detail = before.name != after.name ? "Renamed '" + before.name + "' to '" + after.name + "'" : "";
         self->mUndoStack->push(
             [node, before, panel]() {
                 node->name = before.name;
@@ -553,7 +555,8 @@ void PropertiesPanel::onFocusLeave(GtkEventControllerFocus*, gpointer userData) 
                 if (panel->mOnCommit) {
                     panel->mOnCommit();
                 }
-            });
+            },
+            description, detail);
     }
 
     if (self->mOnCommit) {
@@ -591,6 +594,7 @@ void PropertiesPanel::onSkinButtonClicked(GtkButton*, gpointer userData) {
         node->setSkin(chosen);
         if (self->mUndoStack) {
             PropertiesPanel* panel = self;
+            std::string nodeName = node->name;
             self->mUndoStack->push(
                 [node, before, panel]() {
                     node->setSkin(before);
@@ -605,7 +609,8 @@ void PropertiesPanel::onSkinButtonClicked(GtkButton*, gpointer userData) {
                     if (panel->mOnCommit) {
                         panel->mOnCommit();
                     }
-                });
+                },
+                "Widget Skin Changed", "Changed '" + nodeName + "' skin from '" + before + "' to '" + chosen + "'");
         }
         self->refresh();
         if (self->mOnLiveChange) {

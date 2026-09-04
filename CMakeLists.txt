@@ -58,8 +58,13 @@ add_executable(reguieditor
     src/main.cpp
     src/canvas/freeimage_loader.cpp
     src/canvas/mygui_canvas.cpp
+    src/ui/asset_setup.cpp
     src/ui/center_window.cpp
+    src/ui/detachable_panel.cpp
+    src/ui/game_assets.cpp
     src/ui/hierarchy_panel.cpp
+    src/ui/history_window.cpp
+    src/ui/layout_settings.cpp
     src/ui/loading_window.cpp
     src/ui/main_window.cpp
     src/ui/properties_panel.cpp

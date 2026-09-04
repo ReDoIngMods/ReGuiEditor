@@ -288,6 +288,21 @@ MyGuiCanvas::MyGuiCanvas(std::string assetsRoot) : mAssetsRoot(std::move(assetsR
     gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(rightClickGesture), GDK_BUTTON_SECONDARY);
     g_signal_connect(rightClickGesture, "pressed", G_CALLBACK(rightClickThunk), this);
     gtk_widget_add_controller(mGlArea, GTK_EVENT_CONTROLLER(rightClickGesture));
+
+    // Tracks the pointer so Ctrl+scroll (no coordinates of its own) has an anchor to zoom toward.
+    GtkEventController* motionController = gtk_event_controller_motion_new();
+    g_signal_connect(motionController, "motion", G_CALLBACK(motionThunk), this);
+    gtk_widget_add_controller(mGlArea, motionController);
+
+    GtkEventController* scrollController = gtk_event_controller_scroll_new(GTK_EVENT_CONTROLLER_SCROLL_VERTICAL);
+    g_signal_connect(scrollController, "scroll", G_CALLBACK(scrollThunk), this);
+    gtk_widget_add_controller(mGlArea, scrollController);
+
+    GtkGesture* panGesture = gtk_gesture_drag_new();
+    gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(panGesture), GDK_BUTTON_MIDDLE);
+    g_signal_connect(panGesture, "drag-begin", G_CALLBACK(panDragBeginThunk), this);
+    g_signal_connect(panGesture, "drag-update", G_CALLBACK(panDragUpdateThunk), this);
+    gtk_widget_add_controller(mGlArea, GTK_EVENT_CONTROLLER(panGesture));
 }
 
 void MyGuiCanvas::setRoots(std::vector<model::WidgetNode>* roots) {
@@ -320,6 +335,7 @@ void MyGuiCanvas::refresh() {
 void MyGuiCanvas::setReferenceResolution(double width, double height) {
     mReferenceWidth = width;
     mReferenceHeight = height;
+    recomputeFixedScale(); // deliberate resolution change, unlike a window resize
     refresh();
 }
 
@@ -351,7 +367,9 @@ void MyGuiCanvas::onRealize() {
     dataManager->addResourceLocation(mAssetsRoot + "/MyGUI_Media", false);
     dataManager->addResourceLocation(mAssetsRoot + "/Fonts", false);
     dataManager->addResourceLocation(mAssetsRoot + "/Language/English", false);
-    dataManager->addResourceLocation(parentDir(mAssetsRoot), false); // editor-fonts.xml
+    // Bundled with the editor itself, not the game - independent of mAssetsRoot
+    // now that it points at the user's own Scrap Mechanic install.
+    dataManager->addResourceLocation(REGUIEDITOR_ASSETS_ROOT, false); // editor-fonts.xml/editor-skins.xml
     dataManager->addResourceLocation(MYGUI_MEDIA_DIR, false); // MyGUI's own shaders only
 
     mImageLoader = new FreeImageLoader();
@@ -407,11 +425,16 @@ void MyGuiCanvas::onUnrealize() {
 void MyGuiCanvas::onResize(int width, int height) {
     mViewWidth = width;
     mViewHeight = height;
+    if (!mScaleInitialized) {
+        // First real allocation only - later resizes must not rescale widgets.
+        recomputeFixedScale();
+        mScaleInitialized = true;
+    }
     if (mPlatform) {
         mPlatform->getRenderManagerPtr()->setViewSize(width, height);
     }
     glViewport(0, 0, width, height);
-    rebuildWidgets(); // widget rects depend on canvas size (scale-based layout)
+    rebuildWidgets(); // re-centers the fixed-scale canvas in the new view bounds
 }
 
 void MyGuiCanvas::onRender() {
@@ -612,7 +635,7 @@ void MyGuiCanvas::loadGameResources(const std::function<void(const std::string&,
     ++stepIndex;
     MyGUI::ResourceManager::getInstance().load("editor-skins.xml");
     collectSkinInfos(
-        readFile(parentDir(mAssetsRoot) + "/editor-skins.xml"), "editor-skins", parentDir(mAssetsRoot),
+        readFile(std::string(REGUIEDITOR_ASSETS_ROOT) + "/editor-skins.xml"), "editor-skins", REGUIEDITOR_ASSETS_ROOT,
         mAvailableSkins);
 
     std::sort(mAvailableSkins.begin(), mAvailableSkins.end(), [](const SkinInfo& a, const SkinInfo& b) {
@@ -787,25 +810,61 @@ model::Rect MyGuiCanvas::handleRect(HandleKind kind) const {
 }
 
 double MyGuiCanvas::viewScale() const {
+    return mFixedScale * mZoom;
+}
+
+void MyGuiCanvas::recomputeFixedScale() {
     if (mViewWidth <= 0 || mViewHeight <= 0) {
-        return 1.0;
+        mFixedScale = 1.0;
+        return;
     }
-    return std::min(mViewWidth / mReferenceWidth, mViewHeight / mReferenceHeight);
+    mFixedScale = std::min(mViewWidth / mReferenceWidth, mViewHeight / mReferenceHeight);
 }
 
 model::Rect MyGuiCanvas::referenceToScreen(const model::Rect& rect) const {
     double scale = viewScale();
-    double offsetX = (mViewWidth - mReferenceWidth * scale) / 2.0;
-    double offsetY = (mViewHeight - mReferenceHeight * scale) / 2.0;
+    double offsetX = (mViewWidth - mReferenceWidth * scale) / 2.0 + mPanX;
+    double offsetY = (mViewHeight - mReferenceHeight * scale) / 2.0 + mPanY;
     return model::Rect{rect.x * scale + offsetX, rect.y * scale + offsetY, rect.width * scale, rect.height * scale};
 }
 
 void MyGuiCanvas::screenToReference(double screenX, double screenY, double& refX, double& refY) const {
     double scale = viewScale();
-    double offsetX = (mViewWidth - mReferenceWidth * scale) / 2.0;
-    double offsetY = (mViewHeight - mReferenceHeight * scale) / 2.0;
+    double offsetX = (mViewWidth - mReferenceWidth * scale) / 2.0 + mPanX;
+    double offsetY = (mViewHeight - mReferenceHeight * scale) / 2.0 + mPanY;
     refX = (screenX - offsetX) / scale;
     refY = (screenY - offsetY) / scale;
+}
+
+void MyGuiCanvas::zoomBy(double factor, double anchorScreenX, double anchorScreenY) {
+    double anchorRefX, anchorRefY;
+    screenToReference(anchorScreenX, anchorScreenY, anchorRefX, anchorRefY); // old scale/pan
+
+    double newZoom = std::clamp(mZoom * factor, kMinZoom, kMaxZoom);
+    if (newZoom == mZoom) {
+        return;
+    }
+    mZoom = newZoom;
+
+    // Re-solve pan so the same reference-space point still lands under the anchor on screen.
+    double scale = viewScale(); // new scale, now that mZoom changed
+    mPanX = anchorScreenX - anchorRefX * scale - (mViewWidth - mReferenceWidth * scale) / 2.0;
+    mPanY = anchorScreenY - anchorRefY * scale - (mViewHeight - mReferenceHeight * scale) / 2.0;
+
+    refresh();
+    if (mOnZoomChanged) {
+        mOnZoomChanged(mZoom);
+    }
+}
+
+void MyGuiCanvas::resetView() {
+    mZoom = 1.0;
+    mPanX = 0.0;
+    mPanY = 0.0;
+    refresh();
+    if (mOnZoomChanged) {
+        mOnZoomChanged(mZoom);
+    }
 }
 
 model::WidgetNode* MyGuiCanvas::hitTestBody(double x, double y) const {
@@ -1177,6 +1236,8 @@ void MyGuiCanvas::onDragEnd(double, double) {
         format::JsonValue before = mDragStartProperties;
         format::JsonValue after = node->properties;
         MyGuiCanvas* self = this;
+        const model::Rect* afterRect = rectFor(node);
+        auto [description, detail] = describeDragChange(mDragStartRect, afterRect ? *afterRect : mDragStartRect);
         mUndoStack->push(
             [self, node, before]() {
                 node->properties = before;
@@ -1195,7 +1256,8 @@ void MyGuiCanvas::onDragEnd(double, double) {
                 if (self->mOnDragEnd) {
                     self->mOnDragEnd();
                 }
-            });
+            },
+            description, detail);
     }
     mDragMode = DragMode::None;
     mDragNode = nullptr;
@@ -1207,6 +1269,36 @@ void MyGuiCanvas::onDragEnd(double, double) {
     }
 }
 
+namespace {
+std::string formatPoint(double x, double y) {
+    return "{X=" + std::to_string(static_cast<long long>(std::lround(x))) + ",Y=" +
+           std::to_string(static_cast<long long>(std::lround(y))) + "}";
+}
+std::string formatSize(double w, double h) {
+    return "{Width=" + std::to_string(static_cast<long long>(std::lround(w))) + ", Height=" +
+           std::to_string(static_cast<long long>(std::lround(h))) + "}";
+}
+} // namespace
+
+std::pair<std::string, std::string> MyGuiCanvas::describeDragChange(const model::Rect& before, const model::Rect& after) const {
+    switch (mDragMode) {
+        case DragMode::Move:
+            return {"Widget Moved", "Moved from " + formatPoint(before.x, before.y) + " to " + formatPoint(after.x, after.y)};
+        case DragMode::Anchor:
+            return {"Widget Anchor Changed", ""};
+        case DragMode::ResizeTopLeft:
+        case DragMode::ResizeTopRight:
+        case DragMode::ResizeBottomLeft:
+        case DragMode::ResizeBottomRight:
+        case DragMode::None:
+        default:
+            return {"Widget Moved & Resized",
+                    "Moved from " + formatPoint(before.x, before.y) + " to " + formatPoint(after.x, after.y) +
+                        ", resized from " + formatSize(before.width, before.height) + " to " +
+                        formatSize(after.width, after.height)};
+    }
+}
+
 void MyGuiCanvas::onRightClick(double screenX, double screenY) {
     gtk_widget_grab_focus(mGlArea);
     double x, y;
@@ -1215,6 +1307,32 @@ void MyGuiCanvas::onRightClick(double screenX, double screenY) {
     if (mOnContextMenuRequested) {
         mOnContextMenuRequested(hit, screenX, screenY);
     }
+}
+
+void MyGuiCanvas::onMotion(double x, double y) {
+    mLastPointerX = x;
+    mLastPointerY = y;
+}
+
+gboolean MyGuiCanvas::onScroll(GtkEventControllerScroll* controller, double, double dy) {
+    GdkModifierType state = gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(controller));
+    if (!(state & GDK_CONTROL_MASK)) {
+        return FALSE; // plain scroll does nothing on the canvas - let it propagate
+    }
+    // Scroll up (negative dy) zooms in, matching most image/map editors.
+    zoomBy(dy < 0 ? kZoomStepFactor : 1.0 / kZoomStepFactor, mLastPointerX, mLastPointerY);
+    return TRUE;
+}
+
+void MyGuiCanvas::onPanDragBegin() {
+    mPanDragStartX = mPanX;
+    mPanDragStartY = mPanY;
+}
+
+void MyGuiCanvas::onPanDragUpdate(double offsetX, double offsetY) {
+    mPanX = mPanDragStartX + offsetX;
+    mPanY = mPanDragStartY + offsetY;
+    refresh();
 }
 
 void MyGuiCanvas::realizeThunk(GtkGLArea*, gpointer userData) { static_cast<MyGuiCanvas*>(userData)->onRealize(); }
@@ -1244,6 +1362,22 @@ void MyGuiCanvas::dragEndThunk(GtkGestureDrag*, double offsetX, double offsetY, 
 
 void MyGuiCanvas::rightClickThunk(GtkGestureClick*, gint, gdouble x, gdouble y, gpointer userData) {
     static_cast<MyGuiCanvas*>(userData)->onRightClick(x, y);
+}
+
+void MyGuiCanvas::motionThunk(GtkEventControllerMotion*, double x, double y, gpointer userData) {
+    static_cast<MyGuiCanvas*>(userData)->onMotion(x, y);
+}
+
+gboolean MyGuiCanvas::scrollThunk(GtkEventControllerScroll* controller, double dx, double dy, gpointer userData) {
+    return static_cast<MyGuiCanvas*>(userData)->onScroll(controller, dx, dy);
+}
+
+void MyGuiCanvas::panDragBeginThunk(GtkGestureDrag*, double, double, gpointer userData) {
+    static_cast<MyGuiCanvas*>(userData)->onPanDragBegin();
+}
+
+void MyGuiCanvas::panDragUpdateThunk(GtkGestureDrag*, double offsetX, double offsetY, gpointer userData) {
+    static_cast<MyGuiCanvas*>(userData)->onPanDragUpdate(offsetX, offsetY);
 }
 
 } // namespace regui::canvas

@@ -2,9 +2,11 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "model/addon.h"
 #include "model/layout.h"
+#include "model/undo_stack.h"
 
 using namespace regui::model;
 
@@ -157,6 +159,62 @@ void testMoveWidgetNode() {
     check(roots.size() == 3 && roots.back().name == "B2", "B2 appended as a new root");
 }
 
+// Jumping (undoTo/redoTo) is how the History window's "Jump Here" button
+// works - this pins down that every action it steps over lands on the
+// *other* stack, in the right order, rather than just vanishing.
+void testUndoStackJump() {
+    UndoStack stack;
+    std::vector<std::string> applied; // mirrors "current state" as a stack of applied action ids
+
+    auto pushAction = [&](const std::string& id) {
+        applied.push_back(id); // matches real call sites, which apply the change before push()ing it
+        stack.push(
+            [&applied, id]() {
+                check(!applied.empty() && applied.back() == id, "undo '" + id + "' pops the expected top state");
+                applied.pop_back();
+            },
+            [&applied, id]() { applied.push_back(id); }, "Action " + id);
+    };
+
+    for (const std::string& id : {"P1", "P2", "P3", "P4", "P5"}) {
+        pushAction(id);
+    }
+    check((applied == std::vector<std::string>{"P1", "P2", "P3", "P4", "P5"}), "all 5 actions applied initially");
+
+    // Jump from P5 back to right after P3 - undoes P5 then P4, in that order.
+    bool changed = stack.undoTo(2);
+    check(changed, "undoTo(2) reports a change");
+    check((applied == std::vector<std::string>{"P1", "P2", "P3"}), "undoTo(2) leaves state at P3");
+    check(stack.undoEntries().size() == 3, "3 entries remain on the undo stack");
+    check(stack.redoEntries().size() == 2, "both skipped-over actions land on the redo stack");
+    check(stack.redoEntries()[0].description == "Action P5", "P5 (undone first) sits at redoEntries()[0]");
+    check(stack.redoEntries()[1].description == "Action P4", "P4 (undone last) is redoEntries()[1] == back()");
+
+    // A plain undo() (unrelated to jumping) should behave the same way: append to the redo stack.
+    stack.undo();
+    check(stack.redoEntries().size() == 3, "plain undo() also appends to the redo stack");
+    check(stack.redoEntries().back().description == "Action P3", "most recently undone action is redoEntries().back()");
+
+    // Jump forward again, one step short of everything - the rest must stay on the redo stack, not disappear.
+    changed = stack.redoTo(2);
+    check(changed, "redoTo(2) reports a change");
+    check((applied == std::vector<std::string>{"P1", "P2", "P3", "P4"}), "redoTo(2) reapplies P3 then P4");
+    check(stack.redoEntries().size() == 1, "the one remaining redo entry (P5) is kept, not dropped");
+    check(stack.redoEntries()[0].description == "Action P5", "remaining redo entry is P5");
+
+    // Overshoot on purpose - redoTo() must clamp at the end instead of crashing.
+    changed = stack.redoTo(5);
+    check(changed, "redoTo() past the end still reports a change");
+    check((applied == std::vector<std::string>{"P1", "P2", "P3", "P4", "P5"}), "redoTo() clamps and replays the rest");
+    check(stack.redoEntries().empty(), "redo stack is empty once everything is replayed");
+
+    // A genuinely new action after a jump should still clear the redo stack - jumping isn't special-cased there.
+    stack.undoTo(2);
+    check(stack.redoEntries().size() == 2, "sanity: 2 entries pending redo before the new action");
+    pushAction("P6");
+    check(stack.redoEntries().empty(), "a new push() still clears the redo stack, same as before jumping existed");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -173,6 +231,7 @@ int main(int argc, char** argv) {
         testEditAndRoundTrip(examplesDir, scratchDir);
         testAddonRegistry(examplesDir);
         testMoveWidgetNode();
+        testUndoStackJump();
     } catch (const std::exception& e) {
         std::cerr << "FAIL: unexpected exception: " << e.what() << "\n";
         ++gFailures;
