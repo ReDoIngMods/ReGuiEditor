@@ -1,0 +1,3 @@
+[submodule "third_party/mygui"]
+	path = third_party/mygui
+	url = https://github.com/MyGUI/mygui.git
