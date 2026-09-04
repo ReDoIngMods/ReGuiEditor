@@ -1,0 +1,31 @@
+{
+    "version":3,
+    "metadata": {
+        "name": "MyCustomReWidgetsAddon",
+        "author": "..."
+    },
+
+    "widgets": [
+        {
+            "name": "MyCustomWidget",
+            "callbacks" : {
+                "onRegister": "cl_onWidgetRegister",
+                "onCreate": "cl_onWidgetCreate",
+                "onDestroy": "cl_onWidgetDestroy",
+                "onUpdate": "cl_onWidgetUpdate",
+                "onCallback": "cl_onWidgetCallback"
+            },
+            "available-properties": {
+                "MyProperty": "<default value>", /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: string type; metadata;*/
+                "MyOtherProperty": "<default value>" /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: integer type; parent: MyProperty parent; metadata;*/
+            },
+            "required-callbacks": {
+                "onSomething": "<default callback if available, otherwise leave empty>" /*metadata: description: Callback to do something. description; metadata;*/
+            },
+            "available-callbacks": [
+                "onSomething", /*metadata: description: Callback to do something. description; metadata;*/
+                "onSomething2" /*metadata: description: Callback to do something. description; metadata;*/
+            ]
+        }
+    ]
+}

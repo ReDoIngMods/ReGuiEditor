@@ -1,0 +1,38 @@
+{
+    "version":3,
+    "metadata": {
+        "name": "MyCustomReWidgetsAddon",
+    },
+
+    "widgets": [
+        {
+            "name": "MyCustomWidget",
+            "icon":"<put a testing base64 encoded icon here>"
+            "callbacks" : {
+                "onRegister": "cl_onWidgetRegister",
+                "onCreate": "cl_onWidgetCreate",
+                "onDestroy": "cl_onWidgetDestroy",
+                "onUpdate": "cl_onWidgetUpdate",
+                "onCallback": "cl_onWidgetCallback"
+            },
+            "available-properties": {
+                "MyProperty": "<default value>", /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: string; metadata;*/
+                "MyOtherProperty": "<default value>", /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: string; metadata;*/
+                "MyCount": 0, /*metadata: label: Count; description: An example integer property. description; type: integer; metadata;*/
+                "MyRatio": 0, /*metadata: label: Ratio; description: An example float property. description; type: float; metadata;*/
+                "MyFlag": false, /*metadata: label: Flag; description: An example boolean property. description; type: bool; metadata;*/
+                "MyTargetWidget": "", /*metadata: label: Target Widget; description: An example widget-reference property, picked from the other widgets in the layout. description; type: widget; metadata;*/
+                "MyLabel": "", /*metadata: label: Label; description: An example grouping property - Size/Font Scale below are its sub-properties. description; type: string; metadata;*/
+                "MyLabelSize": 12, /*metadata: label: Size; description: The label's font size. description; type: integer; parent: MyLabel; metadata;*/
+                "MyLabelFontScale": 1.0 /*metadata: label: Font Scale; description: The label's font scale multiplier. description; type: float; parent: MyLabel; metadata;*/
+            },
+            "required-callbacks": {
+                "onSomething": "<default callback if available, otherwise leave empty>" /*metadata: description: Callback to do something. description; metadata;*/
+            },
+            "available-callbacks": [
+                "onSomething", /*metadata: description: Callback to do something. description; metadata;*/
+                "onSomething2" /*metadata: description: Callback to do something. description; metadata;*/
+            ]
+        }
+    ]
+}
