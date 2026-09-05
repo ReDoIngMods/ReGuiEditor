@@ -1,5 +1,7 @@
 #include "ui/loading_window.h"
 
+#include "ui/accent_style.h"
+
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -41,6 +43,7 @@ LoadingWindow::LoadingWindow(GtkApplication* app) {
     mProgressBar = gtk_progress_bar_new();
     gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(mProgressBar), TRUE);
     gtk_widget_set_margin_top(mProgressBar, 8);
+    applyAccentProgressBarStyle(mProgressBar);
     gtk_box_append(GTK_BOX(root), mProgressBar);
 
     update({"Starting\xE2\x80\xA6", "", "ReGui Editor", 0.0});

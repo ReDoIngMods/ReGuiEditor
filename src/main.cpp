@@ -37,14 +37,9 @@ void showWelcomeScreen(GtkApplication* app, std::string guiAssetsPath);
 // Needs a display connection, which only exists once "activate"/"open" runs - called from both.
 void ensureDarkTheme() { g_object_set(gtk_settings_get_default(), "gtk-application-prefer-dark-theme", TRUE, nullptr); }
 
-// Builds MainWindow, shows LoadingWindow while loadAssets() runs synchronously, then swaps it for the editor.
-void openFile(GtkApplication* app, std::string guiAssetsPath, const std::string& path) {
-    ensureDarkTheme();
-    regui::ui::recent_files::addAndSave(path);
-
-    // Registers itself as an app window immediately, so the app is never briefly down to zero windows.
-    auto* mainWindow = new regui::ui::MainWindow(app, std::move(guiAssetsPath), path);
-
+// Shows LoadingWindow while loadAssets() runs synchronously, then swaps it for the editor.
+// `mainWindow` is intentionally leaked for the app's lifetime - GTK owns the window.
+void presentEditorWindow(GtkApplication* app, regui::ui::MainWindow* mainWindow) {
     regui::ui::LoadingWindow loadingWindow(app);
     gtk_window_present(GTK_WINDOW(loadingWindow.window()));
     regui::ui::centerWindowOnScreen(GTK_WINDOW(loadingWindow.window()));
@@ -59,17 +54,40 @@ void openFile(GtkApplication* app, std::string guiAssetsPath, const std::string&
     gtk_window_destroy(GTK_WINDOW(loadingWindow.window()));
     gtk_window_present(GTK_WINDOW(mainWindow->window()));
     regui::ui::centerWindowOnScreen(GTK_WINDOW(mainWindow->window()));
-    // Intentionally leaked for the app's lifetime - GTK owns the window.
+}
+
+// Builds MainWindow around an existing ReLayout file (Open ReLayout..., a recent file, or a
+// file passed on the command line).
+void openFile(GtkApplication* app, std::string guiAssetsPath, const std::string& path) {
+    ensureDarkTheme();
+    regui::ui::recent_files::addAndSave(path);
+    // Registers itself as an app window immediately, so the app is never briefly down to zero windows.
+    auto* mainWindow = new regui::ui::MainWindow(app, std::move(guiAssetsPath), path);
+    presentEditorWindow(app, mainWindow);
+}
+
+// Builds MainWindow around a blank, unsaved ReLayout (New ReLayout).
+void newFile(GtkApplication* app, std::string guiAssetsPath) {
+    ensureDarkTheme();
+    auto* mainWindow = new regui::ui::MainWindow(app, std::move(guiAssetsPath));
+    mainWindow->newDocument();
+    presentEditorWindow(app, mainWindow);
 }
 
 void showWelcomeScreen(GtkApplication* app, std::string guiAssetsPath) {
     ensureDarkTheme();
-    // Indirection cell: the callback needs to close the window, but the WelcomeWindow* doesn't exist yet.
+    // Indirection cell: the callbacks need to close the window, but the WelcomeWindow* doesn't exist yet.
     auto self = std::make_shared<regui::ui::WelcomeWindow*>(nullptr);
-    *self = new regui::ui::WelcomeWindow(app, [app, self, guiAssetsPath](std::string path) {
-        gtk_window_destroy(GTK_WINDOW((*self)->window()));
-        openFile(app, guiAssetsPath, path);
-    });
+    *self = new regui::ui::WelcomeWindow(
+        app,
+        [app, self, guiAssetsPath](std::string path) {
+            gtk_window_destroy(GTK_WINDOW((*self)->window()));
+            openFile(app, guiAssetsPath, path);
+        },
+        [app, self, guiAssetsPath]() {
+            gtk_window_destroy(GTK_WINDOW((*self)->window()));
+            newFile(app, guiAssetsPath);
+        });
     gtk_window_present(GTK_WINDOW((*self)->window()));
     regui::ui::centerWindowOnScreen(GTK_WINDOW((*self)->window()));
 }

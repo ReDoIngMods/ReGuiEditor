@@ -115,6 +115,15 @@ std::string WidgetNode::skin() const {
 
 void WidgetNode::setSkin(std::string value) { properties.set("skin", format::JsonValue::makeString(std::move(value))); }
 
+double WidgetNode::alpha() const {
+    if (const auto* value = properties.find("alpha")) {
+        return value->numberValue;
+    }
+    return 1.0;
+}
+
+void WidgetNode::setAlpha(double value) { properties.set("alpha", format::JsonValue::makeNumber(value)); }
+
 const format::JsonValue* WidgetNode::callbacksJson() const { return properties.find("callbacks"); }
 
 void WidgetNode::setCallback(const std::string& event, std::string handlerName) {

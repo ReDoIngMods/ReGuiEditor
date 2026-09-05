@@ -29,6 +29,8 @@ private:
     static void selectSkin(State* state, const canvas::SkinInfo* skin);
 
     static void onRowSelected(GtkListBox* box, GtkListBoxRow* row, gpointer userData);
+    static gboolean filterRow(GtkListBoxRow* row, gpointer userData);
+    static void onSearchChanged(GtkSearchEntry* entry, gpointer userData);
     static void onPreviewSizeChanged(GtkSpinButton* spin, gpointer userData);
     static void onDrawPreview(GtkDrawingArea* area, cairo_t* cr, int width, int height, gpointer userData);
     static void onCancelClicked(GtkButton* button, gpointer userData);

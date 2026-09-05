@@ -105,12 +105,16 @@ void testAddonRegistry(const std::string& examplesDir) {
     if (properties.size() == 2) {
         check(properties[0].name == "MyProperty", "first property name preserves declaration order");
         check(properties[0].value.stringValue == "<default value>", "first property default value");
-        check(properties[0].metadata.has_value() && properties[0].metadata->get("label") != nullptr,
+        check(properties[0].metadata.has_value() && properties[0].metadata->getString("label") != nullptr,
               "first property carries metadata");
     }
 
-    auto callbacks = def->stringArraySection("available-callbacks");
-    check((callbacks == std::vector<std::string>{"onSomething", "onSomething2"}), "available-callbacks contents");
+    auto callbacks = def->section("available-callbacks");
+    std::vector<std::string> callbackNames;
+    for (const auto& entry : callbacks) {
+        callbackNames.push_back(entry.name);
+    }
+    check((callbackNames == std::vector<std::string>{"onSomething", "onSomething2"}), "available-callbacks contents");
 
     check(registry.find("NoSuchWidget") == nullptr, "unknown type name returns nullptr");
 }

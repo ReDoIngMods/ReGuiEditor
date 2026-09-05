@@ -8,6 +8,8 @@
     "widgets": [
         {
             "name": "MyCustomWidget",
+            "label": "My Custom Widget",
+            "description": "An example widget definition demonstrating every available-properties field type.",
             "callbacks" : {
                 "onRegister": "cl_onWidgetRegister",
                 "onCreate": "cl_onWidgetCreate",
@@ -16,16 +18,34 @@
                 "onCallback": "cl_onWidgetCallback"
             },
             "available-properties": {
-                "MyProperty": "<default value>", /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: string type; metadata;*/
-                "MyOtherProperty": "<default value>" /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: integer type; parent: MyProperty parent; metadata;*/
+                "MyProperty": {
+                    "default": "<default value>",
+                    "label": "Additional Property",
+                    "description": "An additional property that does smth.",
+                    "type": "string"
+                },
+                "MyOtherProperty": {
+                    "default": "<default value>",
+                    "label": "Additional Property",
+                    "description": "An additional property that does smth.",
+                    "type": "integer",
+                    "parent": "MyProperty"
+                }
             },
             "required-callbacks": {
-                "onSomething": "<default callback if available, otherwise leave empty>" /*metadata: description: Callback to do something. description; metadata;*/
+                "onSomething": {
+                    "default": "<default callback if available, otherwise leave empty>",
+                    "description": "Callback to do something."
+                }
             },
-            "available-callbacks": [
-                "onSomething", /*metadata: description: Callback to do something. description; metadata;*/
-                "onSomething2" /*metadata: description: Callback to do something. description; metadata;*/
-            ]
+            "available-callbacks": {
+                "onSomething": {
+                    "description": "Callback to do something."
+                },
+                "onSomething2": {
+                    "description": "Callback to do something."
+                }
+            }
         }
     ]
 }

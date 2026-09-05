@@ -51,6 +51,10 @@ public:
     std::string skin() const;
     void setSkin(std::string value);
 
+    // 0 (fully transparent) to 1 (fully opaque, the default when unset).
+    double alpha() const;
+    void setAlpha(double value);
+
     // event name -> handler function name; nullptr if none set.
     const format::JsonValue* callbacksJson() const;
     void setCallback(const std::string& event, std::string handlerName);

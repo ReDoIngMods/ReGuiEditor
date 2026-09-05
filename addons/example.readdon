@@ -7,7 +7,9 @@
     "widgets": [
         {
             "name": "MyCustomWidget",
-            "icon":"<put a testing base64 encoded icon here>"
+            "label": "My Custom Widget",
+            "description": "An example widget definition demonstrating every available-properties field type.",
+            "icon":"<put a testing base64 encoded icon here>",
             "callbacks" : {
                 "onRegister": "cl_onWidgetRegister",
                 "onCreate": "cl_onWidgetCreate",
@@ -16,23 +18,82 @@
                 "onCallback": "cl_onWidgetCallback"
             },
             "available-properties": {
-                "MyProperty": "<default value>", /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: string; metadata;*/
-                "MyOtherProperty": "<default value>", /*metadata: label: Additional Property label; description: An additional property that does smth. description; type: string; metadata;*/
-                "MyCount": 0, /*metadata: label: Count; description: An example integer property. description; type: integer; metadata;*/
-                "MyRatio": 0, /*metadata: label: Ratio; description: An example float property. description; type: float; metadata;*/
-                "MyFlag": false, /*metadata: label: Flag; description: An example boolean property. description; type: bool; metadata;*/
-                "MyTargetWidget": "", /*metadata: label: Target Widget; description: An example widget-reference property, picked from the other widgets in the layout. description; type: widget; metadata;*/
-                "MyLabel": "", /*metadata: label: Label; description: An example grouping property - Size/Font Scale below are its sub-properties. description; type: string; metadata;*/
-                "MyLabelSize": 12, /*metadata: label: Size; description: The label's font size. description; type: integer; parent: MyLabel; metadata;*/
-                "MyLabelFontScale": 1.0 /*metadata: label: Font Scale; description: The label's font scale multiplier. description; type: float; parent: MyLabel; metadata;*/
+                "MyProperty": {
+                    "default": "<default value>",
+                    "label": "Additional Property",
+                    "description": "An additional property that does smth.",
+                    "type": "string"
+                },
+                "MyOtherProperty": {
+                    "default": "<default value>",
+                    "label": "Additional Property",
+                    "description": "An additional property that does smth.",
+                    "type": "string"
+                },
+                "MyCount": {
+                    "default": 0,
+                    "label": "Count",
+                    "description": "An example integer property.",
+                    "type": "integer"
+                },
+                "MyRatio": {
+                    "default": 0,
+                    "label": "Ratio",
+                    "description": "An example float property.",
+                    "type": "float"
+                },
+                "MyFlag": {
+                    "default": false,
+                    "label": "Flag",
+                    "description": "An example boolean property.",
+                    "type": "bool"
+                },
+                "MyTargetWidget": {
+                    "default": "",
+                    "label": "Target Widget",
+                    "description": "An example widget-reference property, picked from the other widgets in the layout.",
+                    "type": "widget"
+                },
+                "MyChoice": {
+                    "default": "First",
+                    "label": "Choice",
+                    "description": "An example enum property - picked from a fixed list of values.",
+                    "type": "enum",
+                    "values": ["First", "Second", "Third"]
+                },
+                "MyLabel": {
+                    "label": "Label",
+                    "description": "An example section - Size/Font Scale below are its sub-properties. Has no \"default\", so it's a pure grouping header rather than an editable field."
+                },
+                "MyLabelSize": {
+                    "default": 12,
+                    "label": "Size",
+                    "description": "The label's font size.",
+                    "type": "integer",
+                    "parent": "MyLabel"
+                },
+                "MyLabelFontScale": {
+                    "default": 1.0,
+                    "label": "Font Scale",
+                    "description": "The label's font scale multiplier.",
+                    "type": "float",
+                    "parent": "MyLabel"
+                }
             },
             "required-callbacks": {
-                "onSomething": "<default callback if available, otherwise leave empty>" /*metadata: description: Callback to do something. description; metadata;*/
+                "onSomething": {
+                    "default": "<default callback if available, otherwise leave empty>",
+                    "description": "Callback to do something."
+                }
             },
-            "available-callbacks": [
-                "onSomething", /*metadata: description: Callback to do something. description; metadata;*/
-                "onSomething2" /*metadata: description: Callback to do something. description; metadata;*/
-            ]
+            "available-callbacks": {
+                "onSomething": {
+                    "description": "Callback to do something."
+                },
+                "onSomething2": {
+                    "description": "Callback to do something."
+                }
+            }
         }
     ]
 }

@@ -15,8 +15,8 @@
 namespace regui::ui {
 
 // A property grid bound to the currently-selected WidgetNode. Only
-// type-agnostic fields (name, skin, anchor, position/size, z-order) are
-// built-in; everything else is generated at runtime from the matching
+// type-agnostic fields (name, skin, alpha, anchor, position/size, z-order)
+// are built-in; everything else is generated at runtime from the matching
 // WidgetTypeDef in the ReAddonRegistry.
 class PropertiesPanel {
 public:
@@ -80,9 +80,30 @@ private:
     GtkWidget* mWidthPixelSpin = nullptr;
     GtkWidget* mHeightPixelSpin = nullptr;
 
+    // A dynamic field's resolved widget kind, from its declared "type" (falling back to the
+    // JSON value's own type - see resolveFieldKind()).
+    enum class FieldKind { Integer, Float, Bool, Widget, Enum, String };
+    static FieldKind resolveFieldKind(const std::string& declaredTypeRaw, const format::JsonValue& value);
+    // Parses a "type": "group" sub-property's raw packed token into a typed value for display.
+    static format::JsonValue groupTokenToValue(FieldKind kind, const std::string& token);
+
     void rebuildFields();
     int addBuiltInFields(GtkGrid* grid, int row);
     int addDynamicFields(GtkGrid* grid, int row, const model::WidgetTypeDef& typeDef);
+    // Builds the label+widget pair for one field of `kind` (no signal connected - see
+    // addDynamicFields()/addGroupFields(), which wire the right handler for their own use).
+    GtkWidget* addFieldForKind(
+        GtkGrid* grid, int row, FieldKind kind, const std::string& label, const std::string& tooltip,
+        const format::JsonValue& value, const std::vector<std::string>& enumValues, int indent);
+    // "type": "group" property: renders each anonymous sub-definition in "properties" as its
+    // own field, packed into (and re-read from) a single space-separated string property named
+    // `groupName` - e.g. an "ImageCoord" group of two integer sub-fields round-trips as "0 0".
+    int addGroupFields(
+        GtkGrid* grid, int row, const std::string& groupName, const std::string& groupLabel,
+        const std::string& groupTooltip, const format::JsonValue& subDefs, int indent);
+    // Re-reads every sibling field of `changedField`'s group (stashed on it as "regui-group-fields")
+    // and repacks them into that group's single string property.
+    void repackGroupProperty(GtkWidget* changedField);
 
     // Row helpers: label in column 0, field(s) spanning the rest.
     GtkWidget* addLabelRow(GtkGrid* grid, int row, const std::string& label, const std::string& text);
@@ -111,6 +132,10 @@ private:
         GtkGrid* grid, int row, const std::string& label, const std::string& tooltip, const std::string& current,
         int indent = 0);
     void collectWidgetNames(std::vector<model::WidgetNode>& nodes, std::vector<std::string>& out) const;
+    // Dropdown restricted to a metadata-declared `values` list (enum-type properties).
+    GtkWidget* addEnumPickerRow(
+        GtkGrid* grid, int row, const std::string& label, const std::string& tooltip,
+        const std::vector<std::string>& values, const std::string& current, int indent = 0);
     // Button showing the current skin name; opens SkinPickerDialog.
     GtkWidget* addSkinPickerRow(GtkGrid* grid, int row, const std::string& current);
     void trackFocus(GtkWidget* field);
@@ -123,6 +148,7 @@ private:
     static void onSkinButtonClicked(GtkButton* button, gpointer userData);
     static void onAnchorXChanged(GtkSpinButton* spin, gpointer userData);
     static void onAnchorYChanged(GtkSpinButton* spin, gpointer userData);
+    static void onAlphaChanged(GtkSpinButton* spin, gpointer userData);
     static void onXPixelChanged(GtkSpinButton* spin, gpointer userData);
     static void onXScaleChanged(GtkSpinButton* spin, gpointer userData);
     static void onYPixelChanged(GtkSpinButton* spin, gpointer userData);
@@ -138,6 +164,13 @@ private:
     static void onDynamicBoolChanged(GtkCheckButton* check, gpointer userData);
     static void onDynamicCallbackChanged(GtkEditable* editable, gpointer userData);
     static void onDynamicWidgetRefChanged(GtkDropDown* dropdown, GParamSpec* pspec, gpointer userData);
+    static void onDynamicEnumChanged(GtkDropDown* dropdown, GParamSpec* pspec, gpointer userData);
+
+    // "type": "group" sub-field handlers: each just forwards to repackGroupProperty().
+    static void onDynamicGroupTextChanged(GtkEditable* editable, gpointer userData);
+    static void onDynamicGroupNumberChanged(GtkSpinButton* spin, gpointer userData);
+    static void onDynamicGroupBoolChanged(GtkCheckButton* check, gpointer userData);
+    static void onDynamicGroupDropdownChanged(GtkDropDown* dropdown, GParamSpec* pspec, gpointer userData);
 };
 
 } // namespace regui::ui

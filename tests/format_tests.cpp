@@ -9,7 +9,6 @@
 
 using regui::format::JsonType;
 using regui::format::JsonValue;
-using regui::format::Metadata;
 using regui::format::parseDocument;
 using regui::format::writeDocument;
 
@@ -32,25 +31,6 @@ std::string readFile(const std::string& path) {
     std::ostringstream buffer;
     buffer << in.rdbuf();
     return buffer.str();
-}
-
-void testMetadataRoundTrip() {
-    std::string raw =
-        "metadata: label: Additional Property label; description: An additional property that does smth. "
-        "description; metadata;";
-    auto parsed = Metadata::tryParse(raw);
-    check(parsed.has_value(), "metadata comment should parse");
-    if (!parsed) {
-        return;
-    }
-    const std::string* label = parsed->get("label");
-    const std::string* description = parsed->get("description");
-    check(label != nullptr && *label == "Additional Property label", "metadata label value");
-    check(description != nullptr && *description == "An additional property that does smth. description",
-          "metadata description value");
-    check(parsed->format() == raw, "metadata formats back to the original comment text");
-
-    check(!Metadata::tryParse("just a normal comment").has_value(), "non-metadata comment should not parse");
 }
 
 void testRelayoutExample(const std::string& examplesDir) {
@@ -113,39 +93,35 @@ void testReaddonExample(const std::string& examplesDir) {
         return;
     }
 
-    // MyProperty's trailing comment sits *before* its comma (not the last
-    // field in the object) - exercises the writer's comma/comment ordering.
+    // MyProperty is a definition object carrying both its default value and metadata,
+    // written as plain JSON fields rather than a comment-embedded mini-language.
     const JsonValue* myProperty = availableProps->find("MyProperty");
-    check(myProperty != nullptr && myProperty->stringValue == "<default value>", "MyProperty default value");
+    check(myProperty != nullptr && myProperty->isObject(), "MyProperty is a definition object");
     if (myProperty) {
-        auto metadata = myProperty->metadata();
-        check(metadata.has_value(), "MyProperty carries metadata");
-        if (metadata) {
-            const std::string* label = metadata->get("label");
-            const std::string* description = metadata->get("description");
-            check(label != nullptr && *label == "Additional Property label", "MyProperty metadata label");
-            check(description != nullptr && *description == "An additional property that does smth. description",
-                  "MyProperty metadata description");
-        }
+        const std::string* defaultValue = myProperty->getString("default");
+        const std::string* label = myProperty->getString("label");
+        const std::string* description = myProperty->getString("description");
+        check(defaultValue != nullptr && *defaultValue == "<default value>", "MyProperty default value");
+        check(label != nullptr && *label == "Additional Property", "MyProperty metadata label");
+        check(description != nullptr && *description == "An additional property that does smth.",
+              "MyProperty metadata description");
     }
 
-    // MyOtherProperty is the last field (no comma) - the original example's
-    // comment placement.
     const JsonValue* myOtherProperty = availableProps->find("MyOtherProperty");
-    check(myOtherProperty != nullptr && myOtherProperty->stringValue == "<default value>",
-          "MyOtherProperty default value");
-    check(myOtherProperty != nullptr && myOtherProperty->metadata().has_value(), "MyOtherProperty carries metadata");
+    check(myOtherProperty != nullptr && myOtherProperty->isObject() &&
+              myOtherProperty->getString("default") != nullptr && myOtherProperty->getString("type") != nullptr &&
+              *myOtherProperty->getString("type") == "integer" &&
+              myOtherProperty->getString("parent") != nullptr && *myOtherProperty->getString("parent") == "MyProperty",
+          "MyOtherProperty carries a default value, type and parent");
 
     const JsonValue* requiredCallbacks = widget.find("required-callbacks");
     check(requiredCallbacks != nullptr && requiredCallbacks->find("onSomething") != nullptr,
           "required-callbacks.onSomething present");
 
     const JsonValue* availableCallbacks = widget.find("available-callbacks");
-    check(availableCallbacks != nullptr && availableCallbacks->isArray() &&
-              availableCallbacks->arrayItems.size() == 2 &&
-              availableCallbacks->arrayItems[0].stringValue == "onSomething" &&
-              availableCallbacks->arrayItems[1].stringValue == "onSomething2",
-          "available-callbacks array contents");
+    check(availableCallbacks != nullptr && availableCallbacks->isObject() &&
+              availableCallbacks->find("onSomething") != nullptr && availableCallbacks->find("onSomething2") != nullptr,
+          "available-callbacks object contents");
 }
 
 void testWriteReparseRoundTrip(const std::string& examplesDir, const std::string& filename) {
@@ -158,22 +134,23 @@ void testWriteReparseRoundTrip(const std::string& examplesDir, const std::string
 
 void testSyntheticMetadataThroughWriter() {
     JsonValue root = JsonValue::makeObject();
-    JsonValue prop = JsonValue::makeString("42");
-    Metadata meta;
-    meta.set("label", "Count");
-    // The metadata DSL has no escaping, so values can't contain ';' - that's
-    // the pair delimiter. Commas and colons-within-prose are fine.
-    meta.set("description", "How many, in this format: zero. Commas are fine, semicolons are not.");
-    prop.trailingComments.push_back({meta.format(), false});
+    JsonValue prop = JsonValue::makeObject();
+    prop.set("default", JsonValue::makeNumber(42));
+    prop.set("label", JsonValue::makeString("Count"));
+    prop.set("description", JsonValue::makeString("How many, in this format: zero."));
     root.set("count", prop);
 
     std::string written = writeDocument(root);
     JsonValue reparsed = parseDocument(written);
     const JsonValue* reparsedProp = reparsed.find("count");
-    check(reparsedProp != nullptr && reparsedProp->stringValue == "42", "synthetic value round-trips");
-    auto reparsedMeta = reparsedProp ? reparsedProp->metadata() : std::nullopt;
-    check(reparsedMeta.has_value() && reparsedMeta->get("label") && *reparsedMeta->get("label") == "Count",
-          "synthetic metadata round-trips through writer");
+    check(reparsedProp != nullptr && reparsedProp->isObject(), "synthetic definition round-trips");
+    if (reparsedProp) {
+        const JsonValue* defaultValue = reparsedProp->find("default");
+        const std::string* label = reparsedProp->getString("label");
+        check(defaultValue != nullptr && defaultValue->isNumber() && defaultValue->numberValue == 42,
+              "synthetic default round-trips through writer");
+        check(label != nullptr && *label == "Count", "synthetic metadata round-trips through writer");
+    }
 }
 
 } // namespace
@@ -186,7 +163,6 @@ int main(int argc, char** argv) {
     std::string examplesDir = argv[1];
 
     try {
-        testMetadataRoundTrip();
         testRelayoutExample(examplesDir);
         testReaddonExample(examplesDir);
         testWriteReparseRoundTrip(examplesDir, "example.relayout");

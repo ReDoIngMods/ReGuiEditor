@@ -41,6 +41,10 @@ public:
     // window() is presented, so main.cpp can drive a LoadingWindow.
     void loadAssets(std::function<void(const canvas::LoadProgress&)> onProgress);
 
+    // Starts editing a blank, unsaved ReLayout (File > New, or the welcome screen's
+    // "New ReLayout"). Discards whatever document is currently open, same as loadDocument().
+    void newDocument();
+
 private:
     GtkWidget* mWindow = nullptr;
 
@@ -158,6 +162,15 @@ private:
     void pasteClipboard();
     // Removes `node`, refreshing dependent views and pushing an undo/redo pair.
     void deleteNode(model::WidgetNode* node);
+    // "New…" (canvas/hierarchy empty-space context menu) - shows WidgetTypePickerDialog,
+    // then creates a widget of the chosen type via createNewWidget().
+    void promptNewWidget();
+    // Builds a default-valued WidgetNode of `typeName` (from the matching WidgetTypeDef's
+    // available-properties) and inserts it as a new sibling of the selection, with undo/redo.
+    void createNewWidget(const std::string& typeName);
+    // Shared by pasteClipboard()/createNewWidget(): inserts `node` as a new sibling of the
+    // current selection (root level if none), refreshes dependent views, and pushes undo/redo.
+    void insertNode(model::WidgetNode node, const std::string& undoDescription);
 
     static void onOpenFileDialogReady(GObject* source, GAsyncResult* result, gpointer userData);
     static void onSaveAsFileDialogReady(GObject* source, GAsyncResult* result, gpointer userData);

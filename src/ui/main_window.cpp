@@ -1,7 +1,10 @@
 #include "ui/main_window.h"
 
 #include "app_info.h"
+#include "ui/center_window.h"
 #include "ui/layout_settings.h"
+#include "ui/loading_window.h"
+#include "ui/widget_type_picker_dialog.h"
 
 #include <algorithm>
 #include <cmath>
@@ -297,11 +300,10 @@ MainWindow::MainWindow(GtkApplication* app, std::string guiAssetsPath, const std
                     {"Copy", [this, node]() { copyNode(node); }},
                 });
         } else {
-            // "New" needs a widget-type picker that doesn't exist yet, so it's left unwired.
             showCanvasContextMenu(
                 mCanvas->widget(), x, y,
                 {
-                    {"New\xE2\x80\xA6", []() {}},
+                    {"New\xE2\x80\xA6", [this]() { promptNewWidget(); }},
                     {"Insert\xE2\x80\xA6", [this]() { pasteClipboard(); }},
                 });
         }
@@ -453,6 +455,7 @@ GtkWidget* MainWindow::buildHeaderBar() {
 
     GtkWidget* fileMenu = buildHeaderMenu(
         "File", {
+                    {"New", [this]() { newDocument(); }, nullptr},
                     {"Open\xE2\x80\xA6", [this]() { promptOpen(); }, nullptr},
                     {"Save", [this]() { save(); }, "Save (Ctrl+S)"},
                     {"Save As\xE2\x80\xA6", [this]() { promptSaveAs(); }, nullptr},
@@ -534,6 +537,7 @@ void MainWindow::rebuildHierarchyPanel() {
         [this](model::WidgetNode* dragged, model::WidgetNode* newParent) { reparentNode(dragged, newParent); });
     mHierarchyPanel->setOnDeleteRequested([this](model::WidgetNode* node) { deleteNode(node); });
     mHierarchyPanel->setOnCopyRequested([this](model::WidgetNode* node) { copyNode(node); });
+    mHierarchyPanel->setOnNewRequested([this]() { promptNewWidget(); });
     mHierarchyPanel->setOnInsertRequested([this]() { pasteClipboard(); });
     // Swaps content only - whichever dock slot (or floating window)
     // mHierarchyDetach->widget() itself currently lives in is untouched.
@@ -686,11 +690,18 @@ void MainWindow::pasteClipboard() {
     if (!mClipboard || !mDocument) {
         return;
     }
+    insertNode(*mClipboard, "Widget Created");
+}
+
+void MainWindow::insertNode(model::WidgetNode node, const std::string& undoDescription) {
+    if (!mDocument) {
+        return;
+    }
     model::WidgetNode* selected = mCanvas->selectedNode();
     model::WidgetNode* parent = selected ? model::findParentOf(mDocument->roots, selected) : nullptr;
     std::vector<model::WidgetNode>& siblings = parent ? parent->children : mDocument->roots;
 
-    model::WidgetNode* inserted = model::insertWidgetNode(mDocument->roots, parent, siblings.size(), *mClipboard);
+    model::WidgetNode* inserted = model::insertWidgetNode(mDocument->roots, parent, siblings.size(), node);
     mCanvas->setRoots(&mDocument->roots);
     mPropertiesPanel->setRoots(&mDocument->roots);
     rebuildHierarchyPanel();
@@ -699,9 +710,9 @@ void MainWindow::pasteClipboard() {
     mPropertiesPanel->setNode(inserted);
     markDirty();
 
-    // `toPaste` is a stable copy reused on every redo; `current` tracks the
+    // `toInsert` is a stable copy reused on every redo; `current` tracks the
     // live node's pointer (or nullptr once undone), same pattern as reparentNode().
-    auto toPaste = std::make_shared<model::WidgetNode>(*mClipboard);
+    auto toInsert = std::make_shared<model::WidgetNode>(std::move(node));
     auto current = std::make_shared<model::WidgetNode*>(inserted);
     mUndoStack.push(
         [this, current]() {
@@ -718,9 +729,9 @@ void MainWindow::pasteClipboard() {
             mPropertiesPanel->setNode(nullptr);
             markDirty();
         },
-        [this, current, toPaste, parent]() {
+        [this, current, toInsert, parent]() {
             std::vector<model::WidgetNode>& redoSiblings = parent ? parent->children : mDocument->roots;
-            model::WidgetNode* redone = model::insertWidgetNode(mDocument->roots, parent, redoSiblings.size(), *toPaste);
+            model::WidgetNode* redone = model::insertWidgetNode(mDocument->roots, parent, redoSiblings.size(), *toInsert);
             *current = redone;
             mCanvas->setRoots(&mDocument->roots);
             mPropertiesPanel->setRoots(&mDocument->roots);
@@ -730,7 +741,39 @@ void MainWindow::pasteClipboard() {
             mPropertiesPanel->setNode(redone);
             markDirty();
         },
-        "Widget Created");
+        undoDescription);
+}
+
+void MainWindow::promptNewWidget() {
+    if (!mDocument) {
+        return;
+    }
+    WidgetTypePickerDialog::show(GTK_WINDOW(mWindow), mRegistry, [this](std::string typeName) { createNewWidget(typeName); });
+}
+
+void MainWindow::createNewWidget(const std::string& typeName) {
+    if (!mDocument) {
+        return;
+    }
+    const model::WidgetTypeDef* typeDef = mRegistry.find(typeName);
+
+    model::WidgetNode node;
+    node.type = typeName;
+    node.name = typeDef ? typeDef->label() : typeName;
+    node.setWidth({200, 0});
+    node.setHeight({100, 0});
+    node.setAlpha(1.0);
+    if (typeDef) {
+        for (const model::NamedEntry& prop : typeDef->section("available-properties")) {
+            // Sections carry no data; groups are packed lazily on first edit (see
+            // PropertiesPanel::addGroupFields()), so a fresh widget just omits both.
+            if (!prop.isSection() && !prop.isGroup()) {
+                node.properties.set(prop.name, prop.value);
+            }
+        }
+    }
+
+    insertNode(std::move(node), "Widget Created");
 }
 
 void MainWindow::deleteNode(model::WidgetNode* node) {
@@ -805,6 +848,18 @@ void MainWindow::loadDocument(const std::string& path) {
     } catch (const std::exception& e) {
         std::cerr << "Failed to load '" << path << "': " << e.what() << "\n";
     }
+}
+
+void MainWindow::newDocument() {
+    mDocument = std::make_unique<model::ReLayoutDocument>();
+    mCurrentPath.clear();
+    mDirty = false;
+    mUndoStack.clear();
+    // setRoots() clears selection, so it must run before rebuildHierarchyPanel() re-syncs row 0.
+    mCanvas->setRoots(&mDocument->roots);
+    mPropertiesPanel->setRoots(&mDocument->roots);
+    rebuildHierarchyPanel();
+    updateTitle();
 }
 
 void MainWindow::loadAddonsFromDirectory(const std::string& directory) {
@@ -1031,6 +1086,25 @@ void MainWindow::onResolutionChanged(GtkDropDown* dropdown, GParamSpec*, gpointe
     }
     const ResolutionPreset& preset = kResolutionPresets[selected];
     self->mCanvas->setReferenceResolution(preset.width, preset.height);
+
+    // Swaps in whichever game GUI asset pack the new resolution buckets into
+    // (see MyGuiCanvas::findResolutionBucketIndex), so skins render at the
+    // right resolution's texel density. This tears down and rebuilds the
+    // whole MyGUI instance, so show the same loading UI as the initial open.
+    LoadingWindow loadingWindow(GTK_APPLICATION(gtk_window_get_application(GTK_WINDOW(self->mWindow))));
+    gtk_window_set_transient_for(GTK_WINDOW(loadingWindow.window()), GTK_WINDOW(self->mWindow));
+    gtk_window_set_modal(GTK_WINDOW(loadingWindow.window()), TRUE);
+    gtk_window_present(GTK_WINDOW(loadingWindow.window()));
+    centerWindowOnScreen(GTK_WINDOW(loadingWindow.window()));
+    while (g_main_context_pending(nullptr)) {
+        g_main_context_iteration(nullptr, FALSE);
+    }
+
+    self->mCanvas->setActiveGameResolution(
+        preset.width, preset.height,
+        [&loadingWindow](const canvas::LoadProgress& progress) { loadingWindow.update(progress); });
+
+    gtk_window_destroy(GTK_WINDOW(loadingWindow.window()));
 }
 
 void MainWindow::onGridSpacingChanged(GtkSpinButton* spin, gpointer userData) {

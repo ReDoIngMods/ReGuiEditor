@@ -1,5 +1,6 @@
 #include "ui/welcome_window.h"
 
+#include "ui/accent_style.h"
 #include "ui/recent_files.h"
 
 #include <filesystem>
@@ -14,8 +15,9 @@ std::string baseName(const std::string& path) {
 
 } // namespace
 
-WelcomeWindow::WelcomeWindow(GtkApplication* app, std::function<void(std::string)> onFileChosen)
-    : mOnFileChosen(std::move(onFileChosen)) {
+WelcomeWindow::WelcomeWindow(
+    GtkApplication* app, std::function<void(std::string)> onFileChosen, std::function<void()> onNewRequested)
+    : mOnFileChosen(std::move(onFileChosen)), mOnNewRequested(std::move(onNewRequested)) {
     mWindow = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(mWindow), "Welcome to ReGui Editor");
     gtk_window_set_default_size(GTK_WINDOW(mWindow), 460, 520);
@@ -38,11 +40,24 @@ WelcomeWindow::WelcomeWindow(GtkApplication* app, std::function<void(std::string
     gtk_widget_set_margin_bottom(subtitle, 12);
     gtk_box_append(GTK_BOX(root), subtitle);
 
-    GtkWidget* openButton = gtk_button_new_with_label("Open File\xE2\x80\xA6");
+    GtkWidget* actionsRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_set_homogeneous(GTK_BOX(actionsRow), TRUE);
+
+    GtkWidget* newButton = gtk_button_new_with_label("New ReLayout");
+    gtk_widget_add_css_class(newButton, "suggested-action");
+    gtk_widget_add_css_class(newButton, "pill");
+    applyAccentButtonStyle(newButton);
+    g_signal_connect(newButton, "clicked", G_CALLBACK(onNewClicked), this);
+    gtk_box_append(GTK_BOX(actionsRow), newButton);
+
+    GtkWidget* openButton = gtk_button_new_with_label("Open ReLayout\xE2\x80\xA6");
     gtk_widget_add_css_class(openButton, "suggested-action");
     gtk_widget_add_css_class(openButton, "pill");
+    applyAccentButtonStyle(openButton);
     g_signal_connect(openButton, "clicked", G_CALLBACK(onOpenClicked), this);
-    gtk_box_append(GTK_BOX(root), openButton);
+    gtk_box_append(GTK_BOX(actionsRow), openButton);
+
+    gtk_box_append(GTK_BOX(root), actionsRow);
 
     gtk_box_append(GTK_BOX(root), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL));
 
@@ -102,6 +117,13 @@ GtkWidget* WelcomeWindow::buildRecentsList() {
     g_signal_connect(listBox, "row-activated", G_CALLBACK(onRecentRowActivated), this);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroller), listBox);
     return scroller;
+}
+
+void WelcomeWindow::onNewClicked(GtkButton*, gpointer userData) {
+    auto* self = static_cast<WelcomeWindow*>(userData);
+    if (self->mOnNewRequested) {
+        self->mOnNewRequested();
+    }
 }
 
 void WelcomeWindow::onOpenClicked(GtkButton*, gpointer userData) {

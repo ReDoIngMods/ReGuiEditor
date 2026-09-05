@@ -3,6 +3,8 @@
 #include <epoxy/gl.h>
 
 #include "canvas/freeimage_loader.h"
+#include "format/json_value.h"
+#include "format/parser.h"
 
 #include <MyGUI_Colour.h>
 #include <MyGUI_Gui.h>
@@ -15,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -339,6 +342,71 @@ void MyGuiCanvas::setReferenceResolution(double width, double height) {
     refresh();
 }
 
+void MyGuiCanvas::setActiveGameResolution(
+    double width, double height, const std::function<void(const LoadProgress&)>& onProgress) {
+    if (!mGuiInitialised || mGameResolutions.empty()) {
+        return;
+    }
+    int index = findResolutionBucketIndex(width, height);
+    if (index == mActiveResolutionIndex) {
+        return;
+    }
+
+    if (onProgress) {
+        onProgress({"Reinitializing OpenGL platform", "", "MyGuiCanvas", 0.0});
+    }
+
+    gtk_gl_area_make_current(GTK_GL_AREA(mGlArea));
+
+    // onProgress (see LoadingWindow::update()) pumps the GTK main loop after
+    // every step below so the progress dialog stays responsive, and with
+    // auto-render on (GtkGLArea's default) any of those pumps can trigger a
+    // "render" signal on mGlArea - which, mid-reload, would draw whatever
+    // partial state MyGUI happens to be in (no widgets, no platform, or a
+    // half-loaded resource set) and made the canvas appear to blank out
+    // until the reload finished. Freezing the last good frame here and
+    // forcing one fresh render only once rebuildWidgets() below has
+    // finished keeps the canvas visually stable through the whole reload.
+    gtk_gl_area_set_auto_render(GTK_GL_AREA(mGlArea), FALSE);
+    destroyOverlay();
+    destroyWidgets();
+
+    // Every resolution pack redefines the same skin/font resource names over
+    // differently-sized textures, and MyGUI's ResourceManager has no way to
+    // unload just one pack's resources - only a full teardown/rebuild
+    // guarantees the previous pack's definitions are gone.
+    MyGUI::Gui::getInstance().shutdown();
+    delete MyGUI::Gui::getInstancePtr();
+    mPlatform->shutdown();
+    delete mPlatform;
+    mPlatform = nullptr; // onRender() checks this - stays null for as long as a render could slip through
+    delete mImageLoader;
+    mImageLoader = nullptr;
+
+    initialisePlatform();
+    try {
+        loadGameResources(
+            [&](const std::string& what, const std::string& where, double localFraction) {
+                if (onProgress) {
+                    onProgress({what, where, "MyGUI ResourceManager", 0.05 + localFraction * 0.85});
+                }
+            },
+            index);
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to reload game GUI resources for new resolution: " << e.what() << "\n";
+    }
+
+    if (onProgress) {
+        onProgress({"Building widget tree", "", "MyGuiCanvas", 0.97});
+    }
+    rebuildWidgets();
+    gtk_gl_area_set_auto_render(GTK_GL_AREA(mGlArea), TRUE);
+    if (onProgress) {
+        onProgress({"Done", "", "MyGuiCanvas", 1.0});
+    }
+    gtk_gl_area_queue_render(GTK_GL_AREA(mGlArea));
+}
+
 void MyGuiCanvas::setGridSpacing(double spacing) {
     mGridSpacing = std::max(1.0, spacing); // a <=0 spacing would spin renderBackdropAndGrid()'s dot loop forever
     gtk_widget_queue_draw(mGlArea);
@@ -358,26 +426,7 @@ void MyGuiCanvas::onRealize() {
 
     reportLoadProgress("Initializing OpenGL platform", "", "MyGuiCanvas", 0.0);
 
-    mPlatform = new MyGUI::OpenGL3Platform();
-
-    // Registered before MyGUI's vendored Media dir: both share filenames
-    // (MyGUI_Layers.xml), and DataManager resolves collisions to whichever registered first.
-    MyGUI::OpenGL3DataManager* dataManager = mPlatform->getDataManagerPtr();
-    dataManager->addResourceLocation(mAssetsRoot, false);
-    dataManager->addResourceLocation(mAssetsRoot + "/MyGUI_Media", false);
-    dataManager->addResourceLocation(mAssetsRoot + "/Fonts", false);
-    dataManager->addResourceLocation(mAssetsRoot + "/Language/English", false);
-    // Bundled with the editor itself, not the game - independent of mAssetsRoot
-    // now that it points at the user's own Scrap Mechanic install.
-    dataManager->addResourceLocation(REGUIEDITOR_ASSETS_ROOT, false); // editor-fonts.xml/editor-skins.xml
-    dataManager->addResourceLocation(MYGUI_MEDIA_DIR, false); // MyGUI's own shaders only
-
-    mImageLoader = new FreeImageLoader();
-    // An empty log name skips OpenGL3Platform's own createDefaultSource()
-    // call, so MyGUI never writes a MyGUI.log file into the working
-    // directory at all - it otherwise appears next to whatever main.cpp is
-    // simply launched from, in this app's case usually the repo root.
-    mPlatform->initialise(mImageLoader, "");
+    initialisePlatform();
 
     try {
         // Reserves 5%-90% of overall progress for this variable-length step; loadGameResources() only knows its own 0..1.
@@ -401,6 +450,29 @@ void MyGuiCanvas::reportLoadProgress(const std::string& what, const std::string&
     if (mOnLoadProgress) {
         mOnLoadProgress({what, where, who, fraction});
     }
+}
+
+void MyGuiCanvas::initialisePlatform() {
+    mPlatform = new MyGUI::OpenGL3Platform();
+
+    // Registered before MyGUI's vendored Media dir: both share filenames
+    // (MyGUI_Layers.xml), and DataManager resolves collisions to whichever registered first.
+    MyGUI::OpenGL3DataManager* dataManager = mPlatform->getDataManagerPtr();
+    dataManager->addResourceLocation(mAssetsRoot, false);
+    dataManager->addResourceLocation(mAssetsRoot + "/MyGUI_Media", false);
+    dataManager->addResourceLocation(mAssetsRoot + "/Fonts", false);
+    dataManager->addResourceLocation(mAssetsRoot + "/Language/English", false);
+    // Bundled with the editor itself, not the game - independent of mAssetsRoot
+    // now that it points at the user's own Scrap Mechanic install.
+    dataManager->addResourceLocation(REGUIEDITOR_ASSETS_ROOT, false); // editor-fonts.xml/editor-skins.xml
+    dataManager->addResourceLocation(MYGUI_MEDIA_DIR, false); // MyGUI's own shaders only
+
+    mImageLoader = new FreeImageLoader();
+    // An empty log name skips OpenGL3Platform's own createDefaultSource()
+    // call, so MyGUI never writes a MyGUI.log file into the working
+    // directory at all - it otherwise appears next to whatever main.cpp is
+    // simply launched from, in this app's case usually the repo root.
+    mPlatform->initialise(mImageLoader, "");
 }
 
 void MyGuiCanvas::onUnrealize() {
@@ -594,15 +666,130 @@ void MyGuiCanvas::renderBackdropAndGrid() {
     glUseProgram(0);
 }
 
-void MyGuiCanvas::loadGameResources(const std::function<void(const std::string&, const std::string&, double)>& onStep) {
+void MyGuiCanvas::parseGuiResolutions() {
+    mGameResolutions.clear();
+    mResolutionResourceFiles.clear();
+    format::JsonValue root;
+    try {
+        root = format::parseDocument(readFile(mAssetsRoot + "/guiResolutions.json"));
+    } catch (const std::exception&) {
+        return; // no per-resolution asset packs available - core assets still work
+    }
+
+    if (const format::JsonValue* list = root.find("resolutionList"); list && list->isArray()) {
+        for (const format::JsonValue& entry : list->arrayItems) {
+            if (!entry.isObject()) {
+                continue;
+            }
+            const format::JsonValue* w = entry.find("w");
+            const format::JsonValue* h = entry.find("h");
+            const format::JsonValue* folder = entry.find("folder");
+            if (!w || !h || !folder || !w->isNumber() || !h->isNumber() || !folder->isString()) {
+                continue;
+            }
+            GameResolution res;
+            res.width = w->numberValue;
+            res.height = h->numberValue;
+            res.folder = relativePath(folder->stringValue);
+            mGameResolutions.push_back(std::move(res));
+        }
+    }
+    if (const format::JsonValue* resources = root.find("resources"); resources && resources->isArray()) {
+        for (const format::JsonValue& entry : resources->arrayItems) {
+            if (entry.isString()) {
+                mResolutionResourceFiles.push_back(entry.stringValue);
+            }
+        }
+    }
+}
+
+int MyGuiCanvas::findResolutionBucketIndex(double width, double height) const {
+    if (mGameResolutions.empty()) {
+        return -1;
+    }
+    // Largest pack (by pixel area) that both dimensions still meet or
+    // exceed - same tiering as the game's own GetMyGuiScreenSize(). A raw
+    // nearest-match by distance would put an ultrawide 21:9 screen on the 4K
+    // pack (closer in Euclidean terms) instead of the 1440p one it actually
+    // fits, loading assets at the wrong texel density.
+    int best = -1;
+    for (size_t i = 0; i < mGameResolutions.size(); ++i) {
+        const GameResolution& res = mGameResolutions[i];
+        if (width >= res.width && height >= res.height &&
+            (best < 0 || res.width * res.height > mGameResolutions[best].width * mGameResolutions[best].height)) {
+            best = static_cast<int>(i);
+        }
+    }
+    if (best >= 0) {
+        return best;
+    }
+    // Screen is smaller than every known pack - fall back to the smallest one.
+    int smallest = 0;
+    for (size_t i = 1; i < mGameResolutions.size(); ++i) {
+        if (mGameResolutions[i].width * mGameResolutions[i].height <
+            mGameResolutions[smallest].width * mGameResolutions[smallest].height) {
+            smallest = static_cast<int>(i);
+        }
+    }
+    return smallest;
+}
+
+void MyGuiCanvas::loadResolutionResources(
+    int index, const std::function<void(const std::string&, const std::string&, double)>& onStep) {
+    if (index < 0 || static_cast<size_t>(index) >= mGameResolutions.size()) {
+        return;
+    }
+    const GameResolution& res = mGameResolutions[index];
+    std::string folderPath = mAssetsRoot + "/" + res.folder;
+
+    // Recursive: unlike the core locations, this pack's resources live
+    // scattered across subfolders (Keybinds/, Seat/, Inventory/, ...).
+    mPlatform->getDataManagerPtr()->addResourceLocation(folderPath, true);
+
+    const size_t totalSteps = std::max<size_t>(1, mResolutionResourceFiles.size());
+    size_t stepIndex = 0;
+    for (const std::string& relative : mResolutionResourceFiles) {
+        std::string fullPath = folderPath + "/" + relative;
+        std::error_code ec;
+        if (!std::filesystem::exists(fullPath, ec)) {
+            ++stepIndex;
+            continue; // guiResolutions.json's "resources" list is shared - not every file exists at every resolution
+        }
+        if (onStep) {
+            onStep("Loading " + res.folder + " resource", relative, static_cast<double>(stepIndex) / totalSteps);
+        }
+        ++stepIndex;
+        try {
+            // One malformed resource for this resolution (e.g. a font MyGUI
+            // can't parse) must not take every other skin in the pack down
+            // with it - resolveSkin()'s gray fallback is meant for individual
+            // unresolved widgets, not for the whole canvas going blank.
+            MyGUI::ResourceManager::getInstance().load(basename(relative));
+            std::string category = basename(relative);
+            if (size_t dot = category.rfind('.'); dot != std::string::npos) {
+                category = category.substr(0, dot);
+            }
+            collectSkinInfos(readFile(fullPath), category, parentDir(fullPath), mAvailableSkins);
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load resolution resource '" << fullPath << "': " << e.what() << "\n";
+        }
+    }
+    mActiveResolutionIndex = index;
+}
+
+void MyGuiCanvas::loadGameResources(
+    const std::function<void(const std::string&, const std::string&, double)>& onStep, int desiredResolutionIndex) {
     auto* gui = new MyGUI::Gui();
     gui->initialise(""); // skip auto core-file loading; we replicate GuiConfig.xml's load order ourselves
     mGuiInitialised = true;
 
     mAvailableSkins.clear();
+    parseGuiResolutions();
+
     std::string guiConfigText = readFile(mAssetsRoot + "/GuiConfig.xml");
     std::vector<std::string> entries = parseListFiles(guiConfigText);
-    const size_t totalSteps = entries.size() + 2; // +2 for the fixed editor-fonts.xml/editor-skins.xml steps below
+    // +2 for the fixed editor-fonts.xml/editor-skins.xml steps below, plus one step per resolution-pack resource file.
+    const size_t totalSteps = entries.size() + 2 + mResolutionResourceFiles.size();
     size_t stepIndex = 0;
     for (const std::string& entry : entries) {
         std::string relative = relativePath(entry);
@@ -611,15 +798,17 @@ void MyGuiCanvas::loadGameResources(const std::function<void(const std::string&,
             onStep("Loading skin/resource XML", relative, static_cast<double>(stepIndex) / totalSteps);
         }
         ++stepIndex;
-        MyGUI::ResourceManager::getInstance().load(basename(entry));
         try {
+            // As below in loadResolutionResources(): one malformed core
+            // resource must not abort every other skin's load.
+            MyGUI::ResourceManager::getInstance().load(basename(entry));
             std::string category = basename(relative);
             if (size_t dot = category.rfind('.'); dot != std::string::npos) {
                 category = category.substr(0, dot);
             }
             collectSkinInfos(readFile(fullPath), category, parentDir(fullPath), mAvailableSkins);
-        } catch (const std::exception&) {
-            // Not every listed resource is skin XML - a genuinely unreadable file shouldn't abort the load.
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load core resource '" << fullPath << "': " << e.what() << "\n";
         }
     }
     // The game's own Fonts.xml has huge CJK atlases we don't need; editor-fonts.xml has just the Latin fonts in use.
@@ -637,6 +826,17 @@ void MyGuiCanvas::loadGameResources(const std::function<void(const std::string&,
     collectSkinInfos(
         readFile(std::string(REGUIEDITOR_ASSETS_ROOT) + "/editor-skins.xml"), "editor-skins", REGUIEDITOR_ASSETS_ROOT,
         mAvailableSkins);
+
+    int resolutionIndex =
+        desiredResolutionIndex >= 0 ? desiredResolutionIndex : findResolutionBucketIndex(mReferenceWidth, mReferenceHeight);
+    loadResolutionResources(
+        resolutionIndex, [&](const std::string& what, const std::string& where, double localFraction) {
+            if (onStep) {
+                double resolutionSteps = static_cast<double>(mResolutionResourceFiles.size());
+                double base = static_cast<double>(stepIndex);
+                onStep(what, where, (base + localFraction * resolutionSteps) / totalSteps);
+            }
+        });
 
     std::sort(mAvailableSkins.begin(), mAvailableSkins.end(), [](const SkinInfo& a, const SkinInfo& b) {
         return a.name < b.name;
@@ -692,6 +892,7 @@ void MyGuiCanvas::rebuildWidgets() {
                 // Neutral gray so a placeholder doesn't read as deliberate white content.
                 widget->setColour(MyGUI::Colour(0.55f, 0.55f, 0.58f));
             }
+            widget->setAlpha(static_cast<float>(node.alpha()));
 
             mFlatRects.push_back({&node, rect, parentRect, widget});
 

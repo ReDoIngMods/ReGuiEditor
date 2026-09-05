@@ -1,6 +1,5 @@
 #pragma once
 
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,27 +16,6 @@ struct Comment {
     bool operator==(const Comment& other) const {
         return text == other.text && isLineComment == other.isLineComment;
     }
-};
-
-// The `metadata: key: value; key: value; metadata;` mini-language inside comments.
-class Metadata {
-public:
-    // Parses a comment's text as metadata, or nullopt if it isn't one.
-    static std::optional<Metadata> tryParse(const std::string& commentText);
-
-    // Regenerates the comment text (without delimiters).
-    std::string format() const;
-
-    const std::string* get(const std::string& key) const;
-    void set(const std::string& key, std::string value);
-
-    const std::vector<std::pair<std::string, std::string>>& entries() const { return mEntries; }
-    bool empty() const { return mEntries.empty(); }
-
-    bool operator==(const Metadata& other) const { return mEntries == other.mEntries; }
-
-private:
-    std::vector<std::pair<std::string, std::string>> mEntries;
 };
 
 enum class JsonType {
@@ -83,8 +61,8 @@ struct JsonValue {
     JsonValue* find(const std::string& key);
     void set(const std::string& key, JsonValue value);
 
-    // The first trailing comment that parses as metadata, if any.
-    std::optional<Metadata> metadata() const;
+    // The field's string value if `key` is present and a string, else nullptr.
+    const std::string* getString(const std::string& key) const;
 
     // Used by tests to verify parse->write->parse round-trips.
     bool operator==(const JsonValue& other) const;

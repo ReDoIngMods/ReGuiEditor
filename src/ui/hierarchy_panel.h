@@ -44,10 +44,8 @@ public:
     }
     void setOnCopyRequested(std::function<void(model::WidgetNode*)> callback) { mOnCopyRequested = std::move(callback); }
 
-    // Right-click-on-empty-space menu ("New" / "Insert"). "New" is
-    // deliberately left unset by MainWindow for now - it needs a widget-type
-    // picker that doesn't exist yet, so it's a no-op beyond closing the menu
-    // until a caller wires it up; "Insert" pastes the clipboard.
+    // Right-click-on-empty-space menu ("New" / "Insert"). "New" opens
+    // WidgetTypePickerDialog to create a widget of a chosen type; "Insert" pastes the clipboard.
     void setOnNewRequested(std::function<void()> callback) { mOnNewRequested = std::move(callback); }
     void setOnInsertRequested(std::function<void()> callback) { mOnInsertRequested = std::move(callback); }
 

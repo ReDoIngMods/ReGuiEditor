@@ -1,5 +1,7 @@
 #include "hierarchy_panel.h"
 
+#include "ui/accent_style.h"
+
 #include <string>
 
 namespace regui::ui {
@@ -335,6 +337,7 @@ HierarchyPanel::HierarchyPanel(std::vector<model::WidgetNode>& roots, const mode
     g_signal_connect(factory, "bind", G_CALLBACK(onFactoryBind), this);
 
     GtkWidget* listView = gtk_list_view_new(GTK_SELECTION_MODEL(selection), factory);
+    applyAccentRowSelectionStyle(listView);
 
     mSelectionModel = GTK_SELECTION_MODEL(selection);
     g_signal_connect(mSelectionModel, "selection-changed", G_CALLBACK(onSelectionChangedThunk), this);

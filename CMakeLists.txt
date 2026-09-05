@@ -58,6 +58,7 @@ add_executable(reguieditor
     src/main.cpp
     src/canvas/freeimage_loader.cpp
     src/canvas/mygui_canvas.cpp
+    src/ui/accent_style.cpp
     src/ui/asset_setup.cpp
     src/ui/center_window.cpp
     src/ui/detachable_panel.cpp
@@ -71,6 +72,7 @@ add_executable(reguieditor
     src/ui/recent_files.cpp
     src/ui/skin_picker_dialog.cpp
     src/ui/welcome_window.cpp
+    src/ui/widget_type_picker_dialog.cpp
 )
 target_include_directories(reguieditor PRIVATE
     third_party/mygui/MyGUIEngine/include

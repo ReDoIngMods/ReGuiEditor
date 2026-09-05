@@ -7,7 +7,7 @@
     "data": [
         {
             "name": "MyWidget",
-            "type": "ReGui.Widget",
+            "type": "ReGui.TextLabel",
             "properties": {
                 "layout": {
                     "anchor": {
@@ -15,7 +15,7 @@
                         "y": 0.5
                     },
                     "x": {
-                        "pixel": 820,
+                        "pixel": 1015,
                         "scale": 0
                     },
                     "y": {
@@ -23,20 +23,21 @@
                         "scale": 0
                     },
                     "width": {
-                        "pixel": 0,
+                        "pixel": 950,
                         "scale": 0.5
                     },
                     "height": {
-                        "pixel": 0,
+                        "pixel": 540,
                         "scale": 0.5
                     }
                 },
-                "skin": "CameraBorder",
+                "skin": "UpgradeButton",
                 "callbacks": {
                     "onClick": "cl_onWidgetClick",
                     "onHover": "cl_onWidgetHover"
                 },
-                "<additional properties>": "..."
+                "<additional properties>": "...",
+                "text": "ASDSADADAS"
             },
             "children": [
                 {
@@ -49,23 +50,23 @@
                                 "y": 0.5
                             },
                             "x": {
-                                "pixel": 720,
+                                "pixel": 1725,
                                 "scale": 0
                             },
                             "y": {
-                                "pixel": 405,
+                                "pixel": 605,
                                 "scale": 0
                             },
                             "width": {
-                                "pixel": 0,
+                                "pixel": 515,
                                 "scale": 0.5
                             },
                             "height": {
-                                "pixel": 0,
+                                "pixel": 180,
                                 "scale": 0.5
                             }
                         },
-                        "skin": "<skin name>",
+                        "skin": "ButtonRevivalBaguette",
                         "callbacks": {
                             "onClick": "cl_onWidgetClick",
                             "onHover": "cl_onWidgetHover"

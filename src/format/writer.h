@@ -7,7 +7,7 @@
 namespace regui::format {
 
 // Serializes a document back to text. Formatting is normalized, not
-// preserved byte-for-byte - only data, comments, and metadata round-trip.
+// preserved byte-for-byte - only data and comments round-trip.
 std::string writeDocument(const JsonValue& root);
 
 } // namespace regui::format

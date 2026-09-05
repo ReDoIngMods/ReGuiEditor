@@ -1,50 +1,74 @@
 #include "ui/properties_panel.h"
 
+#include "ui/accent_style.h"
 #include "ui/skin_picker_dialog.h"
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <functional>
+#include <sstream>
+#include <stdexcept>
 
 namespace regui::ui {
 
 namespace {
 
-enum class FieldKind { Integer, Float, Bool, Widget, String };
+// "values" from a property (or "type": "group" sub-property) definition object, as plain strings.
+std::vector<std::string> extractEnumValues(const format::JsonValue& def) {
+    std::vector<std::string> result;
+    if (const format::JsonValue* values = def.find("values"); values && values->isArray()) {
+        for (const format::JsonValue& item : values->arrayItems) {
+            if (item.isString()) {
+                result.push_back(item.stringValue);
+            }
+        }
+    }
+    return result;
+}
 
-// Field kind from metadata's declared `type:`, falling back to the JSON value's own type.
-FieldKind resolveFieldKind(const std::string& declaredTypeRaw, const format::JsonValue& value) {
-    std::string t = declaredTypeRaw;
-    std::transform(t.begin(), t.end(), t.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+// Matches format::writeNumber()'s style: whole numbers print without a trailing ".0".
+std::string formatGroupNumber(double v) {
+    if (std::isfinite(v) && v == std::floor(v) && std::abs(v) < 1e15) {
+        return std::to_string(static_cast<long long>(v));
+    }
+    std::ostringstream oss;
+    oss << v;
+    return oss.str();
+}
 
-    if (t == "integer" || t == "int") {
-        return FieldKind::Integer;
+// A "type": "group" sub-property's own "default", stringified the same way its packed
+// token would be - used when the group's packed string doesn't have a token for it yet.
+std::string defaultGroupToken(const format::JsonValue& subDef) {
+    const format::JsonValue* def = subDef.find("default");
+    if (!def) {
+        return std::string();
     }
-    if (t == "float" || t == "number" || t == "double") {
-        return FieldKind::Float;
+    if (def->isString()) {
+        return def->stringValue;
     }
-    if (t == "bool" || t == "boolean") {
-        return FieldKind::Bool;
+    if (def->isBool()) {
+        return def->boolValue ? "true" : "false";
     }
-    if (t == "widget") {
-        return FieldKind::Widget;
+    if (def->isNumber()) {
+        return formatGroupNumber(def->numberValue);
     }
-    if (t == "string") {
-        return FieldKind::String;
-    }
+    return std::string();
+}
 
-    if (value.isBool()) {
-        return FieldKind::Bool;
+std::vector<std::string> splitWhitespace(const std::string& text) {
+    std::vector<std::string> tokens;
+    std::istringstream iss(text);
+    std::string token;
+    while (iss >> token) {
+        tokens.push_back(token);
     }
-    if (value.isNumber()) {
-        return FieldKind::Float;
-    }
-    return FieldKind::String;
+    return tokens;
 }
 
 std::string declaredParent(const model::NamedEntry& entry) {
     if (entry.metadata) {
-        if (const std::string* p = entry.metadata->get("parent")) {
+        if (const std::string* p = entry.metadata->getString("parent")) {
             return *p;
         }
     }
@@ -79,6 +103,59 @@ std::vector<std::pair<const model::NamedEntry*, int>> orderPropertiesTree(
 }
 
 } // namespace
+
+// Field kind from metadata's declared `type:`, falling back to the JSON value's own type.
+PropertiesPanel::FieldKind PropertiesPanel::resolveFieldKind(
+    const std::string& declaredTypeRaw, const format::JsonValue& value) {
+    std::string t = declaredTypeRaw;
+    std::transform(t.begin(), t.end(), t.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    if (t == "integer" || t == "int") {
+        return FieldKind::Integer;
+    }
+    if (t == "float" || t == "number" || t == "double") {
+        return FieldKind::Float;
+    }
+    if (t == "bool" || t == "boolean") {
+        return FieldKind::Bool;
+    }
+    if (t == "widget") {
+        return FieldKind::Widget;
+    }
+    if (t == "enum") {
+        return FieldKind::Enum;
+    }
+    if (t == "string") {
+        return FieldKind::String;
+    }
+
+    if (value.isBool()) {
+        return FieldKind::Bool;
+    }
+    if (value.isNumber()) {
+        return FieldKind::Float;
+    }
+    return FieldKind::String;
+}
+
+format::JsonValue PropertiesPanel::groupTokenToValue(FieldKind kind, const std::string& token) {
+    switch (kind) {
+        case FieldKind::Bool:
+            return format::JsonValue::makeBool(token == "true" || token == "1");
+        case FieldKind::Integer:
+        case FieldKind::Float:
+            try {
+                return format::JsonValue::makeNumber(std::stod(token));
+            } catch (const std::exception&) {
+                return format::JsonValue::makeNumber(0.0);
+            }
+        case FieldKind::Widget:
+        case FieldKind::Enum:
+        case FieldKind::String:
+        default:
+            return format::JsonValue::makeString(token);
+    }
+}
 
 PropertiesPanel::PropertiesPanel(model::ReAddonRegistry* registry, model::UndoStack* undoStack)
     : mRegistry(registry), mUndoStack(undoStack) {
@@ -155,6 +232,11 @@ void PropertiesPanel::rebuildFields() {
 }
 
 int PropertiesPanel::addBuiltInFields(GtkGrid* grid, int row) {
+    GtkWidget* header = gtk_label_new("Widget Properties");
+    gtk_widget_add_css_class(header, "heading");
+    gtk_label_set_xalign(GTK_LABEL(header), 0.0f);
+    gtk_grid_attach(grid, header, 0, row++, 3, 1);
+
     GtkWidget* nameEntry = addEntryRow(grid, row++, "Name", "", mNode->name);
     g_signal_connect(nameEntry, "changed", G_CALLBACK(onNameChanged), this);
     trackFocus(nameEntry);
@@ -162,6 +244,10 @@ int PropertiesPanel::addBuiltInFields(GtkGrid* grid, int row) {
     addLabelRow(grid, row++, "Type", mNode->type.empty() ? "(none)" : mNode->type);
 
     addSkinPickerRow(grid, row++, mNode->skin());
+
+    GtkWidget* alphaSpin = addSpinRow(grid, row++, "Alpha", "Widget opacity (0 = fully transparent, 1 = fully opaque)", mNode->alpha(), 0.0, 1.0, 0.01, 2);
+    g_signal_connect(alphaSpin, "value-changed", G_CALLBACK(onAlphaChanged), this);
+    trackFocus(alphaSpin);
 
     model::Anchor anchor = mNode->anchor();
     GtkWidget *anchorX, *anchorY;
@@ -215,7 +301,7 @@ int PropertiesPanel::addBuiltInFields(GtkGrid* grid, int row) {
 int PropertiesPanel::addDynamicFields(GtkGrid* grid, int row, const model::WidgetTypeDef& typeDef) {
     std::vector<model::NamedEntry> properties = typeDef.section("available-properties");
     if (!properties.empty()) {
-        GtkWidget* header = gtk_label_new("Properties");
+        GtkWidget* header = gtk_label_new((typeDef.label() + " Properties").c_str());
         gtk_widget_add_css_class(header, "heading");
         gtk_label_set_xalign(GTK_LABEL(header), 0.0f);
         gtk_grid_attach(grid, header, 0, row++, 3, 1);
@@ -226,64 +312,67 @@ int PropertiesPanel::addDynamicFields(GtkGrid* grid, int row, const model::Widge
             std::string tooltip;
             std::string declaredType;
             if (entry.metadata) {
-                if (const std::string* l = entry.metadata->get("label")) {
+                if (const std::string* l = entry.metadata->getString("label")) {
                     label = *l;
                 }
-                if (const std::string* d = entry.metadata->get("description")) {
+                if (const std::string* d = entry.metadata->getString("description")) {
                     tooltip = *d;
                 }
-                if (const std::string* t = entry.metadata->get("type")) {
+                if (const std::string* t = entry.metadata->getString("type")) {
                     declaredType = *t;
                 }
+            }
+
+            if (entry.isSection()) {
+                GtkWidget* sectionLabel = gtk_label_new(label.c_str());
+                gtk_widget_add_css_class(sectionLabel, "heading");
+                gtk_label_set_xalign(GTK_LABEL(sectionLabel), 0.0f);
+                if (indent > 0) {
+                    gtk_widget_set_margin_start(sectionLabel, indent * 16);
+                }
+                if (!tooltip.empty()) {
+                    gtk_widget_set_tooltip_text(sectionLabel, tooltip.c_str());
+                }
+                gtk_grid_attach(grid, sectionLabel, 0, row++, 3, 1);
+                continue;
+            }
+
+            if (entry.isGroup()) {
+                row = addGroupFields(grid, row, entry.name, label, tooltip, *entry.metadata->find("properties"), indent);
+                continue;
             }
 
             const format::JsonValue* current = mNode->properties.find(entry.name);
             const format::JsonValue& value = current ? *current : entry.value;
             FieldKind kind = resolveFieldKind(declaredType, value);
 
-            GtkWidget* field = nullptr;
+            std::vector<std::string> enumValues;
+            if (kind == FieldKind::Enum) {
+                enumValues = entry.metadata ? extractEnumValues(*entry.metadata) : std::vector<std::string>{};
+                if (enumValues.empty()) {
+                    kind = FieldKind::String; // declared "enum" but no usable "values" list - fall back
+                }
+            }
+
+            GtkWidget* field = addFieldForKind(grid, row, kind, label, tooltip, value, enumValues, indent);
             switch (kind) {
-                case FieldKind::Bool: {
-                    GtkWidget* labelWidget = gtk_label_new(label.c_str());
-                    gtk_label_set_xalign(GTK_LABEL(labelWidget), 0.0f);
-                    if (indent > 0) {
-                        gtk_widget_set_margin_start(labelWidget, indent * 16);
-                    }
-                    if (!tooltip.empty()) {
-                        gtk_widget_set_tooltip_text(labelWidget, tooltip.c_str());
-                    }
-                    gtk_grid_attach(grid, labelWidget, 0, row, 1, 1);
-                    field = gtk_check_button_new();
-                    gtk_check_button_set_active(GTK_CHECK_BUTTON(field), value.isBool() && value.boolValue);
-                    gtk_grid_attach(grid, field, 1, row, 2, 1);
+                case FieldKind::Bool:
                     g_signal_connect(field, "toggled", G_CALLBACK(onDynamicBoolChanged), this);
                     break;
-                }
-                case FieldKind::Integer: {
-                    double v = value.isNumber() ? value.numberValue : 0.0;
-                    field = addSpinRow(grid, row, label, tooltip, v, -1000000, 1000000, 1, 0, indent);
+                case FieldKind::Integer:
+                case FieldKind::Float:
                     g_signal_connect(field, "value-changed", G_CALLBACK(onDynamicNumberChanged), this);
                     break;
-                }
-                case FieldKind::Float: {
-                    double v = value.isNumber() ? value.numberValue : 0.0;
-                    field = addSpinRow(grid, row, label, tooltip, v, -1000000, 1000000, 0.01, 4, indent);
-                    g_signal_connect(field, "value-changed", G_CALLBACK(onDynamicNumberChanged), this);
-                    break;
-                }
-                case FieldKind::Widget: {
-                    std::string current_ = value.isString() ? value.stringValue : std::string();
-                    field = addWidgetPickerRow(grid, row, label, tooltip, current_, indent);
+                case FieldKind::Widget:
                     g_signal_connect(field, "notify::selected", G_CALLBACK(onDynamicWidgetRefChanged), this);
                     break;
-                }
+                case FieldKind::Enum:
+                    g_signal_connect(field, "notify::selected", G_CALLBACK(onDynamicEnumChanged), this);
+                    break;
                 case FieldKind::String:
-                default: {
-                    std::string text = value.isString() ? value.stringValue : std::string();
-                    field = addEntryRow(grid, row, label, tooltip, text, indent);
+                default:
                     g_signal_connect(field, "changed", G_CALLBACK(onDynamicTextChanged), this);
                     break;
-                }
             }
             g_object_set_data_full(G_OBJECT(field), "regui-prop-name", g_strdup(entry.name.c_str()), g_free);
             if (!tooltip.empty()) {
@@ -295,20 +384,17 @@ int PropertiesPanel::addDynamicFields(GtkGrid* grid, int row, const model::Widge
     }
 
     // required-callbacks (has metadata/defaults) merged with
-    // available-callbacks (plain names), de-duplicated by name.
+    // available-callbacks (metadata only, no default), de-duplicated by name.
     std::vector<model::NamedEntry> callbacks = typeDef.section("required-callbacks");
     std::vector<std::string> seen;
     seen.reserve(callbacks.size());
     for (const model::NamedEntry& e : callbacks) {
         seen.push_back(e.name);
     }
-    for (const std::string& name : typeDef.stringArraySection("available-callbacks")) {
-        if (std::find(seen.begin(), seen.end(), name) == seen.end()) {
-            model::NamedEntry entry;
-            entry.name = name;
-            entry.value = format::JsonValue::makeString("");
-            callbacks.push_back(entry);
-            seen.push_back(name);
+    for (model::NamedEntry& entry : typeDef.section("available-callbacks")) {
+        if (std::find(seen.begin(), seen.end(), entry.name) == seen.end()) {
+            seen.push_back(entry.name);
+            callbacks.push_back(std::move(entry));
         }
     }
 
@@ -322,10 +408,10 @@ int PropertiesPanel::addDynamicFields(GtkGrid* grid, int row, const model::Widge
             std::string label = entry.name;
             std::string tooltip;
             if (entry.metadata) {
-                if (const std::string* l = entry.metadata->get("label")) {
+                if (const std::string* l = entry.metadata->getString("label")) {
                     label = *l;
                 }
-                if (const std::string* d = entry.metadata->get("description")) {
+                if (const std::string* d = entry.metadata->getString("description")) {
                     tooltip = *d;
                 }
             }
@@ -344,6 +430,198 @@ int PropertiesPanel::addDynamicFields(GtkGrid* grid, int row, const model::Widge
     }
 
     return row;
+}
+
+GtkWidget* PropertiesPanel::addFieldForKind(
+    GtkGrid* grid, int row, FieldKind kind, const std::string& label, const std::string& tooltip,
+    const format::JsonValue& value, const std::vector<std::string>& enumValues, int indent) {
+    switch (kind) {
+        case FieldKind::Bool: {
+            GtkWidget* labelWidget = gtk_label_new(label.c_str());
+            gtk_label_set_xalign(GTK_LABEL(labelWidget), 0.0f);
+            if (indent > 0) {
+                gtk_widget_set_margin_start(labelWidget, indent * 16);
+            }
+            if (!tooltip.empty()) {
+                gtk_widget_set_tooltip_text(labelWidget, tooltip.c_str());
+            }
+            gtk_grid_attach(grid, labelWidget, 0, row, 1, 1);
+            GtkWidget* field = gtk_check_button_new();
+            gtk_check_button_set_active(GTK_CHECK_BUTTON(field), value.isBool() && value.boolValue);
+            applyAccentCheckButtonStyle(field);
+            gtk_grid_attach(grid, field, 1, row, 2, 1);
+            return field;
+        }
+        case FieldKind::Integer: {
+            double v = value.isNumber() ? value.numberValue : 0.0;
+            return addSpinRow(grid, row, label, tooltip, v, -1000000, 1000000, 1, 0, indent);
+        }
+        case FieldKind::Float: {
+            double v = value.isNumber() ? value.numberValue : 0.0;
+            return addSpinRow(grid, row, label, tooltip, v, -1000000, 1000000, 0.01, 4, indent);
+        }
+        case FieldKind::Widget: {
+            std::string current = value.isString() ? value.stringValue : std::string();
+            return addWidgetPickerRow(grid, row, label, tooltip, current, indent);
+        }
+        case FieldKind::Enum: {
+            std::string current = value.isString() ? value.stringValue : std::string();
+            return addEnumPickerRow(grid, row, label, tooltip, enumValues, current, indent);
+        }
+        case FieldKind::String:
+        default: {
+            std::string text = value.isString() ? value.stringValue : std::string();
+            return addEntryRow(grid, row, label, tooltip, text, indent);
+        }
+    }
+}
+
+int PropertiesPanel::addGroupFields(
+    GtkGrid* grid, int row, const std::string& groupName, const std::string& groupLabel,
+    const std::string& groupTooltip, const format::JsonValue& subDefs, int indent) {
+    GtkWidget* header = gtk_label_new(groupLabel.c_str());
+    gtk_widget_add_css_class(header, "heading");
+    gtk_label_set_xalign(GTK_LABEL(header), 0.0f);
+    if (indent > 0) {
+        gtk_widget_set_margin_start(header, indent * 16);
+    }
+    if (!groupTooltip.empty()) {
+        gtk_widget_set_tooltip_text(header, groupTooltip.c_str());
+    }
+    gtk_grid_attach(grid, header, 0, row++, 3, 1);
+
+    const format::JsonValue* packed = mNode->properties.find(groupName);
+    std::vector<std::string> tokens =
+        splitWhitespace(packed && packed->isString() ? packed->stringValue : std::string());
+
+    // Freed once, by the first sub-field's destroy notify - every other sub-field just
+    // references the same vector (see the loop attaching it below).
+    auto* siblingFields = new std::vector<GtkWidget*>();
+
+    for (size_t i = 0; i < subDefs.arrayItems.size(); ++i) {
+        const format::JsonValue& subDef = subDefs.arrayItems[i];
+        std::string subLabel = "Item " + std::to_string(i + 1);
+        std::string subTooltip;
+        std::string subType;
+        if (const std::string* l = subDef.getString("label")) {
+            subLabel = *l;
+        }
+        if (const std::string* d = subDef.getString("description")) {
+            subTooltip = *d;
+        }
+        if (const std::string* t = subDef.getString("type")) {
+            subType = *t;
+        }
+
+        std::string token = i < tokens.size() ? tokens[i] : defaultGroupToken(subDef);
+
+        FieldKind kind = resolveFieldKind(subType, format::JsonValue::makeString(token));
+        std::vector<std::string> enumValues;
+        if (kind == FieldKind::Enum) {
+            enumValues = extractEnumValues(subDef);
+            if (enumValues.empty()) {
+                kind = FieldKind::String;
+            }
+        }
+
+        format::JsonValue value = groupTokenToValue(kind, token);
+        GtkWidget* field = addFieldForKind(grid, row, kind, subLabel, subTooltip, value, enumValues, indent + 1);
+
+        g_object_set_data_full(G_OBJECT(field), "regui-prop-name", g_strdup(groupName.c_str()), g_free);
+        g_object_set_data(G_OBJECT(field), "regui-field-kind", GINT_TO_POINTER(static_cast<int>(kind)));
+        if (!subTooltip.empty()) {
+            gtk_widget_set_tooltip_text(field, subTooltip.c_str());
+        }
+        trackFocus(field);
+        siblingFields->push_back(field);
+
+        switch (kind) {
+            case FieldKind::Bool:
+                g_signal_connect(field, "toggled", G_CALLBACK(onDynamicGroupBoolChanged), this);
+                break;
+            case FieldKind::Widget:
+            case FieldKind::Enum:
+                g_signal_connect(field, "notify::selected", G_CALLBACK(onDynamicGroupDropdownChanged), this);
+                break;
+            case FieldKind::Integer:
+            case FieldKind::Float:
+                g_signal_connect(field, "value-changed", G_CALLBACK(onDynamicGroupNumberChanged), this);
+                break;
+            case FieldKind::String:
+            default:
+                g_signal_connect(field, "changed", G_CALLBACK(onDynamicGroupTextChanged), this);
+                break;
+        }
+        ++row;
+    }
+
+    for (size_t i = 0; i < siblingFields->size(); ++i) {
+        if (i == 0) {
+            g_object_set_data_full(G_OBJECT((*siblingFields)[0]), "regui-group-fields", siblingFields, [](gpointer p) {
+                delete static_cast<std::vector<GtkWidget*>*>(p);
+            });
+        } else {
+            g_object_set_data(G_OBJECT((*siblingFields)[i]), "regui-group-fields", siblingFields);
+        }
+    }
+
+    return row;
+}
+
+void PropertiesPanel::repackGroupProperty(GtkWidget* changedField) {
+    if (mSuppressLive || !mNode) {
+        return;
+    }
+    const char* name = static_cast<const char*>(g_object_get_data(G_OBJECT(changedField), "regui-prop-name"));
+    auto* siblings =
+        static_cast<std::vector<GtkWidget*>*>(g_object_get_data(G_OBJECT(changedField), "regui-group-fields"));
+    if (!name || !siblings) {
+        return;
+    }
+
+    std::vector<std::string> tokens;
+    tokens.reserve(siblings->size());
+    for (GtkWidget* field : *siblings) {
+        auto kind = static_cast<FieldKind>(
+            GPOINTER_TO_INT(g_object_get_data(G_OBJECT(field), "regui-field-kind")));
+        switch (kind) {
+            case FieldKind::Bool:
+                tokens.push_back(gtk_check_button_get_active(GTK_CHECK_BUTTON(field)) ? "true" : "false");
+                break;
+            case FieldKind::Integer:
+            case FieldKind::Float:
+                tokens.push_back(formatGroupNumber(gtk_spin_button_get_value(GTK_SPIN_BUTTON(field))));
+                break;
+            case FieldKind::Widget:
+            case FieldKind::Enum: {
+                guint selected = gtk_drop_down_get_selected(GTK_DROP_DOWN(field));
+                auto* model = GTK_STRING_LIST(gtk_drop_down_get_model(GTK_DROP_DOWN(field)));
+                const char* text =
+                    selected == GTK_INVALID_LIST_POSITION ? "" : gtk_string_list_get_string(model, selected);
+                tokens.push_back(text ? text : "");
+                break;
+            }
+            case FieldKind::String:
+            default: {
+                const char* text = gtk_editable_get_text(GTK_EDITABLE(field));
+                tokens.push_back(text ? text : "");
+                break;
+            }
+        }
+    }
+
+    std::string joined;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (i > 0) {
+            joined += ' ';
+        }
+        joined += tokens[i];
+    }
+
+    mNode->properties.set(name, format::JsonValue::makeString(joined));
+    if (mOnLiveChange) {
+        mOnLiveChange();
+    }
 }
 
 GtkWidget* PropertiesPanel::addLabelRow(GtkGrid* grid, int row, const std::string& label, const std::string& text) {
@@ -490,6 +768,43 @@ GtkWidget* PropertiesPanel::addWidgetPickerRow(
     return dropdown;
 }
 
+GtkWidget* PropertiesPanel::addEnumPickerRow(
+    GtkGrid* grid, int row, const std::string& label, const std::string& tooltip,
+    const std::vector<std::string>& values, const std::string& current, int indent) {
+    GtkWidget* labelWidget = gtk_label_new(label.c_str());
+    gtk_label_set_xalign(GTK_LABEL(labelWidget), 0.0f);
+    if (indent > 0) {
+        gtk_widget_set_margin_start(labelWidget, indent * 16);
+    }
+    if (!tooltip.empty()) {
+        gtk_widget_set_tooltip_text(labelWidget, tooltip.c_str());
+    }
+    gtk_grid_attach(grid, labelWidget, 0, row, 1, 1);
+
+    std::vector<const char*> cValues;
+    cValues.reserve(values.size() + 1);
+    for (const std::string& value : values) {
+        cValues.push_back(value.c_str());
+    }
+    cValues.push_back(nullptr);
+
+    GtkWidget* dropdown = gtk_drop_down_new_from_strings(cValues.data());
+    guint selected = 0;
+    for (guint i = 0; i < values.size(); ++i) {
+        if (values[i] == current) {
+            selected = i;
+            break;
+        }
+    }
+    gtk_drop_down_set_selected(GTK_DROP_DOWN(dropdown), selected);
+    gtk_widget_set_hexpand(dropdown, TRUE);
+    if (!tooltip.empty()) {
+        gtk_widget_set_tooltip_text(dropdown, tooltip.c_str());
+    }
+    gtk_grid_attach(grid, dropdown, 1, row, 2, 1);
+    return dropdown;
+}
+
 GtkWidget* PropertiesPanel::addSkinPickerRow(GtkGrid* grid, int row, const std::string& current) {
     GtkWidget* labelWidget = gtk_label_new("Skin");
     gtk_label_set_xalign(GTK_LABEL(labelWidget), 0.0f);
@@ -504,6 +819,7 @@ GtkWidget* PropertiesPanel::addSkinPickerRow(GtkGrid* grid, int row, const std::
 }
 
 void PropertiesPanel::trackFocus(GtkWidget* field) {
+    applyAccentFocusStyle(field);
     GtkEventController* focus = gtk_event_controller_focus_new();
     g_signal_connect(focus, "enter", G_CALLBACK(onFocusEnter), this);
     g_signal_connect(focus, "leave", G_CALLBACK(onFocusLeave), this);
@@ -620,6 +936,17 @@ void PropertiesPanel::onSkinButtonClicked(GtkButton*, gpointer userData) {
             self->mOnCommit();
         }
     });
+}
+
+void PropertiesPanel::onAlphaChanged(GtkSpinButton* spin, gpointer userData) {
+    auto* self = static_cast<PropertiesPanel*>(userData);
+    if (self->mSuppressLive || !self->mNode) {
+        return;
+    }
+    self->mNode->setAlpha(gtk_spin_button_get_value(spin));
+    if (self->mOnLiveChange) {
+        self->mOnLiveChange();
+    }
 }
 
 void PropertiesPanel::onAnchorXChanged(GtkSpinButton* spin, gpointer userData) {
@@ -835,6 +1162,43 @@ void PropertiesPanel::onDynamicWidgetRefChanged(GtkDropDown* dropdown, GParamSpe
     if (self->mOnLiveChange) {
         self->mOnLiveChange();
     }
+}
+
+void PropertiesPanel::onDynamicEnumChanged(GtkDropDown* dropdown, GParamSpec*, gpointer userData) {
+    auto* self = static_cast<PropertiesPanel*>(userData);
+    if (self->mSuppressLive || !self->mNode) {
+        return;
+    }
+    const char* name = static_cast<const char*>(g_object_get_data(G_OBJECT(dropdown), "regui-prop-name"));
+    if (!name) {
+        return;
+    }
+    guint selected = gtk_drop_down_get_selected(dropdown);
+    if (selected == GTK_INVALID_LIST_POSITION) {
+        return;
+    }
+    auto* model = GTK_STRING_LIST(gtk_drop_down_get_model(dropdown));
+    const char* text = gtk_string_list_get_string(model, selected);
+    self->mNode->properties.set(name, format::JsonValue::makeString(text ? text : ""));
+    if (self->mOnLiveChange) {
+        self->mOnLiveChange();
+    }
+}
+
+void PropertiesPanel::onDynamicGroupTextChanged(GtkEditable* editable, gpointer userData) {
+    static_cast<PropertiesPanel*>(userData)->repackGroupProperty(GTK_WIDGET(editable));
+}
+
+void PropertiesPanel::onDynamicGroupNumberChanged(GtkSpinButton* spin, gpointer userData) {
+    static_cast<PropertiesPanel*>(userData)->repackGroupProperty(GTK_WIDGET(spin));
+}
+
+void PropertiesPanel::onDynamicGroupBoolChanged(GtkCheckButton* check, gpointer userData) {
+    static_cast<PropertiesPanel*>(userData)->repackGroupProperty(GTK_WIDGET(check));
+}
+
+void PropertiesPanel::onDynamicGroupDropdownChanged(GtkDropDown* dropdown, GParamSpec*, gpointer userData) {
+    static_cast<PropertiesPanel*>(userData)->repackGroupProperty(GTK_WIDGET(dropdown));
 }
 
 } // namespace regui::ui

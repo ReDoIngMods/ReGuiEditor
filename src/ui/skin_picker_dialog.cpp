@@ -8,6 +8,7 @@
 #endif
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 
 namespace regui::ui {
@@ -15,6 +16,9 @@ namespace regui::ui {
 struct SkinPickerDialog::State {
     std::function<void(std::string)> onChosen;
     GtkWidget* dialog = nullptr;
+    GtkWidget* searchEntry = nullptr;
+    GtkWidget* listBox = nullptr;
+    std::string searchQuery; // lowercased; empty means "show everything"
     GtkWidget* previewArea = nullptr;
     GtkWidget* previewSizeSpin = nullptr;
     GtkWidget* nameLabel = nullptr;
@@ -42,6 +46,12 @@ void headerFunc(GtkListBoxRow* row, GtkListBoxRow* before, gpointer) {
     } else {
         gtk_list_box_row_set_header(row, nullptr);
     }
+}
+
+std::string toLower(const std::string& text) {
+    std::string result = text;
+    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) { return std::tolower(c); });
+    return result;
 }
 
 GtkWidget* makeRowLabel(const std::string& text) {
@@ -172,12 +182,23 @@ GtkWidget* SkinPickerDialog::buildSkinList(
         return a->category != b->category ? a->category < b->category : a->name < b->name;
     });
 
+    GtkWidget* container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+
+    GtkWidget* searchEntry = gtk_search_entry_new();
+    gtk_widget_set_tooltip_text(searchEntry, "Filter skins by name");
+    g_signal_connect(searchEntry, "search-changed", G_CALLBACK(onSearchChanged), state);
+    gtk_box_append(GTK_BOX(container), searchEntry);
+    state->searchEntry = searchEntry;
+
     GtkWidget* scroller = gtk_scrolled_window_new();
     gtk_widget_set_vexpand(scroller, TRUE);
+    gtk_box_append(GTK_BOX(container), scroller);
 
     GtkWidget* listBox = gtk_list_box_new();
     gtk_list_box_set_selection_mode(GTK_LIST_BOX(listBox), GTK_SELECTION_BROWSE);
     gtk_list_box_set_header_func(GTK_LIST_BOX(listBox), headerFunc, nullptr, nullptr);
+    gtk_list_box_set_filter_func(GTK_LIST_BOX(listBox), filterRow, state, nullptr);
+    state->listBox = listBox;
 
     GtkWidget* noneRow = gtk_list_box_row_new();
     gtk_list_box_row_set_child(GTK_LIST_BOX_ROW(noneRow), makeRowLabel("(none)"));
@@ -200,9 +221,30 @@ GtkWidget* SkinPickerDialog::buildSkinList(
 
     if (selectRow) {
         gtk_list_box_select_row(GTK_LIST_BOX(listBox), selectRow);
-        gtk_widget_grab_focus(GTK_WIDGET(selectRow));
+        gtk_widget_grab_focus(GTK_WIDGET(selectRow)); // scrolls the preselected row into view
     }
-    return scroller;
+    // Typing should go straight to the filter without an extra click; the
+    // grab above already scrolled the current skin into view first.
+    gtk_widget_grab_focus(searchEntry);
+    return container;
+}
+
+gboolean SkinPickerDialog::filterRow(GtkListBoxRow* row, gpointer userData) {
+    auto* state = static_cast<State*>(userData);
+    if (state->searchQuery.empty()) {
+        return TRUE;
+    }
+    auto* skin = static_cast<canvas::SkinInfo*>(g_object_get_data(G_OBJECT(row), "regui-skin"));
+    if (!skin) {
+        return TRUE; // always keep the "(none)" row visible
+    }
+    return toLower(skin->name).find(state->searchQuery) != std::string::npos;
+}
+
+void SkinPickerDialog::onSearchChanged(GtkSearchEntry* entry, gpointer userData) {
+    auto* state = static_cast<State*>(userData);
+    state->searchQuery = toLower(gtk_editable_get_text(GTK_EDITABLE(entry)));
+    gtk_list_box_invalidate_filter(GTK_LIST_BOX(state->listBox));
 }
 
 void SkinPickerDialog::selectSkin(State* state, const canvas::SkinInfo* skin) {

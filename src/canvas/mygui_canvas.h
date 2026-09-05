@@ -55,6 +55,15 @@ struct LoadProgress {
     double fraction = 0.0;
 };
 
+// One resolution the game ships a dedicated GUI asset pack for (see
+// guiResolutions.json's "resolutionList"). Only one of these can be loaded
+// into MyGUI at a time - see setActiveGameResolution().
+struct GameResolution {
+    double width = 0;
+    double height = 0;
+    std::string folder; // relative to mAssetsRoot, e.g. "Resolutions/1920x1080"
+};
+
 // Owns the GtkGLArea, the MyGUI OpenGL3 platform, and a real MyGUI::Gui
 // initialized against Scrap Mechanic's own skin/font resources. Also owns
 // selection and click/drag editing of the widget tree it displays.
@@ -93,6 +102,27 @@ public:
     void setReferenceResolution(double width, double height);
     double referenceWidth() const { return mReferenceWidth; }
     double referenceHeight() const { return mReferenceHeight; }
+
+    // Every resolution the game ships a dedicated GUI asset pack for (from
+    // guiResolutions.json), in the order the file lists them. Empty until
+    // the canvas realizes.
+    const std::vector<GameResolution>& availableGameResolutions() const { return mGameResolutions; }
+    int activeGameResolutionIndex() const { return mActiveResolutionIndex; }
+
+    // Switches which resolution's GUI asset pack (Resolutions/<W>x<H>/...)
+    // is loaded into MyGUI, using the same tiering the game itself uses
+    // (GetMyGuiScreenSize()): the largest pack that still fits within
+    // `width`/`height` on both axes, falling back to the smallest pack if
+    // even that one doesn't fit. A no-op if that pack is already the active
+    // one. Independent of setReferenceResolution's simulated canvas size -
+    // callers typically want both. Reloads every MyGUI resource
+    // (skins/fonts/etc.), so every widget on canvas is briefly torn down and
+    // rebuilt; this is unavoidable since every resolution pack redefines the
+    // same skin names over differently-sized textures, so only one can be
+    // loaded at a time. `onProgress`, if given, is fired the same way
+    // setOnLoadProgress()'s callback is during the initial load.
+    void setActiveGameResolution(
+        double width, double height, const std::function<void(const LoadProgress&)>& onProgress = {});
 
     // Grid dot spacing / hard-snap increment, reference units. Defaults to 10.
     void setGridSpacing(double spacing);
@@ -141,6 +171,9 @@ private:
     double mGridSpacing = 10.0; // reference units
     bool mGridEnabled = true;
     std::vector<SkinInfo> mAvailableSkins; // populated by loadGameResources()
+    std::vector<GameResolution> mGameResolutions; // from guiResolutions.json, parsed once
+    std::vector<std::string> mResolutionResourceFiles; // guiResolutions.json's "resources" list, shared across packs
+    int mActiveResolutionIndex = -1; // index into mGameResolutions currently loaded into MyGUI
     GtkWidget* mGlArea = nullptr;
     MyGUI::OpenGL3Platform* mPlatform = nullptr;
     class FreeImageLoader* mImageLoader = nullptr; // MyGUI doesn't take ownership; we do
@@ -243,8 +276,27 @@ private:
     void onRender();
 
     // Fires onStep(what, where, localFraction) as it goes - see setOnLoadProgress().
-    void loadGameResources(const std::function<void(const std::string&, const std::string&, double)>& onStep);
+    // `desiredResolutionIndex` picks which GameResolution pack to load
+    // alongside the core resources; -1 means "closest to the current
+    // reference resolution" (used on first load, before any pack is active).
+    void loadGameResources(
+        const std::function<void(const std::string&, const std::string&, double)>& onStep,
+        int desiredResolutionIndex = -1);
     void reportLoadProgress(const std::string& what, const std::string& where, const std::string& who, double fraction);
+    // Creates mPlatform/mImageLoader and registers the resolution-independent
+    // resource locations. Used both on first realize and when
+    // setActiveGameResolution() tears down and rebuilds MyGUI.
+    void initialisePlatform();
+    // Parses guiResolutions.json into mGameResolutions/mResolutionResourceFiles. A no-op if already parsed.
+    void parseGuiResolutions();
+    // Largest GameResolution pack that still fits within (width, height) on
+    // both axes (mirrors the game's own GetMyGuiScreenSize() tiering); the
+    // smallest pack if none fit; -1 if none loaded.
+    int findResolutionBucketIndex(double width, double height) const;
+    // Registers mGameResolutions[index]'s folder and loads every resource
+    // file guiResolutions.json lists that actually exists in it, appending
+    // their skins to mAvailableSkins. Sets mActiveResolutionIndex.
+    void loadResolutionResources(int index, const std::function<void(const std::string&, const std::string&, double)>& onStep);
     void rebuildWidgets();
     void destroyWidgets();
     void rebuildOverlay();
