@@ -54,8 +54,37 @@ add_library(regui_model STATIC
 target_include_directories(regui_model PUBLIC src)
 target_link_libraries(regui_model PUBLIC regui_format)
 
+# --- Embed the editor's own MyGUI assets (fonts/skins/white texture) into
+# the executable, so it needs no assets/ folder alongside it at runtime. ---
+set(REGUIEDITOR_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
+
+function(regui_embed_asset SRC VAR_NAME OUT_HEADER)
+    add_custom_command(
+        OUTPUT "${OUT_HEADER}"
+        COMMAND ${CMAKE_COMMAND} -DIN_FILE=${SRC} -DOUT_FILE=${OUT_HEADER} -DVAR_NAME=${VAR_NAME}
+                -P "${CMAKE_SOURCE_DIR}/cmake/embed_binary.cmake"
+        DEPENDS "${SRC}" "${CMAKE_SOURCE_DIR}/cmake/embed_binary.cmake"
+        COMMENT "Embedding ${SRC}"
+        VERBATIM
+    )
+endfunction()
+
+regui_embed_asset("${CMAKE_SOURCE_DIR}/assets/editor-fonts.xml" kEmbeddedEditorFontsXml
+    "${REGUIEDITOR_GENERATED_DIR}/embedded_editor_fonts_xml.h")
+regui_embed_asset("${CMAKE_SOURCE_DIR}/assets/editor-skins.xml" kEmbeddedEditorSkinsXml
+    "${REGUIEDITOR_GENERATED_DIR}/embedded_editor_skins_xml.h")
+regui_embed_asset("${CMAKE_SOURCE_DIR}/assets/editor-white.png" kEmbeddedEditorWhitePng
+    "${REGUIEDITOR_GENERATED_DIR}/embedded_editor_white_png.h")
+
+add_custom_target(regui_embedded_assets DEPENDS
+    "${REGUIEDITOR_GENERATED_DIR}/embedded_editor_fonts_xml.h"
+    "${REGUIEDITOR_GENERATED_DIR}/embedded_editor_skins_xml.h"
+    "${REGUIEDITOR_GENERATED_DIR}/embedded_editor_white_png.h"
+)
+
 add_executable(reguieditor
     src/main.cpp
+    src/canvas/embedded_assets.cpp
     src/canvas/freeimage_loader.cpp
     src/canvas/mygui_canvas.cpp
     src/ui/accent_style.cpp
@@ -79,6 +108,7 @@ target_include_directories(reguieditor PRIVATE
     third_party/mygui/Platforms/OpenGL3/OpenGL3Platform/include
     third_party/mygui/Common
     ${FREEIMAGE_INCLUDE_DIR}
+    ${REGUIEDITOR_GENERATED_DIR}
 )
 target_link_libraries(reguieditor PRIVATE
     PkgConfig::GTK4
@@ -88,6 +118,7 @@ target_link_libraries(reguieditor PRIVATE
     regui_model
     ${FREEIMAGE_LIBRARY}
 )
+add_dependencies(reguieditor regui_embedded_assets)
 
 # No console window on a normal launch (double-click or a shortcut) - main()
 # reopens one itself, only when started with -dev, via AllocConsole().
@@ -100,7 +131,6 @@ endif()
 # the app has its own resource layout to ship.
 target_compile_definitions(reguieditor PRIVATE
     MYGUI_MEDIA_DIR="${CMAKE_SOURCE_DIR}/third_party/mygui/Media/MyGUI_Media"
-    REGUIEDITOR_ASSETS_ROOT="${CMAKE_SOURCE_DIR}/assets"
     REGUIEDITOR_ADDONS_ROOT="${CMAKE_SOURCE_DIR}/addons"
 )
 

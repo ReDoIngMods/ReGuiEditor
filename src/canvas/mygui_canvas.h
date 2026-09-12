@@ -166,6 +166,7 @@ private:
     enum class DragMode { None, Move, ResizeTopLeft, ResizeTopRight, ResizeBottomLeft, ResizeBottomRight, Anchor };
 
     std::string mAssetsRoot;
+    std::string mEditorAssetsRoot; // extracted embedded editor-fonts.xml/editor-skins.xml, set in initialisePlatform()
     double mReferenceWidth = 1920.0;
     double mReferenceHeight = 1080.0;
     double mGridSpacing = 10.0; // reference units

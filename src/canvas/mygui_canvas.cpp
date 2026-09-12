@@ -2,6 +2,7 @@
 
 #include <epoxy/gl.h>
 
+#include "canvas/embedded_assets.h"
 #include "canvas/freeimage_loader.h"
 #include "format/json_value.h"
 #include "format/parser.h"
@@ -463,8 +464,11 @@ void MyGuiCanvas::initialisePlatform() {
     dataManager->addResourceLocation(mAssetsRoot + "/Fonts", false);
     dataManager->addResourceLocation(mAssetsRoot + "/Language/English", false);
     // Bundled with the editor itself, not the game - independent of mAssetsRoot
-    // now that it points at the user's own Scrap Mechanic install.
-    dataManager->addResourceLocation(REGUIEDITOR_ASSETS_ROOT, false); // editor-fonts.xml/editor-skins.xml
+    // now that it points at the user's own Scrap Mechanic install. Embedded
+    // into the executable at build time; extracted here to real files since
+    // MyGUI's DataManager and readFile() both expect a filesystem path.
+    mEditorAssetsRoot = extractEmbeddedEditorAssets();
+    dataManager->addResourceLocation(mEditorAssetsRoot, false); // editor-fonts.xml/editor-skins.xml
     dataManager->addResourceLocation(MYGUI_MEDIA_DIR, false); // MyGUI's own shaders only
 
     mImageLoader = new FreeImageLoader();
@@ -824,8 +828,7 @@ void MyGuiCanvas::loadGameResources(
     ++stepIndex;
     MyGUI::ResourceManager::getInstance().load("editor-skins.xml");
     collectSkinInfos(
-        readFile(std::string(REGUIEDITOR_ASSETS_ROOT) + "/editor-skins.xml"), "editor-skins", REGUIEDITOR_ASSETS_ROOT,
-        mAvailableSkins);
+        readFile(mEditorAssetsRoot + "/editor-skins.xml"), "editor-skins", mEditorAssetsRoot, mAvailableSkins);
 
     int resolutionIndex =
         desiredResolutionIndex >= 0 ? desiredResolutionIndex : findResolutionBucketIndex(mReferenceWidth, mReferenceHeight);
