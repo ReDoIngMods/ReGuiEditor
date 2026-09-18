@@ -1,0 +1,644 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{8103728a-3d4a-4c23-ae94-9bfa22682ac1}</ProjectGuid>
+    <RootNamespace>ReGuiEditor</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Manifest>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
+    </Manifest>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Manifest>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
+    </Manifest>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NOMINMAX;MYGUI_DONT_USE_OBSOLETE;MYGUI_USE_FREETYPE;_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS;_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Dependencies\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>UTILS\Console.hpp</ForcedIncludeFiles>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)Dependencies\Libraries;$(ProjectDir)Dependencies\Libraries\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>FreeImage.lib;freetype.lib;MyGUIEngine.lib;steam_api64.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Manifest>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
+    </Manifest>
+    <PostBuildEvent>
+      <Command>robocopy "$(ProjectDir)Dependencies\Libraries\$(Configuration)" "$(TargetDir)." *.dll /R:2 /W:1
+if %ERRORLEVEL% GEQ 8 exit /b 1
+
+robocopy "$(ProjectDir)Dependencies\Libraries" "$(TargetDir)." *.dll /R:2 /W:1
+if %ERRORLEVEL% GEQ 8 exit /b 1
+
+exit /b 0</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist "$(TargetDir)" rmdir /s /q "$(TargetDir)"</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NOMINMAX;MYGUI_DONT_USE_OBSOLETE;MYGUI_USE_FREETYPE;_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS;_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Dependencies\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>UTILS\Console.hpp</ForcedIncludeFiles>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)Dependencies\Libraries;$(ProjectDir)Dependencies\Libraries\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>FreeImage.lib;freetype.lib;MyGUIEngine.lib;steam_api64.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Manifest>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
+    </Manifest>
+    <PostBuildEvent>
+      <Command>robocopy "$(ProjectDir)Dependencies\Libraries\$(Configuration)" "$(TargetDir)." *.dll /R:2 /W:1
+if %ERRORLEVEL% GEQ 8 exit /b 1
+
+robocopy "$(ProjectDir)Dependencies\Libraries" "$(TargetDir)." *.dll /R:2 /W:1
+if %ERRORLEVEL% GEQ 8 exit /b 1
+
+exit /b 0</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist "$(TargetDir)" rmdir /s /q "$(TargetDir)"</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Application.cpp" />
+    <ClCompile Include="ConfigManager\ConfigManager.cpp" />
+    <ClCompile Include="Dependencies\ImGui\imgui.cpp" />
+    <ClCompile Include="Dependencies\ImGui\imgui_demo.cpp" />
+    <ClCompile Include="Dependencies\ImGui\imgui_draw.cpp" />
+    <ClCompile Include="Dependencies\ImGui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="Dependencies\ImGui\imgui_impl_win32.cpp" />
+    <ClCompile Include="Dependencies\ImGui\imgui_tables.cpp" />
+    <ClCompile Include="Dependencies\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="Dependencies\ImGui\misc\freetype\imgui_freetype.cpp" />
+    <ClCompile Include="DirectoryManager\DirectoryManager.cpp" />
+    <ClCompile Include="Filesystem\Filesystem.cpp" />
+    <ClCompile Include="GUI\BackgroundImageHelper.cpp" />
+    <ClCompile Include="GUI\BlurrySubSkin\BlurrySubSkin.cpp" />
+    <ClCompile Include="GUI\BlurrySubSkin\BlurrySubSkinRenderer.cpp" />
+    <ClCompile Include="GUI\FontManager.cpp" />
+    <ClCompile Include="GUI\BlurrySubSkin\GuiBlurManager.cpp" />
+    <ClCompile Include="GUI\BlurrySubSkin\GuiBlurSkinTexture.cpp" />
+    <ClCompile Include="GUI\GuiSystemManager.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\RenderManager.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\RTTexture.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\Texture.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\VertexBuffer.cpp" />
+    <ClCompile Include="GUI\MyGui\MyGuiDataManager.cpp" />
+    <ClCompile Include="GUI\MyGui\MyGuiDataStream.cpp" />
+    <ClCompile Include="GUI\MyGui\MyGuiFontManager.cpp" />
+    <ClCompile Include="GUI\Panels\ExplorerPanel.cpp" />
+    <ClCompile Include="GUI\Panels\PropertiesPanel.cpp" />
+    <ClCompile Include="GUI\Panels\RenderPanel.cpp" />
+    <ClCompile Include="GUI\ResolutionManager.cpp" />
+    <ClCompile Include="GUI\ShaderManager.cpp" />
+    <ClCompile Include="GUI\Utilities\D3D11RenderTarget.cpp" />
+    <ClCompile Include="GUI\WindowDecoration.cpp" />
+    <ClCompile Include="UTILS\Console.cpp" />
+    <ClCompile Include="UTILS\EnvVars.cpp" />
+    <ClCompile Include="UTILS\Strings.cpp" />
+    <ClCompile Include="Window\D3D11Device.cpp" />
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Window\Window.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Application.hpp" />
+    <ClInclude Include="ConfigManager\ConfigManager.hpp" />
+    <ClInclude Include="Dependencies\ImGui\imconfig.h" />
+    <ClInclude Include="Dependencies\ImGui\imgui.h" />
+    <ClInclude Include="Dependencies\ImGui\imgui_impl_dx11.h" />
+    <ClInclude Include="Dependencies\ImGui\imgui_impl_win32.h" />
+    <ClInclude Include="Dependencies\ImGui\imgui_internal.h" />
+    <ClInclude Include="Dependencies\ImGui\imstb_rectpack.h" />
+    <ClInclude Include="Dependencies\ImGui\imstb_textedit.h" />
+    <ClInclude Include="Dependencies\ImGui\imstb_truetype.h" />
+    <ClInclude Include="Dependencies\ImGui\misc\freetype\imgui_freetype.h" />
+    <ClInclude Include="Dependencies\LZ4\lz4.h" />
+    <ClInclude Include="Dependencies\LZ4\lz4file.h" />
+    <ClInclude Include="Dependencies\LZ4\lz4frame.h" />
+    <ClInclude Include="Dependencies\LZ4\lz4frame_static.h" />
+    <ClInclude Include="Dependencies\LZ4\lz4hc.h" />
+    <ClInclude Include="Dependencies\LZ4\xxhash.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ActionController.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Align.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Allocator.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Any.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_BackwardCompatibility.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_BiIndexBase.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Bitwise.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Button.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Canvas.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ChildSkinInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ClipboardManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Colour.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ComboBox.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Common.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_CommonStateInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ConsoleLogListener.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Constants.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerEdgeHide.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerFadeAlpha.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerPosition.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_CoordConverter.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_CustomAllocator.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DataFileStream.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DataManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DataStream.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DDContainer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DDItemInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Delegate.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DelegateImplement.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DeprecatedTypes.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DeprecatedWidgets.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Diagnostic.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DynLib.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DynLibManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_EditBox.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_EditText.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Enumerator.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_EventPair.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Exception.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_FactoryManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_FileLogListener.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_FlowDirection.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_FontData.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_FontManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_GenericFactory.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_GeometryUtility.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Gui.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IBItemInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ICroppedRectangle.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IDataStream.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IFont.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IItemContainer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ILayer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ILayerItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ILayerNode.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ILogFilter.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ILogListener.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ImageBox.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ImageInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_InputManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IObject.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IPointer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IRenderTarget.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IResource.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ISerializable.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IStateInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ISubWidget.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ISubWidgetRect.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ISubWidgetText.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ItemBox.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ITexture.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IUnlinkWidget.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_IVertexBuffer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_KeyCode.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LanguageManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LayerItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LayerManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LayerNode.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LayoutData.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LayoutManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LevelLogFilter.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ListBox.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LogLevel.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LogManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LogSource.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_LogStream.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Macros.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MainSkin.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MaskPickInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MenuBar.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MenuControl.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MenuItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MenuItemType.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MouseButton.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MultiListBox.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_MultiListItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_OverlappedLayer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Platform.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Plugin.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_PluginManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_PointerManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_PolygonalSkin.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_PopupMenu.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Precompiled.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Prerequest.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ProgressBar.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_RenderFormat.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_RenderItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_RenderManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_RenderTargetInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResizingPolicy.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceImageSet.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceImageSetData.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceImageSetPointer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceLayout.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceManualFont.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceManualPointer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceSkin.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ResourceTrueTypeFont.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_RotatingSkin.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_RTTI.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ScrollBar.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ScrollView.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ScrollViewBase.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SharedLayer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SharedLayerNode.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SimpleText.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Singleton.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SkinItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SkinManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_StringUtility.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SubSkin.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SubWidgetBinding.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SubWidgetInfo.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_SubWidgetManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TabControl.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TabItem.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TCoord.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TextBox.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TextChangeHistory.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TextIterator.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TextureUtility.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TextView.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TextViewData.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TileRect.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Timer.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ToolTipManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TPoint.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TRect.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_TSize.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Types.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_UString.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Version.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_VertexData.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Widget.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetDefines.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetInput.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetStyle.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetToolTip.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetTranslate.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetUserData.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_Window.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_XmlDocument.h" />
+    <ClInclude Include="Dependencies\steam\isteamapps.h" />
+    <ClInclude Include="Dependencies\steam\isteamappticket.h" />
+    <ClInclude Include="Dependencies\steam\isteamclient.h" />
+    <ClInclude Include="Dependencies\steam\isteamcontroller.h" />
+    <ClInclude Include="Dependencies\steam\isteamdualsense.h" />
+    <ClInclude Include="Dependencies\steam\isteamfriends.h" />
+    <ClInclude Include="Dependencies\steam\isteamgamecoordinator.h" />
+    <ClInclude Include="Dependencies\steam\isteamgameserver.h" />
+    <ClInclude Include="Dependencies\steam\isteamgameserverstats.h" />
+    <ClInclude Include="Dependencies\steam\isteamhtmlsurface.h" />
+    <ClInclude Include="Dependencies\steam\isteamhttp.h" />
+    <ClInclude Include="Dependencies\steam\isteaminput.h" />
+    <ClInclude Include="Dependencies\steam\isteaminventory.h" />
+    <ClInclude Include="Dependencies\steam\isteammatchmaking.h" />
+    <ClInclude Include="Dependencies\steam\isteammusic.h" />
+    <ClInclude Include="Dependencies\steam\isteamnetworking.h" />
+    <ClInclude Include="Dependencies\steam\isteamnetworkingmessages.h" />
+    <ClInclude Include="Dependencies\steam\isteamnetworkingsockets.h" />
+    <ClInclude Include="Dependencies\steam\isteamnetworkingutils.h" />
+    <ClInclude Include="Dependencies\steam\isteamparentalsettings.h" />
+    <ClInclude Include="Dependencies\steam\isteamps3overlayrenderer.h" />
+    <ClInclude Include="Dependencies\steam\isteamremoteplay.h" />
+    <ClInclude Include="Dependencies\steam\isteamremotestorage.h" />
+    <ClInclude Include="Dependencies\steam\isteamscreenshots.h" />
+    <ClInclude Include="Dependencies\steam\isteamtimeline.h" />
+    <ClInclude Include="Dependencies\steam\isteamugc.h" />
+    <ClInclude Include="Dependencies\steam\isteamuser.h" />
+    <ClInclude Include="Dependencies\steam\isteamuserstats.h" />
+    <ClInclude Include="Dependencies\steam\isteamutils.h" />
+    <ClInclude Include="Dependencies\steam\isteamvideo.h" />
+    <ClInclude Include="Dependencies\steam\matchmakingtypes.h" />
+    <ClInclude Include="Dependencies\steam\steamclientpublic.h" />
+    <ClInclude Include="Dependencies\steam\steamencryptedappticket.h" />
+    <ClInclude Include="Dependencies\steam\steamhttpenums.h" />
+    <ClInclude Include="Dependencies\steam\steamnetworkingfakeip.h" />
+    <ClInclude Include="Dependencies\steam\steamnetworkingtypes.h" />
+    <ClInclude Include="Dependencies\steam\steamps3params.h" />
+    <ClInclude Include="Dependencies\steam\steamtypes.h" />
+    <ClInclude Include="Dependencies\steam\steamuniverse.h" />
+    <ClInclude Include="Dependencies\steam\steam_api.h" />
+    <ClInclude Include="Dependencies\steam\steam_api_common.h" />
+    <ClInclude Include="Dependencies\steam\steam_api_flat.h" />
+    <ClInclude Include="Dependencies\steam\steam_api_internal.h" />
+    <ClInclude Include="Dependencies\steam\steam_gameserver.h" />
+    <ClInclude Include="Filesystem\Filesystem.hpp" />
+    <ClInclude Include="GUI\BackgroundImageHelper.hpp" />
+    <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkin.hpp" />
+    <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkinRegistry.hpp" />
+    <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkinRenderer.hpp" />
+    <ClInclude Include="GUI\FontManager.hpp" />
+    <ClInclude Include="GUI\BlurrySubSkin\GuiBlurManager.hpp" />
+    <ClInclude Include="GUI\BlurrySubSkin\GuiBlurSkinTexture.hpp" />
+    <ClInclude Include="GUI\GuiSystemManager.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\RenderManager.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\RTTexture.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\Texture.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\VertexBuffer.hpp" />
+    <ClInclude Include="GUI\MyGui\MyGuiDataManager.hpp" />
+    <ClInclude Include="GUI\MyGui\MyGuiDataStream.hpp" />
+    <ClInclude Include="GUI\MyGui\MyGuiFontManager.hpp" />
+    <ClInclude Include="GUI\MyGui\MyGuiLogListener.hpp" />
+    <ClInclude Include="GUI\Panels\ExplorerPanel.hpp" />
+    <ClInclude Include="GUI\Panels\Panel.hpp" />
+    <ClInclude Include="GUI\Panels\PropertiesPanel.hpp" />
+    <ClInclude Include="GUI\Panels\RenderPanel.hpp" />
+    <ClInclude Include="GUI\ResolutionManager.hpp" />
+    <ClInclude Include="GUI\Lucide\IconsLucide.h" />
+    <ClInclude Include="GUI\ShaderManager.hpp" />
+    <ClInclude Include="Window\TitlebarHitTest.hpp" />
+    <ClInclude Include="GUI\Utilities\D3D11RenderTarget.hpp" />
+    <ClInclude Include="GUI\WindowDecoration.hpp" />
+    <ClInclude Include="UTILS\ByteStreamReader.hpp" />
+    <ClInclude Include="UTILS\ByteStreamWriter.hpp" />
+    <ClInclude Include="UTILS\Console.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\adl_serializer.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\byte_container_with_subtype.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\abi_macros.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\conversions\from_json.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\conversions\to_chars.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\conversions\to_json.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\exceptions.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\hash.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\input\binary_reader.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\input\input_adapters.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\input\json_sax.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\input\lexer.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\input\parser.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\input\position_t.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\iterators\internal_iterator.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\iterators\iteration_proxy.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\iterators\iterator_traits.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\iterators\iter_impl.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\iterators\json_reverse_iterator.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\iterators\primitive_iterator.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\json_custom_base_class.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\json_pointer.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\json_ref.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\macro_scope.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\macro_unscope.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\call_std\begin.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\call_std\end.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\cpp_future.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\detected.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\identity_tag.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\is_sax.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\std_fs.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\type_traits.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\meta\void_t.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\output\binary_writer.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\output\output_adapters.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\output\serializer.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\string_concat.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\string_escape.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\string_utils.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\detail\value_t.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\json.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\json_fwd.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\ordered_map.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\thirdparty\hedley\hedley.hpp" />
+    <ClInclude Include="Dependencies\nlohmann\thirdparty\hedley\hedley_undef.hpp" />
+    <ClInclude Include="DirectoryManager\DirectoryManager.hpp" />
+    <ClInclude Include="UTILS\EnvVars.hpp" />
+    <ClInclude Include="UTILS\Singleton.hpp" />
+    <ClInclude Include="UTILS\Strings.hpp" />
+    <ClInclude Include="Window\D3D11Device.hpp" />
+    <ClInclude Include="Dependencies\dlg\dlg.h" />
+    <ClInclude Include="Dependencies\dlg\output.h" />
+    <ClInclude Include="Dependencies\FreeImage\FreeImage.h" />
+    <ClInclude Include="Dependencies\freetype\config\ftconfig.h" />
+    <ClInclude Include="Dependencies\freetype\config\ftheader.h" />
+    <ClInclude Include="Dependencies\freetype\config\ftmodule.h" />
+    <ClInclude Include="Dependencies\freetype\config\ftoption.h" />
+    <ClInclude Include="Dependencies\freetype\config\ftstdlib.h" />
+    <ClInclude Include="Dependencies\freetype\config\integer-types.h" />
+    <ClInclude Include="Dependencies\freetype\config\mac-support.h" />
+    <ClInclude Include="Dependencies\freetype\config\public-macros.h" />
+    <ClInclude Include="Dependencies\freetype\freetype.h" />
+    <ClInclude Include="Dependencies\freetype\ftadvanc.h" />
+    <ClInclude Include="Dependencies\freetype\ftbbox.h" />
+    <ClInclude Include="Dependencies\freetype\ftbdf.h" />
+    <ClInclude Include="Dependencies\freetype\ftbitmap.h" />
+    <ClInclude Include="Dependencies\freetype\ftbzip2.h" />
+    <ClInclude Include="Dependencies\freetype\ftcache.h" />
+    <ClInclude Include="Dependencies\freetype\ftchapters.h" />
+    <ClInclude Include="Dependencies\freetype\ftcid.h" />
+    <ClInclude Include="Dependencies\freetype\ftcolor.h" />
+    <ClInclude Include="Dependencies\freetype\ftdriver.h" />
+    <ClInclude Include="Dependencies\freetype\fterrdef.h" />
+    <ClInclude Include="Dependencies\freetype\fterrors.h" />
+    <ClInclude Include="Dependencies\freetype\ftfntfmt.h" />
+    <ClInclude Include="Dependencies\freetype\ftgasp.h" />
+    <ClInclude Include="Dependencies\freetype\ftglyph.h" />
+    <ClInclude Include="Dependencies\freetype\ftgxval.h" />
+    <ClInclude Include="Dependencies\freetype\ftgzip.h" />
+    <ClInclude Include="Dependencies\freetype\ftimage.h" />
+    <ClInclude Include="Dependencies\freetype\ftincrem.h" />
+    <ClInclude Include="Dependencies\freetype\ftlcdfil.h" />
+    <ClInclude Include="Dependencies\freetype\ftlist.h" />
+    <ClInclude Include="Dependencies\freetype\ftlogging.h" />
+    <ClInclude Include="Dependencies\freetype\ftlzw.h" />
+    <ClInclude Include="Dependencies\freetype\ftmac.h" />
+    <ClInclude Include="Dependencies\freetype\ftmm.h" />
+    <ClInclude Include="Dependencies\freetype\ftmodapi.h" />
+    <ClInclude Include="Dependencies\freetype\ftmoderr.h" />
+    <ClInclude Include="Dependencies\freetype\ftotval.h" />
+    <ClInclude Include="Dependencies\freetype\ftoutln.h" />
+    <ClInclude Include="Dependencies\freetype\ftparams.h" />
+    <ClInclude Include="Dependencies\freetype\ftpfr.h" />
+    <ClInclude Include="Dependencies\freetype\ftrender.h" />
+    <ClInclude Include="Dependencies\freetype\ftsizes.h" />
+    <ClInclude Include="Dependencies\freetype\ftsnames.h" />
+    <ClInclude Include="Dependencies\freetype\ftstroke.h" />
+    <ClInclude Include="Dependencies\freetype\ftsynth.h" />
+    <ClInclude Include="Dependencies\freetype\ftsystem.h" />
+    <ClInclude Include="Dependencies\freetype\fttrigon.h" />
+    <ClInclude Include="Dependencies\freetype\fttypes.h" />
+    <ClInclude Include="Dependencies\freetype\ftwinfnt.h" />
+    <ClInclude Include="Dependencies\freetype\internal\autohint.h" />
+    <ClInclude Include="Dependencies\freetype\internal\cffotypes.h" />
+    <ClInclude Include="Dependencies\freetype\internal\cfftypes.h" />
+    <ClInclude Include="Dependencies\freetype\internal\compiler-macros.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftcalc.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftdebug.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftdrv.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftgloadr.h" />
+    <ClInclude Include="Dependencies\freetype\internal\fthash.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftmemory.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftmmtypes.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftobjs.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftpsprop.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftrfork.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftserv.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftstream.h" />
+    <ClInclude Include="Dependencies\freetype\internal\fttrace.h" />
+    <ClInclude Include="Dependencies\freetype\internal\ftvalid.h" />
+    <ClInclude Include="Dependencies\freetype\internal\psaux.h" />
+    <ClInclude Include="Dependencies\freetype\internal\pshints.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svbdf.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svcfftl.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svcid.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svfntfmt.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svgldict.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svgxval.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svkern.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svmetric.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svmm.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svotval.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svpfr.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svpostnm.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svprop.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svpscmap.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svpsinfo.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svsfnt.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svttcmap.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svtteng.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svttglyf.h" />
+    <ClInclude Include="Dependencies\freetype\internal\services\svwinfnt.h" />
+    <ClInclude Include="Dependencies\freetype\internal\sfnt.h" />
+    <ClInclude Include="Dependencies\freetype\internal\svginterface.h" />
+    <ClInclude Include="Dependencies\freetype\internal\t1types.h" />
+    <ClInclude Include="Dependencies\freetype\internal\tttypes.h" />
+    <ClInclude Include="Dependencies\freetype\internal\wofftypes.h" />
+    <ClInclude Include="Dependencies\freetype\otsvg.h" />
+    <ClInclude Include="Dependencies\freetype\t1tables.h" />
+    <ClInclude Include="Dependencies\freetype\ttnameid.h" />
+    <ClInclude Include="Dependencies\freetype\tttables.h" />
+    <ClInclude Include="Dependencies\freetype\tttags.h" />
+    <ClInclude Include="Dependencies\ft2build.h" />
+    <ClInclude Include="Window\Window.hpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

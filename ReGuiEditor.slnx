@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ReGuiEditor/ReGuiEditor.vcxproj" Id="8103728a-3d4a-4c23-ae94-9bfa22682ac1" />
+</Solution>
