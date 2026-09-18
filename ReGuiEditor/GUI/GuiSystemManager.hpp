@@ -3,6 +3,7 @@
 
 #include "ResolutionManager.hpp"
 #include "ShaderManager.hpp"
+#include "NotificationManager.hpp"
 
 #include "BackgroundImageHelper.hpp"
 
@@ -37,6 +38,7 @@ class GuiSystemManager : public UTILS::Singleton<GuiSystemManager> {
 
 	ResolutionManager* resolutionManager_ = nullptr;
 	ShaderManager* shaderManager_ = nullptr;
+	NotificationManager* notificationManager_ = nullptr;
 
 	GuiBlurManager* guiBlurManager_ = nullptr;
 	BlurrySubSkinRegistry* blurrySubSkinRegistry_ = nullptr;

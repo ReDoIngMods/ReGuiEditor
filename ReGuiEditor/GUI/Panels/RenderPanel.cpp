@@ -1,7 +1,8 @@
 #include "RenderPanel.hpp"
 
-#include "../GuiSystemManager.hpp"
 #include "../FontManager.hpp"
+#include "../GuiSystemManager.hpp"
+#include "../NotificationManager.hpp"
 
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
@@ -189,6 +190,8 @@ void RenderPanel::render() {
 	ImGui::EndChild();
 	
 	this->drawDebugRenderInfos();
+
+	NotificationManager::getInstance().render();
 
 	ImGui::End();
 

@@ -207,6 +207,7 @@ exit /b 0</Command>
     <ClCompile Include="GUI\MyGui\MyGuiDataManager.cpp" />
     <ClCompile Include="GUI\MyGui\MyGuiDataStream.cpp" />
     <ClCompile Include="GUI\MyGui\MyGuiFontManager.cpp" />
+    <ClCompile Include="GUI\NotificationManager.cpp" />
     <ClCompile Include="GUI\Panels\ExplorerPanel.cpp" />
     <ClCompile Include="GUI\Panels\PropertiesPanel.cpp" />
     <ClCompile Include="GUI\Panels\RenderPanel.cpp" />
@@ -469,6 +470,7 @@ exit /b 0</Command>
     <ClInclude Include="GUI\MyGui\MyGuiDataStream.hpp" />
     <ClInclude Include="GUI\MyGui\MyGuiFontManager.hpp" />
     <ClInclude Include="GUI\MyGui\MyGuiLogListener.hpp" />
+    <ClInclude Include="GUI\NotificationManager.hpp" />
     <ClInclude Include="GUI\Panels\ExplorerPanel.hpp" />
     <ClInclude Include="GUI\Panels\Panel.hpp" />
     <ClInclude Include="GUI\Panels\PropertiesPanel.hpp" />

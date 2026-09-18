@@ -33,6 +33,7 @@
 #include <array>
 #include <cstdint>
 
+#include "NotificationManager.hpp"
 #include <DirectXColors.h>
 #include <d3d11.h>
 #include <d3dcommon.h>
@@ -262,6 +263,10 @@ bool GuiSystemManager::initialize() {
 
 	this->backgroundImageHelper_->setBackgroundTexture("gui_loadingscreen_creative.png");
 
+	// Notification Manager
+
+	this->notificationManager_ = NotificationManager::createInstance();
+
 	// Debug shit
 
 	MyGUI::Widget* rootWidget = this->gui_->createWidgetReal<MyGUI::Widget>("PanelEmpty", 0.f, 0.f, 1.f, 1.f, MyGUI::Align::Default, "Main");
@@ -272,6 +277,11 @@ bool GuiSystemManager::initialize() {
 
 void GuiSystemManager::cleanup() {
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GRAY, "Cleaning up GuiSystemManager...");
+
+	if (this->notificationManager_) {
+		this->notificationManager_->destroyInstance();
+		this->notificationManager_ = nullptr;
+	}
 
 	if (this->gui_) {
 		this->gui_->shutdown();

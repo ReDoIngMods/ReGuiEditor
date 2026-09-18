@@ -9,6 +9,7 @@
 
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
+#include "GUI/NotificationManager.hpp"
 
 #include <Windows.h>
 
@@ -137,18 +138,23 @@ void Application::update() {
 		return;
 	}
 
+
 	LARGE_INTEGER currentCounter;
 	QueryPerformanceCounter(&currentCounter);
 
 	this->deltaTime = static_cast<double>(currentCounter.QuadPart - this->counter.QuadPart) / static_cast<double>(this->frequency.QuadPart);
+	this->counter = currentCounter;
 
 	this->window.update();
+
+	NotificationManager::getInstance().update(static_cast<float>(this->deltaTime));
 
 	this->fixedUpdateTimeAccumulator += this->deltaTime;
 	while (this->fixedUpdateTimeAccumulator >= 1.0 / 60.0) {
 		this->fixedUpdate();
 		this->fixedUpdateTimeAccumulator -= 1.0 / 60.0;
 	}
+
 }
 
 void Application::fixedUpdate() {
