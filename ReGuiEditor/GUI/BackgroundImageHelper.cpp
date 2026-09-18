@@ -17,6 +17,10 @@
 
 #define SAFE_RELEASE(ptr) do { if (ptr) { (ptr)->Release(); (ptr) = nullptr; } } while(0)
 
+struct alignas(16) ConstantBufferData {
+	float uvScale[2] = { 1.0f, 1.0f };
+};
+
 bool BackgroundImageHelper::initialize() {
 	ShaderManager& shaderManager = ShaderManager::getInstance();
 	if (!shaderManager.getShader("$RGE_DATA/Shaders/gui_fullscreen_triangle.hlsl", "vsMain", this->vertexShader_)) return false;
@@ -39,10 +43,24 @@ bool BackgroundImageHelper::initialize() {
 		return false;
 	}
 
+	D3D11_BUFFER_DESC constantBufferDesc;
+	ZeroMemory(&constantBufferDesc, sizeof(constantBufferDesc));
+	constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	constantBufferDesc.ByteWidth = sizeof(ConstantBufferData);
+	constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+	result = device->CreateBuffer(&constantBufferDesc, nullptr, &this->constantBuffer_);
+	if (FAILED(result)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BackgroundImageHelper::initialize: Failed to create constant buffer. HRESULT: 0x%X", result);
+		return false;
+	}
+
 	return true;
 }
 
 void BackgroundImageHelper::cleanup() {
+	SAFE_RELEASE(this->constantBuffer_);
 	SAFE_RELEASE(this->samplerState_);
 	SAFE_RELEASE(this->pixelShader_);
 	SAFE_RELEASE(this->vertexShader_);
@@ -72,6 +90,16 @@ void BackgroundImageHelper::render() {
 		return;
 
 	ID3D11DeviceContext* context = Application::getInstance().d3d11Device.getContext();
+
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	if (SUCCEEDED(context->Map(this->constantBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource))) {
+		ConstantBufferData* data = reinterpret_cast<ConstantBufferData*>(mappedResource.pData);
+		data->uvScale[0] = static_cast<float>(this->backgroundTexture_->getRealWidth()) / static_cast<float>(this->backgroundTexture_->getWidth());
+		data->uvScale[1] = static_cast<float>(this->backgroundTexture_->getRealHeight()) / static_cast<float>(this->backgroundTexture_->getHeight());
+
+		context->Unmap(this->constantBuffer_, 0);
+	};
+
 	context->IASetInputLayout(nullptr);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -81,9 +109,13 @@ void BackgroundImageHelper::render() {
 	ID3D11ShaderResourceView* resources[] = { this->backgroundTexture_->shaderResourceView };
 	context->PSSetSamplers(0, 1, &this->samplerState_);
 	context->PSSetShaderResources(0, 1, resources);
+	context->PSSetConstantBuffers(0, 1, &this->constantBuffer_);
 
 	context->Draw(3, 0);
 
 	ID3D11ShaderResourceView* nullResources[] = { nullptr };
 	context->PSSetShaderResources(0, 1, nullResources);
+
+	ID3D11Buffer* nullBuffers[] = { nullptr };
+	context->PSSetConstantBuffers(0, 1, nullBuffers);
 }

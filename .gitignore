@@ -402,3 +402,7 @@ FodyWeavers.xsd
 
 # Enc temp files
 enc_temp_folder/*
+
+### REGUIEDITOR SPECIFIC
+
+Cache/

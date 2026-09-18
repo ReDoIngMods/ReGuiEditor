@@ -9,6 +9,7 @@ class BackgroundImageHelper {
 	ID3D11VertexShader* vertexShader_ = nullptr;
 	ID3D11PixelShader* pixelShader_ = nullptr;
 	ID3D11SamplerState* samplerState_ = nullptr;
+	ID3D11Buffer* constantBuffer_ = nullptr;
 
 	MyGUICustom::DirectX11Texture* backgroundTexture_ = nullptr;
 public:

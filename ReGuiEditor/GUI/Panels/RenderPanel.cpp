@@ -8,41 +8,62 @@
 #include <cmath>
 
 void RenderPanel::drawGrid() const {
-	ImVec2 childPos = ImGui::GetWindowPos();
-	ImVec2 childSize = ImGui::GetWindowSize();
+	const ImVec2 cursorPosition = ImGui::GetWindowPos();
+	const ImVec2 windowSize = ImGui::GetWindowSize();
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-	constexpr float baseCheckerSize = 16.0f;
-	constexpr ImU32 colorA = IM_COL32(255, 0, 0, 255);
-	constexpr ImU32 colorB = IM_COL32(0, 0, 255, 255);
+	constexpr float BASE_SIZE = 16.0f;
 
-	float checkerSize = baseCheckerSize * this->zoom_;
-	float panPixelX = this->pan_.x * this->zoom_;
-	float panPixelY = this->pan_.y * this->zoom_;
+	constexpr ImU32 BACKGROUND_COLOR = IM_COL32(15, 17, 20, 255);
+	constexpr ImU32 CHECKER_COLOR = IM_COL32(20, 22, 26, 255);
 
-	int iStart = static_cast<int>(std::floor(panPixelX / checkerSize)) - 1;
-	int iEnd = static_cast<int>(std::floor((panPixelX + childSize.x) / checkerSize)) + 1;
-	int jStart = static_cast<int>(std::floor(panPixelY / checkerSize)) - 1;
-	int jEnd = static_cast<int>(std::floor((panPixelY + childSize.y) / checkerSize)) + 1;
+	const float cellSize = BASE_SIZE * this->zoom_;
 
-	for (int j = jStart; j <= jEnd; ++j) {
-		for (int i = iStart; i <= iEnd; ++i) {
-			float x = i * checkerSize - panPixelX;
-			float y = j * checkerSize - panPixelY;
+	if (cellSize <= 0.0f || windowSize.x <= 0.0f || windowSize.y <= 0.0f)
+		return;
 
-			bool isAlt = ((i + j) % 2 + 2) % 2 != 0;
+	const float panX = this->pan_.x * this->zoom_;
+	const float panY = this->pan_.y * this->zoom_;
 
-			ImVec2 rectMin = { childPos.x + std::max(x, 0.0f), childPos.y + std::max(y, 0.0f) };
-			ImVec2 rectMax = { childPos.x + std::min(x + checkerSize, childSize.x), childPos.y + std::min(y + checkerSize, childSize.y) };
+	const ImVec2 max = {
+		cursorPosition.x + windowSize.x,
+		cursorPosition.y + windowSize.y
+	};
 
-			if (rectMax.x <= rectMin.x || rectMax.y <= rectMin.y) continue;
+	drawList->AddRectFilled(cursorPosition, max, BACKGROUND_COLOR);
 
-			drawList->AddRectFilled(rectMin, rectMax, isAlt ? colorA : colorB);
+	const int startX = static_cast<int>(std::floor(panX / cellSize)) - 1;
+	const int endX = static_cast<int>(std::floor((panX + windowSize.x) / cellSize)) + 1;
+	const int startY = static_cast<int>(std::floor(panY / cellSize)) - 1;
+	const int endY = static_cast<int>(std::floor((panY + windowSize.y) / cellSize)) + 1;
+
+	for (int y = startY; y <= endY; ++y) {
+		const float top = cursorPosition.y + y * cellSize - panY;
+		const float bottom = top + cellSize;
+
+		if (bottom <= cursorPosition.y || top >= max.y)
+			continue;
+
+		for (int x = startX; x <= endX; ++x) {
+			if (((x ^ y) & 1) == 0)
+				continue;
+
+			const float left = cursorPosition.x + x * cellSize - panX;
+			const float right = left + cellSize;
+
+			if (right <= cursorPosition.x || left >= max.x)
+				continue;
+
+			const ImVec2 topLeft = { std::max(left, cursorPosition.x), std::max(top, cursorPosition.y) };
+			const ImVec2 bottomRight = { std::min(right, max.x), std::min(bottom, max.y) };
+
+			drawList->AddRectFilled(topLeft, bottomRight, CHECKER_COLOR);
 		}
 	}
 }
 
 void RenderPanel::render() {
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 });
 	ImGui::Begin("Render View");
 
 	GuiSystemManager& guiSystemManager = GuiSystemManager::getInstance();
@@ -53,7 +74,6 @@ void RenderPanel::render() {
 
 	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 });
 	ImGui::BeginChild("RenderView", viewportSize, false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
 	this->drawGrid();
@@ -108,9 +128,9 @@ void RenderPanel::render() {
 	ImGui::PopStyleVar();
 
 	ImGui::EndChild();
-	ImGui::PopStyleVar();
-
 	ImGui::End();
+
+	ImGui::PopStyleVar();
 }
 
 void RenderPanel::renderMenu() {
