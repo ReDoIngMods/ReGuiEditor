@@ -11,12 +11,17 @@
 #include <limits>
 #include <string>
 
+thread_local static std::wstring gThreadName;
+thread_local static DWORD gThreadId;
+
 static std::array<const wchar_t*, LEVEL_COUNT> gConsoleLogLevelNames = {
 	L"[Default]",
 
 	L"WARNING:",
 	L"ERROR:",
 	L"DEBUG:",
+
+	L"[Cache]",
 
 	L"[MyGUI]",
 	L"[Shader]",
@@ -74,32 +79,61 @@ inline static bool tryParseInteger(const std::wstring& str, int& outputValue) {
 }
 
 inline static void writeFile64(HANDLE handle, const wchar_t* buffer, size_t length) {
-	if (length <= static_cast<size_t>(std::numeric_limits<DWORD>::max())) {
-		DWORD written;
-		WriteFile(handle, buffer, static_cast<DWORD>(length * sizeof(wchar_t)), &written, nullptr);
-
-		return;
-	}
-
-	while (length > 0) {
-		DWORD chunkSize = static_cast<DWORD>(std::min(length, static_cast<size_t>(std::numeric_limits<DWORD>::max())));
-
+	size_t remaining = length;
+	while (remaining > 0) {
+		DWORD chunkSize = static_cast<DWORD>(std::min(remaining, static_cast<size_t>(std::numeric_limits<DWORD>::max())));
+		
 		DWORD written;
 		WriteFile(handle, buffer, chunkSize * sizeof(wchar_t), &written, nullptr);
-
+		
 		buffer += chunkSize;
-		length -= chunkSize;
+		remaining -= chunkSize;
 	}
 }
 
-UTILS::Console::Console() {
+void UTILS::Console::createLogFile() {
+	if (!CreateDirectory(L"../Logs/", nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) {
+		this->log(LEVEL_ERROR, COLOR_RED, L"Failed to create Logs directory.");
+		return;
+	}
+
+	SYSTEMTIME systemTime;
+	GetLocalTime(&systemTime);
+
+	const std::wstring logFilename = UTILS::formatString(L"../Logs/ReGuiEditor_%04d-%02d-%02d_%02d-%02d-%02d.log", systemTime.wYear, systemTime.wMonth, systemTime.wDay, systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+
+	this->fileHandle_ = CreateFile(logFilename.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+	if (this->fileHandle_ == INVALID_HANDLE_VALUE) {
+		this->log(LEVEL_ERROR, COLOR_RED, L"Failed to create log file.");
+		return;
+	}
+
+	const BYTE bom[] = { 0xFF, 0xFE };
+
+	DWORD written;
+	if (!WriteFile(this->fileHandle_, bom, sizeof(bom), &written, nullptr)) {
+		this->log(LEVEL_ERROR, COLOR_RED, L"Failed to write BOM to log file.");
+
+		CloseHandle(this->fileHandle_);
+		this->fileHandle_ = INVALID_HANDLE_VALUE;
+		return;
+	}
+
+	const std::wstring latestLinkPath = L"../Logs/ReGuiEditor_latest.log";
+	if (!DeleteFile(latestLinkPath.c_str()) && GetLastError() != ERROR_FILE_NOT_FOUND)
+		this->log(LEVEL_WARNING, COLOR_YELLOW, L"Failed to delete existing latest.log hard link.");
+
+	if (!CreateHardLink(latestLinkPath.c_str(), logFilename.c_str(), nullptr))
+		this->log(LEVEL_WARNING, COLOR_YELLOW, L"Failed to create ReGuiEditor_latest.log hard link.");
+}
+
+void UTILS::Console::parseArguments() {
 	const LPWSTR commandLine = GetCommandLineW();
 
 	int argc;
 	LPWSTR* argv = CommandLineToArgvW(commandLine, &argc);
 	if (argv == nullptr) {
-		MessageBeep(MB_ICONERROR);
-		ExitProcess(1);
+		MessageBox(NULL, L"Failed to parse command line arguments. All arguments will be ignored.", L"Error", MB_ICONERROR);
 		return;
 	}
 
@@ -130,68 +164,53 @@ UTILS::Console::Console() {
 			this->argumentsStrings_[argument] = nextArgument;
 	}
 
-	if (this->getArgumentBool(L"--console") && !GetConsoleWindow()) {
-		if (!AllocConsole()) {
-			MessageBox(NULL, L"Failed to allocate console.", L"Error", MB_ICONERROR);
+	LocalFree(argv);
+}
 
-			ExitProcess(1);
-			return;
-		}
+void UTILS::Console::createConsole() {
+	if (!this->getArgumentBool(L"--console") || GetConsoleWindow())
+		return;
 
-		SetConsoleTitle(L"ReGuiEditor Console");
-		SetConsoleCP(CP_UTF8);
-		SetConsoleOutputCP(CP_UTF8);
-
-		this->consoleOutputHandle_ = GetStdHandle(STD_OUTPUT_HANDLE);
-		this->consoleErrorHandle_ = GetStdHandle(STD_ERROR_HANDLE);
-
-		if (this->consoleOutputHandle_ == INVALID_HANDLE_VALUE || this->consoleErrorHandle_ == INVALID_HANDLE_VALUE) {
-			MessageBox(NULL, L"Failed to get console handles.", L"Error", MB_ICONERROR);
-
-			ExitProcess(1);
-			return;
-		}
-
-		DWORD mode;
-		GetConsoleMode(this->consoleOutputHandle_, &mode);
-		mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-		SetConsoleMode(this->consoleOutputHandle_, mode);
-
-		GetConsoleMode(this->consoleErrorHandle_, &mode);
-		mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-		SetConsoleMode(this->consoleErrorHandle_, mode);
-
-		this->consoleAllocated_ = true;
+	if (!AllocConsole()) {
+		this->log(LEVEL_ERROR, COLOR_RED, L"Failed to allocate console.");
+		return;
 	}
 
-	if (CreateDirectory(L"../Logs/", nullptr) || GetLastError() == ERROR_ALREADY_EXISTS) {
-		SYSTEMTIME systemTime;
-		GetLocalTime(&systemTime);
+	SetConsoleTitle(L"ReGuiEditor Console");
+	SetConsoleCP(CP_UTF8);
+	SetConsoleOutputCP(CP_UTF8);
 
-		const std::wstring logFilename = UTILS::formatString(L"../Logs/ReGuiEditor_%04d-%02d-%02d_%02d-%02d-%02d.log", systemTime.wYear, systemTime.wMonth, systemTime.wDay, systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+	this->consoleOutputHandle_ = GetStdHandle(STD_OUTPUT_HANDLE);
+	this->consoleErrorHandle_ = GetStdHandle(STD_ERROR_HANDLE);
 
-		this->fileHandle_ = CreateFile(logFilename.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
-		if (this->fileHandle_ == INVALID_HANDLE_VALUE) {
-			MessageBox(NULL, L"Failed to create log file.", L"Error", MB_ICONERROR);
-			return;
-		}
-
-		const BYTE bom[] = { 0xFF, 0xFE };
-
-		DWORD written;
-		WriteFile(this->fileHandle_, bom, sizeof(bom), &written, nullptr);
-
-		const std::wstring latestLinkPath = L"../Logs/ReGuiEditor_latest.log";
-		DeleteFile(latestLinkPath.c_str());
-
-		if (!CreateHardLink(latestLinkPath.c_str(), logFilename.c_str(), nullptr))
-			this->log(LEVEL_WARNING, COLOR_YELLOW, L"Failed to create latest.log hard link.");
+	if (this->consoleOutputHandle_ == INVALID_HANDLE_VALUE || this->consoleErrorHandle_ == INVALID_HANDLE_VALUE) {
+		this->log(LEVEL_ERROR, COLOR_RED, L"Failed to get console handles.");
+		return;
 	}
+
+	DWORD mode;
+	GetConsoleMode(this->consoleOutputHandle_, &mode);
+	mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	SetConsoleMode(this->consoleOutputHandle_, mode);
+
+	GetConsoleMode(this->consoleErrorHandle_, &mode);
+	mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	SetConsoleMode(this->consoleErrorHandle_, mode);
+
+	this->consoleAllocated_ = true;
+}
+
+UTILS::Console::Console() {
+	this->parseArguments();
 
 	InitializeCriticalSection(&this->criticalSection_);
 
+	this->createConsole();
+	this->createLogFile();
+
 	this->log(LEVEL_DEFAULT, COLOR_GRAY, L"Console initialized.");
 }
+
 
 UTILS::Console::~Console() {
 	this->log(LEVEL_DEFAULT, COLOR_GRAY, L"Console shutting down...");

@@ -424,7 +424,7 @@ bool MyGuiFontManager::loadFontXML(const std::string& xmlFilePath) {
 			}
 		}
 
-		CONSOLE_LOG(LEVEL_RENDER, COLOR_DARK_GRAY, "CACHE MISS! Generating cache file for font: %s", fontName.c_str());
+		CONSOLE_LOG(LEVEL_CACHE, COLOR_DARK_GRAY, "Cache miss! Loading font & generating cache from: %s", fontName.c_str());
 
 		MyGUI::FactoryManager& factoryManager = MyGUI::FactoryManager::getInstance();
 		MyGUI::ResourceTrueTypeFont* fontResource = factoryManager.createObject("Resource", "ResourceTrueTypeFont")->castType<MyGUI::ResourceTrueTypeFont>();

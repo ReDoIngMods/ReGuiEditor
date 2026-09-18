@@ -63,5 +63,9 @@ namespace UTILS {
 			this->position_ += length;
 			return output;
 		}
+
+		size_t getRemaining() const {
+			return this->size_ - this->position_;
+		}
 	};
 }

@@ -10,10 +10,6 @@ namespace FS {
 	bool readFile(const std::filesystem::path& path, std::string& outContent);
 	bool writeFile(const std::filesystem::path& path, const std::string& content);
 
-	bool fileExists(const std::filesystem::path& path);
-	bool directoryExists(const std::filesystem::path& path);
-	bool fileOrDirectoryExists(const std::filesystem::path& path);
-
 	inline bool readFileDM(const std::string& path, std::string& outContent) {
 		std::filesystem::path resolvedPath;
 		if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
@@ -29,4 +25,10 @@ namespace FS {
 	
 		return FS::writeFile(resolvedPath, content);
 	}
+
+	bool fileExists(const std::filesystem::path& path);
+	bool directoryExists(const std::filesystem::path& path);
+	bool fileOrDirectoryExists(const std::filesystem::path& path);
+
+	bool getFileWriteTime(const std::filesystem::path& path, std::filesystem::file_time_type& writeTime);
 }

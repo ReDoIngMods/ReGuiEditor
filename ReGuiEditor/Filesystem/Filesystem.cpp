@@ -144,3 +144,26 @@ bool FS::fileOrDirectoryExists(const std::filesystem::path& path) {
 	DWORD attributes = GetFileAttributesW(path.wstring().c_str());
 	return (attributes != INVALID_FILE_ATTRIBUTES);
 }
+
+bool FS::getFileWriteTime(const std::filesystem::path& path, std::filesystem::file_time_type& writeTime) {
+	if (!FS::fileExists(path))
+		return false;
+
+	HANDLE fileHandle = CreateFileW(path.wstring().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (fileHandle == INVALID_HANDLE_VALUE) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to open file to get write time: %s", path.string().c_str());
+		return false;
+	}
+
+	FILETIME ftWrite;
+	if (!GetFileTime(fileHandle, nullptr, nullptr, &ftWrite)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get file write time: %s", path.string().c_str());
+
+		CloseHandle(fileHandle);
+		return false;
+	}
+
+	CloseHandle(fileHandle);
+
+	return true;
+}

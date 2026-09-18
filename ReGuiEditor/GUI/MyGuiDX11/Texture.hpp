@@ -33,6 +33,11 @@ namespace MyGUICustom {
 		std::string name_;
 
 		void* writeData_ = nullptr;
+
+		std::string getCacheFilepath(const std::string& _filename);
+
+		bool loadCache(const std::string& _filename);
+		bool storeCache(const std::string& _filename);
 	public:
 		DirectX11Texture(const std::string& _name) : name_(_name) {}
 		virtual ~DirectX11Texture() { this->destroy(); }
@@ -62,7 +67,7 @@ namespace MyGUICustom {
 		virtual MyGUI::IRenderTarget* getRenderTarget() {
 			if (!this->renderTarget_)
 				this->renderTarget_ = new MyGUICustom::DirectX11RTTexture(this);
-			
+
 			return this->renderTarget_;
 		}
 	};

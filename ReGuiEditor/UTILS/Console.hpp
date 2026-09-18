@@ -15,6 +15,8 @@ enum ConsoleLogLevel {
 	LEVEL_ERROR,
 	LEVEL_DEBUG,
 
+	LEVEL_CACHE,
+
 	LEVEL_MYGUI,
 	LEVEL_SHADER,
 	LEVEL_RENDER,
@@ -56,6 +58,10 @@ namespace UTILS {
 		std::unordered_map<std::wstring, int> argumentsInts_;
 		std::vector<std::wstring> argumentsBools_;
 		std::vector<std::wstring> arguments_;
+
+		void createLogFile();
+		void parseArguments();
+		void createConsole();
 	public:
 		Console();
 		~Console();
