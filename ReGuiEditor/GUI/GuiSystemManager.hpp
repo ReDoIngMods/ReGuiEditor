@@ -1,8 +1,6 @@
 #pragma once
 #include <UTILS/Singleton.hpp>
 
-#include <GUI/MyGuiDX11/RenderManager.hpp>
-
 #include "ResolutionManager.hpp"
 #include "ShaderManager.hpp"
 
@@ -15,6 +13,8 @@
 #include "BlurrySubSkin/BlurrySubSkinRegistry.hpp"
 #include "BlurrySubSkin/BlurrySubSkinRenderer.hpp"
 #include "BlurrySubSkin/GuiBlurManager.hpp"
+
+#include <GUI/MyGuiDX11/RenderManager.hpp>
 
 #include <MyGui/MyGUI_Gui.h>
 #include <MyGui/MyGUI_LogManager.h>

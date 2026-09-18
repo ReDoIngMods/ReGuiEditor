@@ -5,15 +5,15 @@
 #include "MyGui/MyGuiDataManager.hpp"
 
 #include <MyGui/MyGUI_ResourceManager.h>
+#include <MyGui/MyGUI_DataManager.h>
 
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include <MyGui/MyGUI_DataManager.h>
-#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 bool ResolutionManager::initialize() {
@@ -31,11 +31,14 @@ bool ResolutionManager::initialize() {
 		return false;
 	}
 
-	nlohmann::json resolutionList = jsonData["resolutionList"];
+	const auto& resolutionList = jsonData["resolutionList"];
 	if (!resolutionList.is_array()) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid format in Resolutions.json: 'resolutionList' is not an array.");
 		return false;
 	}
+
+	this->resolutions_.clear();
+	this->resolutions_.reserve(resolutionList.size());
 
 	for (const auto& resolutionEntry : resolutionList) {
 		if (!resolutionEntry.is_object()) {
@@ -54,11 +57,14 @@ bool ResolutionManager::initialize() {
 		this->resolutions_.push_back({ width, height, folder });
 	}
 
-	nlohmann::json resourceList = jsonData["resources"];
+	const auto& resourceList = jsonData["resources"];
 	if (!resourceList.is_array()) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid format in Resolutions.json: 'resources' is not an array.");
 		return false;
 	}
+
+	this->resources_.clear();
+	this->resources_.reserve(resourceList.size());
 
 	for (const auto& resourceEntry : resourceList) {
 		if (!resourceEntry.is_string()) {
@@ -109,16 +115,19 @@ bool ResolutionManager::setResolution(uint32_t width, uint32_t height) {
 	this->resolution_ = bestResolution;
 	dataManager->addSearchDirectory(this->resolution_->folder.generic_string(), true);
 
-	std::vector<std::string> oldResourceNames;
+	std::unordered_set<std::string> oldResourceNames;
 	{
 		MyGUI::ResourceManager::EnumeratorPtr enumerator = resourceManager.getEnumerator();
 		while (enumerator.next())
-			oldResourceNames.push_back(enumerator.current().first);
+			oldResourceNames.insert(enumerator.current().first);
 	}
+
+	this->loadedResources.reserve(this->resources_.size());
 
 	for (const auto& resourcePath : this->resources_) {
 		const std::string fullPath = (this->resolution_->folder / resourcePath).generic_string();
-		if(!resourceManager.load(fullPath)) {
+
+		if (!resourceManager.load(fullPath)) {
 			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to load resource: %s", fullPath.c_str());
 			continue;
 		}
@@ -128,13 +137,11 @@ bool ResolutionManager::setResolution(uint32_t width, uint32_t height) {
 
 	MyGUI::ResourceManager::EnumeratorPtr enumerator = resourceManager.getEnumerator();
 	while (enumerator.next()) {
-		const std::string& resourceName = enumerator.current().first;
-		if (std::find(oldResourceNames.begin(), oldResourceNames.end(), resourceName) == oldResourceNames.end()) {
-			const auto& [name, resource] = enumerator.current();
+		const auto& [name, resource] = enumerator.current();
 
+		if (oldResourceNames.find(name) == oldResourceNames.end())
 			this->loadedResources.push_back(resource);
-		}
 	}
-	
+
 	return true;
 }
