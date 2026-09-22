@@ -72,9 +72,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -121,12 +123,13 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Dependencies\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>UTILS\Console.hpp</ForcedIncludeFiles>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)Dependencies\Libraries;$(ProjectDir)Dependencies\Libraries\$(Configuration)\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>FreeImage.lib;freetype.lib;MyGUIEngine.lib;steam_api64.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImage.lib;freetype.lib;MyGUIEngine.lib;steam_api64.lib;lz4.lib;lua51.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -157,12 +160,13 @@ exit /b 0</Command>
       <TreatWarningAsError>true</TreatWarningAsError>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Dependencies\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>UTILS\Console.hpp</ForcedIncludeFiles>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)Dependencies\Libraries;$(ProjectDir)Dependencies\Libraries\$(Configuration)\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>FreeImage.lib;freetype.lib;MyGUIEngine.lib;steam_api64.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImage.lib;freetype.lib;MyGUIEngine.lib;steam_api64.lib;lz4.lib;lua51.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -233,6 +237,12 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\ImGui\imstb_textedit.h" />
     <ClInclude Include="Dependencies\ImGui\imstb_truetype.h" />
     <ClInclude Include="Dependencies\ImGui\misc\freetype\imgui_freetype.h" />
+    <ClInclude Include="Dependencies\LuaJIT\lauxlib.h" />
+    <ClInclude Include="Dependencies\LuaJIT\lua.h" />
+    <ClInclude Include="Dependencies\LuaJIT\lua.hpp" />
+    <ClInclude Include="Dependencies\LuaJIT\luaconf.h" />
+    <ClInclude Include="Dependencies\LuaJIT\luajit.h" />
+    <ClInclude Include="Dependencies\LuaJIT\lualib.h" />
     <ClInclude Include="Dependencies\LZ4\lz4.h" />
     <ClInclude Include="Dependencies\LZ4\lz4file.h" />
     <ClInclude Include="Dependencies\LZ4\lz4frame.h" />
