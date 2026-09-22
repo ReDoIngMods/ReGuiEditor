@@ -1,8 +1,8 @@
 #include "ResolutionManager.hpp"
 
-#include "../Filesystem/Filesystem.hpp"
-
 #include "MyGui/MyGuiDataManager.hpp"
+
+#include <FilesystemManager/FilesystemManager.hpp> 
 
 #include <MyGui/MyGUI_ResourceManager.h>
 #include <MyGui/MyGUI_DataManager.h>
@@ -18,7 +18,7 @@
 
 bool ResolutionManager::initialize() {
 	std::string jsonContent;
-	if (!FS::readFileDM("$GAME_DATA/Gui/guiResolutions.json", jsonContent)) {
+	if (!FilesystemManager::getInstance().readFile("$GAME_DATA/Gui/guiResolutions.json", jsonContent)) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read Resolutions.json file.");
 		return false;
 	}

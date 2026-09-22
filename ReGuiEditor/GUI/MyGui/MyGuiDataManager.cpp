@@ -2,7 +2,7 @@
 
 #include "MyGuiDataStream.hpp"
 
-#include <DirectoryManager/DirectoryManager.hpp>
+#include <FilesystemManager/FilesystemManager.hpp>
 
 #include <MyGui/MyGUI_IDataStream.h>
 
@@ -92,7 +92,7 @@ const std::vector<std::string>& MyGuiDataManager::getDataListNames(const std::st
 	
 	for (const auto& searchDir : this->searchDirectories_) {
 		std::filesystem::path resolvedPath;
-		if (!DirectoryManager::getInstance().resolveDirectory(searchDir.path, resolvedPath))
+		if (!FilesystemManager::getInstance().resolveDirectory(searchDir.path, resolvedPath))
 			continue;
 	
 		scanFolder(result, resolvedPath.string(), searchDir.recursive, _pattern, false);
@@ -107,10 +107,10 @@ const std::string& MyGuiDataManager::getDataPath(const std::string& _name) {
 	std::vector<std::string> result;
 	result.clear();
 	
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
+	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
 	if (_name.starts_with("$")) {
 		std::filesystem::path resolvedPath;
-		if (!directoryManager.resolveDirectory(_name, resolvedPath))
+		if (!filesystemManager.resolveDirectory(_name, resolvedPath))
 			return path;
 
 		path = resolvedPath.string();
@@ -119,7 +119,7 @@ const std::string& MyGuiDataManager::getDataPath(const std::string& _name) {
 
 	for (const auto& searchDir : this->searchDirectories_) {
 		std::filesystem::path resolvedPath;
-		if (!DirectoryManager::getInstance().resolveDirectory(searchDir.path, resolvedPath))
+		if (!FilesystemManager::getInstance().resolveDirectory(searchDir.path, resolvedPath))
 			continue;
 
 		scanFolder(result, resolvedPath.string(), searchDir.recursive, _name, true);

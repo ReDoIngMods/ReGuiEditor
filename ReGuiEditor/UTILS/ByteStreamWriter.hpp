@@ -3,7 +3,7 @@
 #include <cstring>
 #include <string>
 #include <type_traits>
-#include <utility>
+#include <vector>
 
 namespace UTILS {
 	class ByteStreamWriter {
@@ -89,7 +89,14 @@ namespace UTILS {
 			std::string result;
 			result.assign(this->data_, this->position_);
 
-			return std::move(result);
+			return result;
+		}
+
+		std::vector<char> toVector() const {
+			std::vector<char> result(this->position_);
+			memcpy(result.data(), this->data_, this->position_);
+
+			return result;
 		}
 	};
 }

@@ -5,7 +5,7 @@
 #include <ImGui/imgui_impl_win32.h>
 
 #include "ConfigManager/ConfigManager.hpp"
-#include "DirectoryManager/DirectoryManager.hpp"
+#include "FilesystemManager/FilesystemManager.hpp"
 
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
@@ -34,14 +34,14 @@ Application::~Application() {
 		this->fontManager = nullptr;
 	}
 
-	if (this->directoryManager) {
-		this->directoryManager->destroyInstance();
-		this->directoryManager = nullptr;
-	}
-
 	if (this->configManager) {
 		this->configManager->destroyInstance();
 		this->configManager = nullptr;
+	}
+
+	if (this->filesystemManager) {
+		this->filesystemManager->destroyInstance();
+		this->filesystemManager = nullptr;
 	}
 
 	ImGui_ImplDX11_Shutdown();
@@ -93,13 +93,13 @@ bool Application::initialize() {
 		return false;
 	}
 
-	this->configManager = ConfigManager::createInstance();
-
-	this->directoryManager = DirectoryManager::createInstance();
-	if (!this->directoryManager->initialize()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize DirectoryManager");
+	this->filesystemManager = FilesystemManager::createInstance();
+	if (!this->filesystemManager->initialize()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize FilesystemManager");
 		return false;
 	}
+
+	this->configManager = ConfigManager::createInstance();
 
 	this->fontManager = FontManager::createInstance();
 	if (!this->fontManager->initialize()) {
@@ -137,7 +137,6 @@ void Application::update() {
 		this->isRunning = false;
 		return;
 	}
-
 
 	LARGE_INTEGER currentCounter;
 	QueryPerformanceCounter(&currentCounter);

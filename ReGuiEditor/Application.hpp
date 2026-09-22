@@ -2,7 +2,7 @@
 #include <UTILS/Singleton.hpp>
 
 #include "ConfigManager/ConfigManager.hpp"
-#include "DirectoryManager/DirectoryManager.hpp"
+#include "FilesystemManager/FilesystemManager.hpp"
 
 #include "Window/D3D11Device.hpp"
 #include "Window/Window.hpp"
@@ -33,7 +33,7 @@ public:
 	D3D11Device d3d11Device;
 
 	ConfigManager* configManager = nullptr;
-	DirectoryManager* directoryManager = nullptr;
+	FilesystemManager* filesystemManager = nullptr;
 	FontManager* fontManager = nullptr;
 	GuiSystemManager* guiSystemManager = nullptr;
 

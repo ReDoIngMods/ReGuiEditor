@@ -191,8 +191,7 @@ exit /b 0</Command>
     <ClCompile Include="Dependencies\ImGui\imgui_tables.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Dependencies\ImGui\misc\freetype\imgui_freetype.cpp" />
-    <ClCompile Include="DirectoryManager\DirectoryManager.cpp" />
-    <ClCompile Include="Filesystem\Filesystem.cpp" />
+    <ClCompile Include="FilesystemManager\FilesystemManager.cpp" />
     <ClCompile Include="GUI\BackgroundImageHelper.cpp" />
     <ClCompile Include="GUI\BlurrySubSkin\BlurrySubSkin.cpp" />
     <ClCompile Include="GUI\BlurrySubSkin\BlurrySubSkinRenderer.cpp" />
@@ -453,7 +452,6 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\steam\steam_api_flat.h" />
     <ClInclude Include="Dependencies\steam\steam_api_internal.h" />
     <ClInclude Include="Dependencies\steam\steam_gameserver.h" />
-    <ClInclude Include="Filesystem\Filesystem.hpp" />
     <ClInclude Include="GUI\BackgroundImageHelper.hpp" />
     <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkin.hpp" />
     <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkinRegistry.hpp" />
@@ -530,7 +528,7 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\nlohmann\ordered_map.hpp" />
     <ClInclude Include="Dependencies\nlohmann\thirdparty\hedley\hedley.hpp" />
     <ClInclude Include="Dependencies\nlohmann\thirdparty\hedley\hedley_undef.hpp" />
-    <ClInclude Include="DirectoryManager\DirectoryManager.hpp" />
+    <ClInclude Include="FilesystemManager\FilesystemManager.hpp" />
     <ClInclude Include="UTILS\EnvVars.hpp" />
     <ClInclude Include="UTILS\Singleton.hpp" />
     <ClInclude Include="UTILS\Strings.hpp" />

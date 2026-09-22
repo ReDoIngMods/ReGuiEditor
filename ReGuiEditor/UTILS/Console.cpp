@@ -11,6 +11,8 @@
 #include <limits>
 #include <string>
 
+#include <MyGui/MyGUI_ResourceManager.h>
+
 thread_local static std::wstring gThreadName;
 thread_local static DWORD gThreadId;
 
@@ -236,18 +238,23 @@ void UTILS::Console::log(ConsoleLogLevel level, ConsoleLogColor color, const std
 	SYSTEMTIME time;
 	GetLocalTime(&time);
 
-	const wchar_t* levelString = (level >= 0 && level < LEVEL_COUNT) ? gConsoleLogLevelNames[level] : L"[Unknown]";
-	const std::wstring formattedMessage = UTILS::formatString(L"%02d:%02d:%02d %s %s\n", time.wHour, time.wMinute, time.wSecond, levelString, message.c_str());
-
 	EnterCriticalSection(&this->criticalSection_);
+
+	size_t resourceCount = 0;
+	MyGUI::ResourceManager* resourceManager = MyGUI::ResourceManager::getInstancePtr();
+	if (resourceManager)
+		resourceCount = resourceManager->getCount();
+
+	const wchar_t* levelString = (level >= 0 && level < LEVEL_COUNT) ? gConsoleLogLevelNames[level] : L"[Unknown]";
+	const std::wstring formattedMessage = UTILS::formatString(L"%02d:%02d:%02d (%llu) %s %s\n", time.wHour, time.wMinute, time.wSecond, resourceCount, levelString, message.c_str());
 
 	if (this->consoleAllocated_) {		
 		const wchar_t* colorCode = consoleLogColorToAnsiEscapeCode(color);
 		const HANDLE outputHandle = (level == LEVEL_ERROR) ? this->consoleErrorHandle_ : this->consoleOutputHandle_;
+		
 		writeFile64(outputHandle, colorCode, wcslen(colorCode));
 		writeFile64(outputHandle, formattedMessage.c_str(), formattedMessage.size());
 		writeFile64(outputHandle, L"\x1b[0m", 4);
-
 	}
 
 	if (this->fileHandle_ != INVALID_HANDLE_VALUE)

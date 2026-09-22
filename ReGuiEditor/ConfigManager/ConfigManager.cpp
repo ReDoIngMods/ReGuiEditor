@@ -1,13 +1,12 @@
 #include "ConfigManager.hpp"
 
-#include <Filesystem/Filesystem.hpp>
+#include <FilesystemManager/FilesystemManager.hpp>
 
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
 
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
 #include <string>
 #include <variant>
 
@@ -17,6 +16,8 @@ enum ConfigValueType : uint8_t {
 	CONFIG_VALUE_FLOAT = 2,
 	CONFIG_VALUE_STRING = 3
 };
+
+constexpr const char* CONFIG_FILE_PATH = "$RGE_USER_DATA/ReGuiEditor/config.bin";
 
 ConfigManager::ConfigManager() {
 	CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Initializing ConfigManager...");
@@ -36,11 +37,12 @@ ConfigManager::~ConfigManager() {
 }
 
 bool ConfigManager::loadConfig() {
-	if (!FS::fileExists("config.bin"))
+	FilesystemManager& fsManager = FilesystemManager::getInstance();
+	if (!fsManager.fileExists(CONFIG_FILE_PATH))
 		return false;
 
 	std::string configContent;
-	if (!FS::readFile("config.bin", configContent)) {
+	if (!fsManager.readFile(CONFIG_FILE_PATH, configContent)) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read config file.");
 		return false;
 	}
@@ -131,7 +133,7 @@ bool ConfigManager::saveConfig() {
 		}
 	}
 
-	if (!FS::writeFile("config.bin", writer.toString())) {
+	if (!FilesystemManager::getInstance().writeFile(CONFIG_FILE_PATH, writer.toString())) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to write config file.");
 		return false;
 	}

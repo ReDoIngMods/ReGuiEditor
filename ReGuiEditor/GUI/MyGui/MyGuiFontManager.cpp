@@ -1,6 +1,6 @@
-#include "../DirectoryManager/DirectoryManager.hpp"
-#include "../Filesystem/Filesystem.hpp"
 #include "MyGuiFontManager.hpp"
+
+#include <FilesystemManager/FilesystemManager.hpp>
 
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
@@ -94,17 +94,9 @@ std::string MyGuiFontManager::getCacheFilepath(const std::string& fontName, uint
 }
 
 bool MyGuiFontManager::loadFromCache(const std::string& filePath, MyGUI::xml::ElementPtr element, MyGUI::ResourceTrueTypeFont** outputFontResource) {
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
-
-	std::filesystem::path resolvedPath;
-	if (!directoryManager.resolveDirectory(filePath, resolvedPath)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to resolve cache file path: %s", filePath.c_str());
-		return false;
-	}
-
 	std::string buffer;
-	if (!FS::readFile(resolvedPath, buffer)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to read cache file contents: %s", resolvedPath.string().c_str());
+	if (!FilesystemManager::getInstance().readFile(filePath, buffer)) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to read cache file contents: %s", filePath.c_str());
 		return false;
 	}
 
@@ -112,12 +104,12 @@ bool MyGuiFontManager::loadFromCache(const std::string& filePath, MyGUI::xml::El
 
 	FontCacheHeader header = reader.read<FontCacheHeader>();
 	if (memcmp(header.magic, "MGFC", 4) != 0) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Invalid cache magic header in file: %s", resolvedPath.string().c_str());
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Invalid cache magic header in file: %s", filePath.c_str());
 		return false;
 	}
 
 	if (header.version != 1) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Unsupported cache version (%d) in file: %s", header.version, resolvedPath.string().c_str());
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Unsupported cache version (%d) in file: %s", header.version, filePath.c_str());
 		return false;
 	}
 
@@ -220,10 +212,10 @@ bool MyGuiFontManager::generateCacheFile(const std::string& filePath, const std:
 	if (!fontResource)
 		return false;
 
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
+	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
 
 	std::filesystem::path resolvedPath;
-	if (!directoryManager.resolveDirectory(filePath, resolvedPath)) {
+	if (!filesystemManager.resolveDirectory(filePath, resolvedPath)) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "MyGuiFontManager::generateCacheFile: Failed to resolve cache file path: %s", filePath.c_str());
 		return false;
 	}
@@ -360,7 +352,7 @@ bool MyGuiFontManager::generateCacheFile(const std::string& filePath, const std:
 	context->Unmap(stagingTexture, 0);
 	stagingTexture->Release();
 
-	if (!FS::writeFile(resolvedPath, writer.toString())) {
+	if (!FilesystemManager::getInstance().writeFileRaw(resolvedPath, writer.toVector())) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Failed to write cache file: %s", resolvedPath.string().c_str());
 		return false;
 	}
@@ -370,7 +362,7 @@ bool MyGuiFontManager::generateCacheFile(const std::string& filePath, const std:
 
 bool MyGuiFontManager::loadFontXML(const std::string& xmlFilePath) {
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(xmlFilePath, resolvedPath)) {
+	if (!FilesystemManager::getInstance().resolveDirectory(xmlFilePath, resolvedPath)) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::loadFontXML: Failed to resolve font XML file path: %s", xmlFilePath.c_str());
 		return false;
 	}

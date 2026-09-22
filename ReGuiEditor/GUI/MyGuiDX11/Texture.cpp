@@ -2,7 +2,7 @@
 
 #include "RenderManager.hpp"
 
-#include <Filesystem/Filesystem.hpp>
+#include <FilesystemManager/FilesystemManager.hpp>
 
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
@@ -66,21 +66,19 @@ bool MyGUICustom::DirectX11Texture::loadCache(const std::string& _filename) {
 	if (sourceName.empty())
 		return false;
 
-	std::filesystem::file_time_type sourceWriteTime;
-	if (!FS::getFileWriteTime(sourceName, sourceWriteTime)) {
+	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
+
+	time_t sourceWriteTime = 0;
+	if (!filesystemManager.getFileWriteTimeRaw(sourceName, sourceWriteTime)) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "DirectX11Texture::loadCache: Failed to get write time for source file: %s", _filename.c_str());
 		return false;
 	}
 
-	const std::string cacheName = MyGUI::DataManager::getInstance().getDataPath(this->getCacheFilepath(_filename));
-	if (cacheName.empty()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "DirectX11Texture::loadCache: Failed to resolve cache file path for: %s", _filename.c_str());
-		return false;
-	}
+	const std::string cacheName = this->getCacheFilepath(_filename);
 
 	std::string buffer;
-	if (!FS::readFile(cacheName, buffer)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "DirectX11Texture::loadCache: Failed to read cache file: %s", cacheName.c_str());
+	if (!filesystemManager.readFile(cacheName, buffer)) {
+		CONSOLE_LOG(LEVEL_CACHE, COLOR_DARK_GRAY, "DirectX11Texture::loadCache: Cache file not found or failed to read: %s", cacheName.c_str());
 		return false;
 	}
 
@@ -97,7 +95,7 @@ bool MyGUICustom::DirectX11Texture::loadCache(const std::string& _filename) {
 		return false;
 	}
 
-	if (header.sourceWriteTime != sourceWriteTime.time_since_epoch().count()) {
+	if (header.sourceWriteTime != sourceWriteTime) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "DirectX11Texture::loadCache: Cache file is outdated: %s", _filename.c_str());
 		return false;
 	}
@@ -192,8 +190,10 @@ bool MyGUICustom::DirectX11Texture::storeCache(const std::string& _filename) {
 	if (sourceName.empty())
 		return false;
 
-	std::filesystem::file_time_type sourceWriteTime;
-	if (!FS::getFileWriteTime(sourceName, sourceWriteTime)) {
+	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
+	
+	time_t sourceWriteTime = 0;
+	if (!filesystemManager.getFileWriteTimeRaw(sourceName, sourceWriteTime)) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "DirectX11Texture::storeCache: Failed to get write time for source file: %s", _filename.c_str());
 		return false;
 	}
@@ -291,7 +291,7 @@ bool MyGUICustom::DirectX11Texture::storeCache(const std::string& _filename) {
 	header.height = desc.Height;
 	header.realWidth = static_cast<uint32_t>(this->realWidth_);
 	header.realHeight = static_cast<uint32_t>(this->realHeight_);
-	header.sourceWriteTime = sourceWriteTime.time_since_epoch().count();
+	header.sourceWriteTime = sourceWriteTime;
 
 	writer.write(header);
 	writer.write<uint64_t>(static_cast<uint64_t>(dataSize));
@@ -299,7 +299,7 @@ bool MyGUICustom::DirectX11Texture::storeCache(const std::string& _filename) {
 	writer.writeBytes(compressedData.data(), static_cast<size_t>(compressedSize));
 
 	const std::string cacheName = this->getCacheFilepath(_filename);
-	if (!FS::writeFileDM(cacheName, writer.toString())) {
+	if (!FilesystemManager::getInstance().writeFile(cacheName, writer.toString())) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "DirectX11Texture::storeCache: Failed to write cache file: %s", cacheName.c_str());
 		return false;
 	}
@@ -466,7 +466,7 @@ void MyGUICustom::DirectX11Texture::loadFromFile(const std::string& _filename) {
 		return;
 	}
 
-	this->storeCache(_filename);
+	(void)this->storeCache(_filename);
 }
 
 void MyGUICustom::DirectX11Texture::destroy() {

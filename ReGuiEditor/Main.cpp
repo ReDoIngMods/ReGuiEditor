@@ -1,7 +1,5 @@
 #include "Application.hpp"
 
-#include "Filesystem/Filesystem.hpp"
-
 #include <steam/steam_api.h>
 #include <steam/steam_api_common.h>
 
@@ -11,6 +9,7 @@
 #include <sal.h>
 
 #include <chrono>
+#include <cstdlib>
 #include <thread>
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow) {
@@ -19,10 +18,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, L"Command line: %s", pCmdLine);
 
-	if (!FS::writeFile("steam_appid.txt", "387990")) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create steam_appid.txt file.");
-		return 1;
-	}
+	// Far superior than steam_appid.txt
+	_putenv_s("SteamAppId", "387990");
 
 	SteamErrMsg errMsg;
 	if (SteamAPI_InitEx(&errMsg) != k_ESteamAPIInitResult_OK) {

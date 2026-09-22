@@ -1,6 +1,6 @@
 #include "FontManager.hpp"
 
-#include "../DirectoryManager/DirectoryManager.hpp"
+#include "../FilesystemManager/FilesystemManager.hpp"
 
 #include "Lucide/IconsLucide.h"
 
@@ -12,7 +12,7 @@
 
 inline static void applyLucideIcons(float fontSize) {
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory("$RGE_DATA/Fonts/Lucide.ttf", resolvedPath)) {
+	if (!FilesystemManager::getInstance().resolveDirectory("$RGE_DATA/Fonts/Lucide.ttf", resolvedPath)) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to resolve Lucide font path");
 		return;
 	}
@@ -36,10 +36,10 @@ inline static void applyLucideIcons(float fontSize) {
 }
 
 bool FontManager::addFont(const std::string& fontPath, float fontSize) {
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
+	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
 	
 	std::filesystem::path resolvedPath;
-	if (!directoryManager.resolveDirectory(fontPath, resolvedPath)) {
+	if (!filesystemManager.resolveDirectory(fontPath, resolvedPath)) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to resolve font path: %s", fontPath.c_str());
 		return false;
 	}

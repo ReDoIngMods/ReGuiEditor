@@ -1,7 +1,8 @@
 #include "ShaderManager.hpp"
 
 #include "../Application.hpp"
-#include "../Filesystem/Filesystem.hpp"
+
+#include <FilesystemManager/FilesystemManager.hpp>
 
 #include <UTILS/Strings.hpp> // VCIC-Excluded: Includer cleaner is being a dum dum
 
@@ -28,7 +29,7 @@ public:
 			filePath = "$RGE_DATA/Shaders/" / filePath;
 
 		std::string fileContents;
-		if (!FS::readFileDM(filePath.string(), fileContents)) {
+		if (!FilesystemManager::getInstance().readFile(filePath.string(), fileContents)) {
 			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "IncludeHandler::Open: Failed to read included shader file %s.", filePath.string().c_str());
 			return E_FAIL;
 		}
@@ -68,7 +69,7 @@ bool ShaderManager::compileShaderFromFile(const ShaderManager::ShaderParameters&
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "ShaderManager::compileShaderFromFile: Failed to load shader from cache: %s", cacheFilePath.c_str());
 
 	std::string fileContents;
-	if (!FS::readFileDM(params.filePath, fileContents)) {
+	if (!FilesystemManager::getInstance().readFile(params.filePath, fileContents)) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "ShaderManager::compileShaderFromFile: Failed to read shader file %s.", params.filePath.c_str());
 		return false;
 	}
@@ -153,7 +154,7 @@ bool ShaderManager::compilePixelShader(const ShaderManager::ShaderParameters& pa
 
 bool ShaderManager::loadFromCache(const std::string& filePath, ID3DBlob** blobOutput) {
 	std::string blobContent;
-	if (!FS::readFileDM(filePath, blobContent)) {
+	if (!FilesystemManager::getInstance().readFile(filePath, blobContent)) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "ShaderManager::loadFromCache: Failed to read shader blob file %s.", filePath.c_str());
 		return false;
 	}
@@ -173,7 +174,7 @@ bool ShaderManager::saveToCache(const std::string& filePath, ID3DBlob* blob) {
 		return false;
 
 	std::string blobContent(static_cast<const char*>(blob->GetBufferPointer()), blob->GetBufferSize());
-	if (!FS::writeFileDM(filePath, blobContent)) {
+	if (!FilesystemManager::getInstance().writeFile(filePath, blobContent)) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "ShaderManager::saveToCache: Failed to write shader blob file %s.", filePath.c_str());
 		return false;
 	}
