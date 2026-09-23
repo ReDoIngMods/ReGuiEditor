@@ -4,8 +4,9 @@
 #include <ImGui/imgui_impl_dx11.h>
 #include <ImGui/imgui_impl_win32.h>
 
-#include "ConfigManager/ConfigManager.hpp"
-#include "FilesystemManager/FilesystemManager.hpp"
+#include <ConfigManager/ConfigManager.hpp>
+#include <FilesystemManager/FilesystemManager.hpp>
+#include <LuaManager/LuaManager.hpp>
 
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
@@ -23,6 +24,11 @@ Application::~Application() {
 	this->explorerPanel.cleanup();
 	this->propertiesPanel.cleanup();
 	this->renderPanel.cleanup();
+
+	if (this->luaManager) {
+		this->luaManager->destroyInstance();
+		this->luaManager = nullptr;
+	}
 
 	if (this->guiSystemManager) {
 		this->guiSystemManager->destroyInstance();
@@ -110,6 +116,12 @@ bool Application::initialize() {
 	this->guiSystemManager = GuiSystemManager::createInstance();
 	if (!this->guiSystemManager->initialize()) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize GuiSystemManager");
+		return false;
+	}
+
+	this->luaManager = LuaManager::createInstance();
+	if (!this->luaManager->initialize()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize LuaManager");
 		return false;
 	}
 

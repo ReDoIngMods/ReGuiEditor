@@ -16,6 +16,7 @@ enum ConsoleLogLevel {
 	LEVEL_DEBUG,
 
 	LEVEL_CACHE,
+	LEVEL_LUA,
 
 	LEVEL_MYGUI,
 	LEVEL_SHADER,

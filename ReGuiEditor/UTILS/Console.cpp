@@ -24,6 +24,7 @@ static std::array<const wchar_t*, LEVEL_COUNT> gConsoleLogLevelNames = {
 	L"DEBUG:",
 
 	L"[Cache]",
+	L"[Lua]",
 
 	L"[MyGUI]",
 	L"[Shader]",

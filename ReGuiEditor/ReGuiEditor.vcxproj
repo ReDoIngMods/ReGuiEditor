@@ -218,6 +218,7 @@ exit /b 0</Command>
     <ClCompile Include="GUI\ShaderManager.cpp" />
     <ClCompile Include="GUI\Utilities\D3D11RenderTarget.cpp" />
     <ClCompile Include="GUI\WindowDecoration.cpp" />
+    <ClCompile Include="LuaManager\LuaManager.cpp" />
     <ClCompile Include="UTILS\Console.cpp" />
     <ClCompile Include="UTILS\EnvVars.cpp" />
     <ClCompile Include="UTILS\Strings.cpp" />
@@ -486,6 +487,7 @@ exit /b 0</Command>
     <ClInclude Include="GUI\ResolutionManager.hpp" />
     <ClInclude Include="GUI\Lucide\IconsLucide.h" />
     <ClInclude Include="GUI\ShaderManager.hpp" />
+    <ClInclude Include="LuaManager\LuaManager.hpp" />
     <ClInclude Include="Window\TitlebarHitTest.hpp" />
     <ClInclude Include="GUI\Utilities\D3D11RenderTarget.hpp" />
     <ClInclude Include="GUI\WindowDecoration.hpp" />

@@ -184,7 +184,6 @@ bool GuiSystemManager::initialize() {
 	}
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GREEN, "Initialized MyGUI Gui.");
 
-
 	// Register ResourceTrueTypeFont factory
 
 	MyGUI::FactoryManager::getInstance().registerFactory<MyGUI::ResourceTrueTypeFont>("Resource", "ResourceTrueTypeFont");
@@ -202,8 +201,13 @@ bool GuiSystemManager::initialize() {
 
 	MyGUI::ResourceManager& resourceManager = MyGUI::ResourceManager::getInstance();
 	for (const auto& resourceFile : resourceFiles) {
-		if (!resourceManager.load(resourceFile)) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to load MyGUI resource file: %s", resourceFile.c_str());
+		try {
+			if(!resourceManager.load(resourceFile)) {
+				CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to load MyGUI resource file: %s", resourceFile.c_str());
+				return false;
+			}
+		} catch (const MyGUI::Exception& exception) {
+			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to load MyGUI resource file: %s. Exception message: %s", resourceFile.c_str(), exception.getFullDescription().c_str());
 			return false;
 		}
 

@@ -3,6 +3,7 @@
 
 #include "ConfigManager/ConfigManager.hpp"
 #include "FilesystemManager/FilesystemManager.hpp"
+#include "LuaManager/LuaManager.hpp"
 
 #include "Window/D3D11Device.hpp"
 #include "Window/Window.hpp"
@@ -36,6 +37,7 @@ public:
 	FilesystemManager* filesystemManager = nullptr;
 	FontManager* fontManager = nullptr;
 	GuiSystemManager* guiSystemManager = nullptr;
+	LuaManager* luaManager = nullptr;
 
 	ExplorerPanel explorerPanel;
 	PropertiesPanel propertiesPanel;
