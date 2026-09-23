@@ -406,4 +406,4 @@ enc_temp_folder/*
 ### REGUIEDITOR SPECIFIC
 
 Cache/
-!Dependencies/Libraries/**/*.pdb
+!ReGuiEditor/Dependencies/Libraries/**/*.pdb
