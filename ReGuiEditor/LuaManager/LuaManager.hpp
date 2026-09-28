@@ -22,4 +22,7 @@ public:
 	lua_State* getLuaState() const { return this->luaState_; }
 
 	bool checkStringArgument(lua_State* L, int index, std::string& outString);
+
+	void dumpStack(lua_State* L);
+	void dumpCallStack(lua_State* L);
 };

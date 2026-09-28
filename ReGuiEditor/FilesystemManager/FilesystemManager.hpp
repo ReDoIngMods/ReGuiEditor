@@ -64,11 +64,25 @@ public:
 		const size_t slash = path.find('/');
 
 		const std::string_view key = path.substr(0, slash);
-		const std::string_view rest = (slash == std::string_view::npos) ? std::string_view{} : path.substr(slash + 1);
+		const std::string_view rest = (slash == std::string_view::npos) ? "" : path.substr(slash + 1);
 
 		return this->resolveKey(key, rest, resolvedPath);
 	}
 
+	[[nodiscard]] bool resolveDirectoryWithContentData(std::string_view path, const std::string& localId, std::filesystem::path& resolvedPath) const {
+		if (path.empty())
+			return false;
+		
+		const size_t slash = path.find('/');
+		
+		const std::string_view key = path.substr(0, slash);
+		const std::string_view rest = (slash == std::string_view::npos) ? "" : path.substr(slash + 1);
+		
+		if (key == "$CONTENT_DATA")
+			return this->resolveKey("$CONTENT_" + localId, rest, resolvedPath);
+
+		return this->resolveKey(key, rest, resolvedPath);
+	}
 
 	// The 2 functions below do not resolve directory keys, they operate on raw filesystem paths. Please avoid unless
 	// you really have to. Use readFile and writeFile for normal file operations.
