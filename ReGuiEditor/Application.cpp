@@ -4,9 +4,10 @@
 #include <ImGui/imgui_impl_dx11.h>
 #include <ImGui/imgui_impl_win32.h>
 
-#include <ConfigManager/ConfigManager.hpp>
-#include <FilesystemManager/FilesystemManager.hpp>
-#include <LuaManager/LuaManager.hpp>
+#include "ConfigManager/ConfigManager.hpp"
+#include "FilesystemManager/FilesystemManager.hpp"
+#include "LuaManager/LuaManager.hpp"
+#include "UGCManager/UGCManager.hpp"
 
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
@@ -43,6 +44,11 @@ Application::~Application() {
 	if (this->configManager) {
 		this->configManager->destroyInstance();
 		this->configManager = nullptr;
+	}
+
+	if (this->ugcManager) {
+		this->ugcManager->destroyInstance();
+		this->ugcManager = nullptr;
 	}
 
 	if (this->filesystemManager) {
@@ -102,6 +108,12 @@ bool Application::initialize() {
 	this->filesystemManager = FilesystemManager::createInstance();
 	if (!this->filesystemManager->initialize()) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize FilesystemManager");
+		return false;
+	}
+
+	this->ugcManager = UGCManager::createInstance();
+	if (!this->ugcManager->initialize()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize UGCManager");
 		return false;
 	}
 

@@ -58,6 +58,9 @@ bool RenderPanel::initialize() {
 	return true;
 }
 
+// TODO: Optimize so the entire grid is drawn via a shader. We probably wanna rework the entire renderer however to use the renderer
+//       from SMX because otherwise things will get too messy.
+
 void RenderPanel::drawGrid() const {
 	const ImVec2 cursorPosition = ImGui::GetWindowPos();
 	const ImVec2 windowSize = ImGui::GetWindowSize();
@@ -132,7 +135,6 @@ void RenderPanel::render() {
 
 	ImGui::BeginChild("RenderView", viewportSize, false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
-	this->drawGrid();
 
 	const ImGuiIO& io = ImGui::GetIO();
 
@@ -167,6 +169,8 @@ void RenderPanel::render() {
 		this->pan_.x -= delta.x / this->zoom_;
 		this->pan_.y -= delta.y / this->zoom_;
 	}
+
+	this->drawGrid();
 
 	const ImVec2 imageSize = {
 		renderTargetSize.x * this->zoom_,

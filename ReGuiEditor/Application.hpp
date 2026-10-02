@@ -4,6 +4,7 @@
 #include "ConfigManager/ConfigManager.hpp"
 #include "FilesystemManager/FilesystemManager.hpp"
 #include "LuaManager/LuaManager.hpp"
+#include "UGCManager/UGCManager.hpp"
 
 #include "Window/D3D11Device.hpp"
 #include "Window/Window.hpp"
@@ -35,6 +36,7 @@ public:
 
 	ConfigManager* configManager = nullptr;
 	FilesystemManager* filesystemManager = nullptr;
+	UGCManager* ugcManager = nullptr;
 	FontManager* fontManager = nullptr;
 	GuiSystemManager* guiSystemManager = nullptr;
 	LuaManager* luaManager = nullptr;

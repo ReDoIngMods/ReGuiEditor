@@ -13,152 +13,9 @@
 #include <vector>
 
 #include <steam/isteamapps.h>
-#include <steam/isteamremotestorage.h>
-#include <steam/isteamugc.h>
 #include <steam/isteamuser.h>
 #include <steam/isteamutils.h>
 #include <steam/steamtypes.h>
-
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
-
-bool FilesystemManager::loadLocalMods() {
-	std::vector<std::string> modDirectories;
-	if (!this->listDirectories("$RGE_USER_DATA/Mods", modDirectories)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to list directories in the local mods folder.");
-		return false;
-	}
-
-	for (const std::string& modDirectory : modDirectories) {
-		std::filesystem::path resolvedModPath;
-		if (!this->resolveDirectory(modDirectory, resolvedModPath)) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to resolve local mod directory: %s", modDirectory.c_str());
-			continue;
-		}
-
-		std::string localId;
-		if (!this->getLocalIdFromMod(resolvedModPath, localId))
-			continue;
-
-		const bool inserted = this->directories_.emplace("$CONTENT_" + localId, resolvedModPath).second;
-		if (!inserted) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Local mod: %s was already loaded with localId: %s", modDirectory.c_str(), localId.c_str());
-			continue;
-		}
-	}
-
-	return true;
-}
-
-bool FilesystemManager::loadUGCMods() {
-	const uint32_t numSubscribedItems = SteamUGC()->GetNumSubscribedItems();
-	std::vector<PublishedFileId_t> subscribedItems(numSubscribedItems);
-
-	const uint32_t actualCount = SteamUGC()->GetSubscribedItems(subscribedItems.data(), numSubscribedItems);
-	subscribedItems.resize(actualCount);
-
-	for (const PublishedFileId_t& fileId : subscribedItems) {
-		char filePath[512];
-		if (!SteamUGC()->GetItemInstallInfo(fileId, nullptr, filePath, sizeof(filePath), nullptr)) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to get the installation path for Steam Workshop item: %llu", fileId);
-			continue;
-		}
-
-		const std::filesystem::path itemPath(filePath);
-
-		std::string localId;
-		if (!this->getLocalIdFromMod(itemPath, localId))
-			continue;
-
-		const bool inserted = this->directories_.emplace("$CONTENT_" + localId, itemPath).second;
-		if (!inserted) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu was already loaded with localId: %s", fileId, localId.c_str());
-			continue;
-		}
-
-		this->fileIdToLocalId_[fileId] = localId;
-	}
-
-	return true;
-}
-
-bool FilesystemManager::getLocalIdFromMod(const std::filesystem::path& modPath, std::string& uuid) {
-	const std::filesystem::path descriptionJsonPath = modPath / "description.json";
-
-	std::vector<char> descriptionJsonData;
-	if (!this->readFileRaw(descriptionJsonPath, descriptionJsonData)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read description.json from %s", modPath.string().c_str());
-		return false;
-	}
-
-	nlohmann::json descriptionJson;
-	try {
-		descriptionJson = nlohmann::json::parse(descriptionJsonData, nullptr, true, true);
-	} catch (const nlohmann::json::parse_error& error) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to parse description.json from %s. Error: %s", modPath.string().c_str(), error.what());
-		return false;
-	}
-
-	uuid = descriptionJson.value("localId", "");
-	if (uuid.empty()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "description.json for Steam Workshop item: %s does not contain a valid localId.", modPath.string().c_str());
-		return false;
-	}
-
-	return true;
-}
-
-void FilesystemManager::onItemInstalled(ItemInstalled_t* pCallback) {
-	if (pCallback == nullptr) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Received null callback for Steam Workshop item installation.");
-		return;
-	}
-
-	CONSOLE_LOG(LEVEL_DEBUG, COLOR_CYAN, "Steam Workshop item installed: %llu", pCallback->m_nPublishedFileId);
-
-	char filePath[512];
-	if (!SteamUGC()->GetItemInstallInfo(pCallback->m_nPublishedFileId, nullptr, filePath, sizeof(filePath), nullptr)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get the installation path for Steam Workshop item: %llu", pCallback->m_nPublishedFileId);
-		return;
-	}
-
-	const std::filesystem::path itemPath(filePath);
-
-	std::string localId;
-	if (!this->getLocalIdFromMod(itemPath, localId)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get localId for installed Steam Workshop item: %llu", pCallback->m_nPublishedFileId);
-		return;
-	}
-
-	const bool inserted = this->directories_.emplace("$CONTENT_" + localId, itemPath).second;
-	if (!inserted) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu was already installed with localId: %s", pCallback->m_nPublishedFileId, localId.c_str());
-		return;
-	}
-
-	this->fileIdToLocalId_[pCallback->m_nPublishedFileId] = localId;
-}
-
-void FilesystemManager::onItemUnsubscribed(RemoteStoragePublishedFileUnsubscribed_t* pCallback) {
-	CONSOLE_LOG(LEVEL_DEBUG, COLOR_CYAN, "Steam Workshop item unsubscribed: %llu", pCallback->m_nPublishedFileId);
-
-	const auto fileIdIterator = this->fileIdToLocalId_.find(pCallback->m_nPublishedFileId);
-	if (fileIdIterator == this->fileIdToLocalId_.end()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu is not in the local ID map.", pCallback->m_nPublishedFileId);
-		return;
-	}
-
-	const std::string localId = fileIdIterator->second;
-	this->fileIdToLocalId_.erase(fileIdIterator);
-
-	const auto directoryIterator = this->directories_.find("$CONTENT_" + localId);
-	if (directoryIterator == this->directories_.end()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu with localId: %s is not in the directories map.", pCallback->m_nPublishedFileId, localId.c_str());
-		return;
-	}
-
-	this->directories_.erase(directoryIterator);
-}
 
 bool FilesystemManager::getAppInstallPath(std::filesystem::path& installPath) {
 	const AppId_t appId = SteamUtils()->GetAppID();
@@ -217,33 +74,11 @@ bool FilesystemManager::initialize() {
 	this->addDirectory("$RGE_CACHE_DATA", "../Cache");
 	this->addDirectory("$RGE_USER_DATA", userProfilePath);
 
-	if (!this->loadLocalMods()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to load local mods.");
-		return false;
-	}
-
-	if (!this->loadUGCMods()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to load UGC mods.");
-		return false;
-	}
-
-	this->itemInstalledCallback_.Register(this, &FilesystemManager::onItemInstalled);
-	this->remoteStoragePublishedFileUnsubscribedCallback_.Register(this, &FilesystemManager::onItemUnsubscribed);
-	this->callbacksRegistered_ = true;
-
 	return true;
 }
 
 void FilesystemManager::cleanup() {
-	if (this->callbacksRegistered_) {
-		this->itemInstalledCallback_.Unregister();
-		this->remoteStoragePublishedFileUnsubscribedCallback_.Unregister();
-
-		this->callbacksRegistered_ = false;
-	}
-
 	this->directories_.clear();
-	this->fileIdToLocalId_.clear();
 }
 
 bool FilesystemManager::readFileRaw(const std::filesystem::path& path, std::vector<char>& outputContent) const {
