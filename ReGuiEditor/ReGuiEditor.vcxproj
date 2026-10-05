@@ -215,6 +215,7 @@ exit /b 0</Command>
     <ClCompile Include="GUI\ResolutionManager.cpp" />
     <ClCompile Include="GUI\WindowDecoration.cpp" />
     <ClCompile Include="LuaManager\LuaManager.cpp" />
+    <ClCompile Include="LuaManager\LuaScriptWatcher.cpp" />
     <ClCompile Include="rend\FullscreenPass.cpp" />
     <ClCompile Include="rend\Resources\Buffers\BufferResource.cpp" />
     <ClCompile Include="rend\Resources\Buffers\ConstantBuffer.cpp" />
@@ -505,6 +506,7 @@ exit /b 0</Command>
     <ClInclude Include="GUI\ResolutionManager.hpp" />
     <ClInclude Include="GUI\Lucide\IconsLucide.h" />
     <ClInclude Include="LuaManager\LuaManager.hpp" />
+    <ClInclude Include="LuaManager\LuaScriptWatcher.hpp" />
     <ClInclude Include="rend\FullscreenPass.hpp" />
     <ClInclude Include="rend\Resources\Buffers\BufferResource.hpp" />
     <ClInclude Include="rend\Resources\Buffers\ConstantBuffer.hpp" />

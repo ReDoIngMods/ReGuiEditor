@@ -17,6 +17,32 @@
 #include <steam/isteamutils.h>
 #include <steam/steamtypes.h>
 
+bool FilesystemManager::splitKey(const std::string& path, std::string& key, std::string& rest) const {
+	const size_t slash = path.find_first_of("/\\");
+	if (slash == std::string::npos) {
+		key = path;
+		rest = "";
+		return true;
+	}
+
+	key = path.substr(0, slash);
+	rest = path.substr(slash + 1);
+	return true;
+}
+
+bool FilesystemManager::resolveKey(const std::string& key, const std::string& rest, std::filesystem::path& resolvedPath) const {
+	const auto iterator = this->directories_.find(key);
+	if (iterator == directories_.end()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to resolve path: %s/%s", key.data(), rest.data());
+		return false;
+	}
+
+	resolvedPath = iterator->second / rest;
+	resolvedPath.make_preferred();
+
+	return true;
+}
+
 bool FilesystemManager::getAppInstallPath(std::filesystem::path& installPath) {
 	const AppId_t appId = SteamUtils()->GetAppID();
 

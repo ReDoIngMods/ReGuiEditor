@@ -51,7 +51,7 @@ bool UGCManager::registerMod(const std::filesystem::path& modPath, PublishedFile
 	if (!this->getLocalIdFromMod(modPath, localId))
 		return false;
 
-	if (!FilesystemManager::getInstance().addDirectory(FilesystemManager::contentKey(localId), modPath)) {
+	if (!FilesystemManager::getInstance().addDirectory("$CONTENT_" + localId, modPath)) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Mod: %s was already loaded with localId: %s", modPath.string().c_str(), localId.c_str());
 		return false;
 	}
@@ -114,7 +114,7 @@ void UGCManager::onItemUnsubscribed(RemoteStoragePublishedFileUnsubscribed_t* pC
 	}
 
 	const std::string& localId = fileIdIterator->second;
-	if (!FilesystemManager::getInstance().removeDirectory(FilesystemManager::contentKey(localId)))
+	if (!FilesystemManager::getInstance().removeDirectory("$CONTENT_" + localId))
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu with localId: %s is not in the directories map.", pCallback->m_nPublishedFileId, localId.c_str());
 
 	this->mods_.erase(localId);

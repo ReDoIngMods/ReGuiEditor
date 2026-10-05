@@ -3,7 +3,6 @@
 
 #include <filesystem>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -17,26 +16,9 @@ enum class FilesystemListFormat {
 class FilesystemManager : public UTILS::Singleton<FilesystemManager> {
 	std::unordered_map<std::string, std::filesystem::path> directories_;
 
-	static std::pair<std::string_view, std::string_view> splitKey(std::string_view path) {
-		const size_t slash = path.find('/');
-		if (slash == std::string_view::npos)
-			return { path, {} };
+	bool splitKey(const std::string& path, std::string& key, std::string& rest) const;
 
-		return { path.substr(0, slash), path.substr(slash + 1) };
-	}
-
-	bool resolveKey(std::string_view key, std::string_view rest, std::filesystem::path& resolvedPath) const {
-		const auto iterator = directories_.find(std::string(key));
-		if (iterator == directories_.end()) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Directory key not found: \"%.*s\"", static_cast<int>(key.size()), key.data());
-			return false;
-		}
-
-		resolvedPath = iterator->second / rest;
-		resolvedPath.make_preferred();
-
-		return true;
-	}
+	bool resolveKey(const std::string& key, const std::string& rest, std::filesystem::path& resolvedPath) const;
 
 	bool getAppInstallPath(std::filesystem::path& installPath);
 	bool getUserProfilePath(std::filesystem::path& userProfilePath);
@@ -46,42 +28,43 @@ public:
 	FilesystemManager() = default;
 	~FilesystemManager() { this->cleanup(); }
 
-	[[nodiscard]] static std::string contentKey(const std::string& localId) {
-		return "$CONTENT_" + localId;
-	}
-
 	bool initialize();
 	void cleanup();
 
-	// Returns false if a directory with this name is already registered.
 	bool addDirectory(const std::string& name, const std::filesystem::path& path) {
 		return this->directories_.try_emplace(name, std::filesystem::absolute(path)).second;
 	}
 
-	// Returns false if no directory with this name is registered.
 	bool removeDirectory(const std::string& name) {
 		return this->directories_.erase(name) != 0;
 	}
 
-	[[nodiscard]] bool resolveDirectory(std::string_view path, std::filesystem::path& resolvedPath) const {
+	[[nodiscard]] bool resolveDirectory(const std::string& path, std::filesystem::path& resolvedPath) const {
 		if (path.empty())
 			return false;
 
-		const auto [key, rest] = splitKey(path);
-		return this->resolveKey(key, rest, resolvedPath);
-	}
-
-	[[nodiscard]] bool resolveDirectoryWithContentData(std::string_view path, const std::string& localId, std::filesystem::path& resolvedPath) const {
-		if (path.empty())
+		std::string key, rest;
+		if (!this->splitKey(path, key, rest))
 			return false;
 
-		const auto [key, rest] = splitKey(path);
-		if (key == "$CONTENT_DATA")
-			return this->resolveKey(contentKey(localId), rest, resolvedPath);
-
 		return this->resolveKey(key, rest, resolvedPath);
 	}
-	
+
+	[[nodiscard]] bool resolveContentData(std::string& path, const std::string& localId) const {
+		if (path.empty())
+			return false;
+		
+		std::string key, rest;
+		if (!this->splitKey(path, key, rest))
+			return false;
+		
+		if (key != "$CONTENT_DATA")
+			return true;
+
+		path = "$CONTENT_" + localId + "/" + rest;
+		return true;
+	}
+
 	// TODO: Redo all of the functions below
 
 	// The 2 functions below do not resolve directory keys, they operate on raw filesystem paths. Please avoid unless

@@ -202,6 +202,8 @@ void Application::update() {
 }
 
 void Application::fixedUpdate() {
+	this->luaManager->update(static_cast<float>(this->deltaTime));
+
 	this->explorerPanel.update();
 	this->propertiesPanel.update();
 	this->renderPanel.update();
