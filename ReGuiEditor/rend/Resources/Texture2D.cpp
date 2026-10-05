@@ -91,12 +91,13 @@ bool rend::Texture2D::init(uint32_t width, uint32_t height, rend::Format format,
 	return true;
 }
 
-bool rend::Texture2D::initFromBackBuffer() {
-	HRESULT result = rend::D3D11Device::getInstance().getSwapChain()->GetBuffer(0, IID_PPV_ARGS(&this->texture_));
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get back buffer texture! HRESULT: 0x%X", result);
+bool rend::Texture2D::initFromNative(ID3D11Texture2D* nativeTexture) {
+	if (!nativeTexture) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to initialize Texture2D from native texture: native texture is null");
 		return false;
 	}
+
+	this->texture_ = nativeTexture;
 
 	D3D11_TEXTURE2D_DESC desc;
 	this->texture_->GetDesc(&desc);

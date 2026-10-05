@@ -7,8 +7,8 @@ struct VertexOutput {
 #if defined(VERTEX_SHADER)
 
 cbuffer ConstantBuffer : register(b0) {
-    float2 position;
-    float2 resolution;
+    float2 displayPosition;
+    float2 displayResolution;
 };
 
 struct VertexInput {
@@ -18,10 +18,10 @@ struct VertexInput {
 };
 
 VertexOutput vsMain(VertexInput input) {
-    VertexOutput output;
-    float2 normalizedPosition = ((input.position + position) / resolution) * 2.0 - 1.0;
+    float2 normalizedPosition = ((input.position - displayPosition) / displayResolution) * 2.0 - 1.0;
     normalizedPosition.y *= -1.0;
 
+    VertexOutput output;
     output.position = float4(normalizedPosition, 0.0, 1.0);
     output.uv = input.uv;
     output.color = input.color;

@@ -5,6 +5,8 @@
 #include "Common/RefCounter.hpp"
 #include "Common/SamplerAddressMode.hpp"
 
+#include "Resources/SwapChain.hpp"
+
 #include "Resources/Buffers/ConstantBuffer.hpp"
 #include "Resources/Buffers/IndexBuffer.hpp"
 #include "Resources/Buffers/VertexBuffer.hpp"
@@ -30,6 +32,8 @@
 #include <type_traits>
 #include <vector>
 
+struct ID3D11Texture2D;
+
 namespace rend {
 	class Renderer;
 
@@ -49,8 +53,10 @@ namespace rend {
 
 		void cleanup();
 
+		rend::SwapChainHandle createSwapChain(void* window);
+
 		rend::Texture2DHandle createTexture2D(uint32_t width, uint32_t height, rend::Format format, rend::Texture2DFlags flags);
-		rend::Texture2DHandle createTexture2DFromBackBuffer();
+		rend::Texture2DHandle createTexture2DNative(ID3D11Texture2D* nativeTexture);
 
 		rend::RenderViewHandle createRenderView(rend::Texture2D* texture);
 

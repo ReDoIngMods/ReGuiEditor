@@ -238,7 +238,6 @@ void UTILS::Console::log(ConsoleLogLevel level, ConsoleLogColor color, const std
 	if (!this->consoleAllocated_ && this->fileHandle_ == INVALID_HANDLE_VALUE)
 		return;
 
-
 	SYSTEMTIME time;
 	GetLocalTime(&time);
 

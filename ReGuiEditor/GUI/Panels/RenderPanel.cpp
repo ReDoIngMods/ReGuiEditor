@@ -36,7 +36,6 @@ struct GridCallbackData {
 	float zoom = 1.0f;
 };
 
-
 void RenderPanel::drawDebugRenderInfos() const {
 	const GuiSystemManager& guiSystemManager = GuiSystemManager::getInstance();
 	const ImVec2 renderTargetSize = {
@@ -44,13 +43,13 @@ void RenderPanel::drawDebugRenderInfos() const {
 		static_cast<float>(guiSystemManager.getRenderTargetHeight())
 	};
 
-	ImGui::SetCursorPos({ 0, ImGui::GetFrameHeight() });
+	ImGui::SetCursorPos({ 0, 0 });
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 0.0f });
 	ImGui::BeginChild("DebugRenderView", { 0.0f, 0.0f }, ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground);
 
 	FontManager& fontManager = FontManager::getInstance();
-	ImFont* font = fontManager.getFont("IBM-VGA-8x16");
+	ImFont* font = fontManager.getFont("BigBlue_TerminalPlus");
 	if (font)
 		ImGui::PushFont(font, 0.f);
 
@@ -145,12 +144,12 @@ void RenderPanel::drawGrid() {
 
 void RenderPanel::render() {
 	ImGuiWindowClass windowClass;
-	windowClass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoWindowMenuButton;
+	windowClass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoWindowMenuButton | ImGuiDockNodeFlags_NoUndocking | ImGuiDockNodeFlags_NoTabBar;
 
 	ImGui::SetNextWindowClass(&windowClass);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0, 0 });
-	ImGui::Begin("Render View");
+	ImGui::Begin("Render View", NULL, ImGuiWindowFlags_NoTitleBar);
 
 	const GuiSystemManager& guiSystemManager = GuiSystemManager::getInstance();
 	const ImVec2 renderTargetSize = {

@@ -34,7 +34,7 @@ namespace rend {
 		rend::RefCountPtr<ID3D11Texture2D> texture_;
 	public:
 		[[nodiscard]] bool init(uint32_t width, uint32_t height, rend::Format format, rend::Texture2DFlags flags);
-		[[nodiscard]] bool initFromBackBuffer();
+		[[nodiscard]] bool initFromNative(ID3D11Texture2D* nativeTexture);
 
 		[[nodiscard]] rend::Texture2DFlags getFlags() const { return this->flags_; }
 

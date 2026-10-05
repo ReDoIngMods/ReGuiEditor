@@ -6,7 +6,6 @@
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
 
-#include "rend/Renderer.hpp"
 
 #include "Window/Window.hpp"
 
@@ -17,6 +16,9 @@
 #include "GUI/Panels/ExplorerPanel.hpp"
 #include "GUI/Panels/PropertiesPanel.hpp"
 #include "GUI/Panels/RenderPanel.hpp"
+
+#include <rend/Renderer.hpp>
+#include <rend/Resources/SwapChain.hpp>
 
 #include <Windows.h>
 
@@ -36,6 +38,7 @@ public:
 	Window window;
 
 	rend::Renderer* renderer = nullptr;
+	rend::SwapChainHandle swapChain;
 
 	ConfigManager* configManager = nullptr;
 	FilesystemManager* filesystemManager = nullptr;
@@ -43,6 +46,7 @@ public:
 	FontManager* fontManager = nullptr;
 	GuiSystemManager* guiSystemManager = nullptr;
 	LuaManager* luaManager = nullptr;
+
 	ExplorerPanel explorerPanel;
 	PropertiesPanel propertiesPanel;
 	RenderPanel renderPanel;

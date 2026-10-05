@@ -229,6 +229,7 @@ exit /b 0</Command>
     <ClCompile Include="rend\Resources\Resource.cpp" />
     <ClCompile Include="rend\ResourceManager.cpp" />
     <ClCompile Include="rend\Resources\RenderView.cpp" />
+    <ClCompile Include="rend\Resources\SwapChain.cpp" />
     <ClCompile Include="rend\Resources\Texture2D.cpp" />
     <ClCompile Include="rend\Resources\Shaders\InputLayout.cpp" />
     <ClCompile Include="rend\Resources\Shaders\PixelShader.cpp" />
@@ -521,6 +522,7 @@ exit /b 0</Command>
     <ClInclude Include="rend\ResourceManager.hpp" />
     <ClInclude Include="rend\Resources\RenderView.hpp" />
     <ClInclude Include="rend\Resources\ShaderResourceView.hpp" />
+    <ClInclude Include="rend\Resources\SwapChain.hpp" />
     <ClInclude Include="rend\Resources\Texture2D.hpp" />
     <ClInclude Include="rend\Resources\Shaders\InputLayout.hpp" />
     <ClInclude Include="rend\Resources\Shaders\PixelShader.hpp" />

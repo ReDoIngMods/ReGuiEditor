@@ -67,7 +67,7 @@ bool FontManager::initialize() {
 	applyLucideIcons(defaultFontSize);
 
 	if (!this->addFont("$RGE_DATA/Fonts/Futura.otf", defaultFontSize)) return false;
-	if (!this->addFont("$RGE_DATA/Fonts/IBM-VGA-8x16.ttf", defaultFontSize)) return false;
+	if (!this->addFont("$RGE_DATA/Fonts/BigBlue_TerminalPlus.ttf", 12)) return false;
 
 	return true;
 }

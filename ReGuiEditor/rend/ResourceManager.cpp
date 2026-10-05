@@ -9,6 +9,8 @@
 #include "Common/SamplerAddressMode.hpp"
 #include "Common/SamplerFilter.hpp"
 
+#include "Resources/SwapChain.hpp"
+
 #include "Resources/Buffers/ConstantBuffer.hpp"
 #include "Resources/Buffers/IndexBuffer.hpp"
 #include "Resources/Buffers/VertexBuffer.hpp"
@@ -34,6 +36,8 @@
 #include <string>
 #include <vector>
 
+struct ID3D11Texture2D;
+
 bool rend::ResourceManager::registerResource(rend::Resource* resource) {
 	std::lock_guard<std::mutex> lock(this->resourcesMutex_);
 
@@ -55,8 +59,6 @@ bool rend::ResourceManager::unregisterResource(rend::Resource* resource) {
 
 	this->resources_.erase(iterator);
 	this->resourceCount_.fetch_sub(1, std::memory_order_relaxed);
-
-	CONSOLE_LOG(LEVEL_RESOURCE, COLOR_GRAY, "Unregistering resource: %s (%s)", resource->getTypeName(), resource->getDebugName());
 	return true;
 }
 
@@ -73,6 +75,16 @@ void rend::ResourceManager::cleanup() {
 	}
 }
 
+rend::SwapChainHandle rend::ResourceManager::createSwapChain(void* window) {
+	rend::SwapChain* swapChain = new rend::SwapChain;
+	if (!swapChain->init(window)) {
+		swapChain->Release();
+		return nullptr;
+	}
+
+	return rend::makeRefCountPtr(swapChain);
+}
+
 rend::Texture2DHandle rend::ResourceManager::createTexture2D(uint32_t width, uint32_t height, rend::Format format, rend::Texture2DFlags flags) {
 	rend::Texture2D* texture = new rend::Texture2D;
 	if (!texture->init(width, height, format, flags)) {
@@ -83,9 +95,9 @@ rend::Texture2DHandle rend::ResourceManager::createTexture2D(uint32_t width, uin
 	return rend::makeRefCountPtr(texture);
 }
 
-rend::Texture2DHandle rend::ResourceManager::createTexture2DFromBackBuffer() {
+rend::Texture2DHandle rend::ResourceManager::createTexture2DNative(ID3D11Texture2D* nativeTexture) {
 	rend::Texture2D* texture = new rend::Texture2D;
-	if (!texture->initFromBackBuffer()) {
+	if (!texture->initFromNative(nativeTexture)) {
 		texture->Release();
 		return nullptr;
 	}

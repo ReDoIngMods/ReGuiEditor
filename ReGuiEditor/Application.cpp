@@ -1,6 +1,8 @@
 #include "Application.hpp"
 
-#include <ImGui/imgui.h>
+#include <rend/Renderer.hpp>
+
+#include <rend/Common/Color.hpp>
 
 #include <rend/ImGui/RGE_ImGui_FreeType.hpp>
 #include <rend/ImGui/RGE_ImGui_Impl_DX11.hpp>
@@ -11,12 +13,11 @@
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
 
-#include <rend/D3D11Device.hpp>
-#include <rend/Renderer.hpp>
-
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
 #include "GUI/NotificationManager.hpp"
+
+#include <ImGui/imgui.h>
 
 #include <Windows.h>
 
@@ -61,6 +62,8 @@ Application::~Application() {
 		ImGui::DestroyContext();
 	}
 
+	this->swapChain.reset();
+
 	if (this->renderer) {
 		this->renderer->destroyInstance();
 		this->renderer = nullptr;
@@ -70,6 +73,7 @@ Application::~Application() {
 		this->filesystemManager->destroyInstance();
 		this->filesystemManager = nullptr;
 	}
+
 	this->window.cleanup();
 }
 
@@ -95,6 +99,12 @@ bool Application::initialize() {
 	this->renderer = rend::Renderer::createInstance();
 	if (!this->renderer->init(this->window.getHwnd())) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize renderer");
+		return false;
+	}
+
+	this->swapChain = this->renderer->getResourceManager()->createSwapChain(this->window.getHwnd());
+	if (!this->swapChain) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to create swap chain");
 		return false;
 	}
 
@@ -198,10 +208,10 @@ void Application::fixedUpdate() {
 }
 
 void Application::render(bool vsyncEnabled) {
-	this->guiSystemManager->render();
+	if(!this->swapChain->clearRenderTarget(rend::Color::darkGray()))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to clear render target");
 
-	rend::D3D11Device* d3d11Device = this->renderer->getD3D11Device();
-	d3d11Device->beginFrame();
+	this->guiSystemManager->render();
 
 	RGE_ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
@@ -216,8 +226,10 @@ void Application::render(bool vsyncEnabled) {
 	ImGui::UpdatePlatformWindows();
 	ImGui::RenderPlatformWindowsDefault();
 
-	RGE_ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData(), this->renderer->getBackBufferRenderView());
-	d3d11Device->endFrame();
+	RGE_ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData(), this->swapChain->getRenderTargetView());
+	
+	if(!this->swapChain->present(vsyncEnabled))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to main present swap chain");
 }
 
 LRESULT Application::windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -232,10 +244,10 @@ bool Application::onCloseRequest() {
 }
 
 void Application::onWindowResize(int width, int height) {
-	if (!this->isInitialized || !this->renderer || width <= 0 || height <= 0)
+	if (!this->isInitialized || !this->swapChain || width <= 0 || height <= 0)
 		return;
 
-	if (!this->renderer->resize(static_cast<UINT>(width), static_cast<UINT>(height)))
+	if (!this->swapChain->resize(static_cast<UINT>(width), static_cast<UINT>(height)))
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to resize renderer to %dx%d", width, height);
 }
 

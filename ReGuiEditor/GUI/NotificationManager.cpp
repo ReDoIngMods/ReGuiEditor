@@ -111,7 +111,7 @@ void NotificationManager::render() {
         return;
     }
 
-    float targetYOffset = ImGui::GetFrameHeight();
+    float targetYOffset = 0;
     for (auto& notification : this->notifications_) {
         const float totalLifetime = SLIDE_IN_TIME + notification.duration + SLIDE_OUT_TIME;
 

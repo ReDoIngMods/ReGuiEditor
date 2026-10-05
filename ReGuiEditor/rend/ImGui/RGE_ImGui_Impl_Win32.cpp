@@ -1,14 +1,20 @@
 #include "RGE_ImGui_Impl_Win32.hpp" // VCIC-Excluded
 
 #include <ImGui/imgui.h>
+#include <ImGui/imgui_internal.h>
 
+#include <ShellScalingApi.h>
 #include <Windows.h>
-#include <hidusage.h>
 
 #include <cfloat>
 #include <vector>
 
+#pragma comment(lib, "Shcore.lib")
+
+static constexpr wchar_t RGE_ImGui_ImplWin32_ViewportClassName[] = L"RGE_ImGui_Viewport";
+
 struct RGE_ImGui_ImplWin32_Data {
+	HINSTANCE hInstance = nullptr;
 	HWND hwnd = nullptr;
 	LARGE_INTEGER frequency = {};
 	LARGE_INTEGER lastTime = {};
@@ -19,6 +25,8 @@ struct RGE_ImGui_ImplWin32_Data {
 	bool isFocused = false;
 	float initialDpiScale = -FLT_MAX;
 };
+
+inline static LRESULT CALLBACK RGE_ImGui_ImplWin32_PlatformWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 inline static void UpdateMouseButton(const RAWMOUSE& mouse, USHORT downFlag, USHORT upFlag, int button) {
 	ImGuiIO& io = ImGui::GetIO();
@@ -236,6 +244,529 @@ inline static ImGuiKey MapKeyToImGuiKey(WPARAM wParam, LPARAM lParam) {
 	return ImGuiKey_None;
 }
 
+inline static HWND GetViewportHWND(ImGuiViewport* viewport) { return reinterpret_cast<HWND>(viewport->PlatformHandle); }
+inline static bool IsMainViewport(ImGuiViewport* viewport) { return viewport == ImGui::GetMainViewport(); }
+
+inline static ImVec2 GetViewportClientSize(HWND hwnd) {
+	RECT rect;
+	if (!GetClientRect(hwnd, &rect)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get client rect for ImGui viewport window! Error: %lu", GetLastError());
+		return { 0.0f, 0.0f };
+	}
+
+	return {
+		static_cast<float>(rect.right - rect.left),
+		static_cast<float>(rect.bottom - rect.top)
+	};
+}
+
+inline static ImVec2 GetViewportWindowPos(HWND hwnd) {
+	POINT point = { 0, 0 };
+	if (!ClientToScreen(hwnd, &point)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get window position for ImGui viewport window! Error: %lu", GetLastError());
+		return { 0.0f, 0.0f };
+	}
+
+	return {
+		static_cast<float>(point.x),
+		static_cast<float>(point.y)
+	};
+}
+
+inline static void SetViewportWindowPos(HWND hwnd, ImVec2 pos) {
+	POINT point = {
+		.x = static_cast<LONG>(pos.x),
+		.y = static_cast<LONG>(pos.y)
+	};
+
+	RECT rect;
+	if (!GetWindowRect(hwnd, &rect)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get window rect for ImGui viewport window! Error: %lu", GetLastError());
+		return;
+	}
+
+	POINT clientPos = { 0, 0 };
+	if (!ClientToScreen(hwnd, &clientPos)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get client position for ImGui viewport window! Error: %lu", GetLastError());
+		return;
+	}
+
+	const int offsetX = clientPos.x - rect.left;
+	const int offsetY = clientPos.y - rect.top;
+	if (!SetWindowPos(hwnd, nullptr, point.x - offsetX, point.y - offsetY, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to set window position for ImGui viewport window! Error: %lu", GetLastError());
+}
+
+inline static void SetViewportWindowSize(HWND hwnd, ImVec2 size) {
+	RECT rect = {
+		.left = 0,
+		.top = 0,
+		.right = static_cast<LONG>(size.x),
+		.bottom = static_cast<LONG>(size.y)
+	};
+
+	DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
+	DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
+
+	UINT dpi = GetDpiForWindow(hwnd);
+	if (dpi == 0)
+		dpi = 96;
+
+	if (!AdjustWindowRectExForDpi(&rect, style, FALSE, exStyle, dpi))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to adjust window rect for ImGui viewport window! Error: %lu", GetLastError());
+
+	if (!SetWindowPos(hwnd, nullptr, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to set window size for ImGui viewport window! Error: %lu", GetLastError());
+}
+
+inline static void UpdateViewportPosition(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd)
+		return;
+
+	ImVec2 position = GetViewportWindowPos(hwnd);
+	if (viewport->Pos.x != position.x || viewport->Pos.y != position.y)
+		viewport->PlatformRequestMove = true;
+}
+
+inline static void UpdateViewportSize(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd)
+		return;
+
+	ImVec2 size = GetViewportClientSize(hwnd);
+	if (viewport->Size.x != size.x || viewport->Size.y != size.y)
+		viewport->PlatformRequestResize = true;
+}
+
+inline static void RGE_ImGui_ImplWin32_CreateWindow(ImGuiViewport* viewport) {
+	DWORD style = WS_OVERLAPPEDWINDOW;
+	DWORD exStyle = WS_EX_APPWINDOW;
+
+	if (viewport->Flags & ImGuiViewportFlags_NoDecoration)
+		style = WS_POPUP;
+
+	if (viewport->Flags & ImGuiViewportFlags_NoTaskBarIcon)
+		exStyle = WS_EX_TOOLWINDOW;
+
+	if (viewport->Flags & ImGuiViewportFlags_TopMost)
+		exStyle |= WS_EX_TOPMOST;
+
+	HWND parent = nullptr;
+
+	if (viewport->Flags & ImGuiViewportFlags_NoTaskBarIcon)
+		parent = GetViewportHWND(ImGui::GetMainViewport());
+
+	RGE_ImGui_ImplWin32_Data* backendData = getBackendWin32Data();
+	HWND hwnd = CreateWindowExW(exStyle, RGE_ImGui_ImplWin32_ViewportClassName, L"RGE_ImGui_ImplWin32_Viewport", style, 0, 0, 1, 1, parent, nullptr, backendData->hInstance, viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui viewport window! Error: %lu", GetLastError());
+		return;
+	}
+
+	viewport->PlatformHandle = hwnd;
+	viewport->PlatformHandleRaw = hwnd;
+
+	SetViewportWindowPos(hwnd, viewport->Pos);
+	SetViewportWindowSize(hwnd, viewport->Size);
+
+	ShowWindow(hwnd, SW_HIDE);
+}
+
+inline static void RGE_ImGui_ImplWin32_DestroyWindow(ImGuiViewport* viewport) {
+	if (!viewport->PlatformHandle && !viewport->PlatformHandleRaw)
+		return;
+
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_DestroyWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	DestroyWindow(hwnd);
+
+	viewport->PlatformHandle = nullptr;
+	viewport->PlatformHandleRaw = nullptr;
+}
+
+inline static void RGE_ImGui_ImplWin32_ShowWindow(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_ShowWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	ShowWindow(hwnd, SW_SHOW);
+}
+
+inline static void RGE_ImGui_ImplWin32_SetWindowPos(ImGuiViewport* viewport, ImVec2 pos) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	SetViewportWindowPos(hwnd, pos);
+}
+
+inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowPos(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return { 0.0f, 0.0f };
+	}
+
+	return GetViewportWindowPos(hwnd);
+}
+
+inline static void RGE_ImGui_ImplWin32_SetWindowSize(ImGuiViewport* viewport, ImVec2 size) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	SetViewportWindowSize(hwnd, size);
+}
+
+inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowSize(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return { 0.0f, 0.0f };
+	}
+
+	return GetViewportClientSize(hwnd);
+}
+
+inline static void RGE_ImGui_ImplWin32_SetWindowFocus(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowFocus: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	BringWindowToTop(hwnd);
+	SetForegroundWindow(hwnd);
+	SetFocus(hwnd);
+}
+
+inline static bool RGE_ImGui_ImplWin32_GetWindowFocus(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RGE_ImGui_ImplWin32_GetWindowFocus: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return false;
+	}
+
+	return GetForegroundWindow() == hwnd;
+}
+
+inline static bool RGE_ImGui_ImplWin32_GetWindowMinimized(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowMinimized: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return false;
+	}
+
+	return IsIconic(hwnd) != 0;
+}
+
+inline static void RGE_ImGui_ImplWin32_SetWindowTitle(ImGuiViewport* viewport, const char* title) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowTitle: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	int length = MultiByteToWideChar(CP_UTF8, 0, title ? title : "", -1, nullptr, 0);
+	if (length <= 0) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowTitle: Failed to convert title to wide string. Error: %lu", GetLastError());
+		return;
+	}
+
+	std::vector<wchar_t> wideTitle(static_cast<size_t>(length));
+	MultiByteToWideChar(CP_UTF8, 0, title ? title : "", -1, wideTitle.data(), length);
+
+	if (!SetWindowTextW(hwnd, wideTitle.data()))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowTitle: Failed to set window title. Error: %lu", GetLastError());
+}
+
+inline static void RGE_ImGui_ImplWin32_SetWindowAlpha(ImGuiViewport* viewport, float alpha) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	alpha = (alpha < 0.0f) ? 0.0f : (alpha > 1.0f ? 1.0f : alpha);
+
+	LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+	SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+
+	if (!SetLayeredWindowAttributes(hwnd, 0, static_cast<BYTE>(alpha * 255.0f), LWA_ALPHA))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to set window alpha. Error: %lu", GetLastError());
+}
+
+inline static void RGE_ImGui_ImplWin32_UpdateWindow(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_UpdateWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return;
+	}
+
+	UpdateViewportPosition(viewport);
+	UpdateViewportSize(viewport);
+
+	if (IsIconic(hwnd))
+		viewport->Flags |= ImGuiViewportFlags_IsMinimized;
+	else
+		viewport->Flags &= ~ImGuiViewportFlags_IsMinimized;
+}
+
+inline static float RGE_ImGui_ImplWin32_GetWindowDpiScale(ImGuiViewport* viewport) {
+	HWND hwnd = GetViewportHWND(viewport);
+	if (!hwnd) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowDpiScale: Failed to get viewport window handle. Error: %lu", GetLastError());
+		return 1.0f;
+	}
+
+	UINT dpi = GetDpiForWindow(hwnd);
+	if (dpi == 0) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RGE_ImGui_ImplWin32_GetWindowDpiScale: Failed to get DPI for window. Error: %lu", GetLastError());
+		return 1.0f;
+	}
+
+	return static_cast<float>(dpi) / 96.0f;
+}
+
+inline static void RGE_ImGui_ImplWin32_OnChangedViewport(ImGuiViewport* viewport) {
+	(void)viewport;
+}
+
+inline static float RGE_ImGui_ImplWin32_GetMonitorDpiScale(HMONITOR monitor) {
+	UINT dpiX = 96;
+	UINT dpiY = 96;
+
+	HRESULT result = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
+	if (FAILED(result)) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to get DPI for monitor! Error: 0x%08X", result);
+		return 1.0f;
+	}
+
+	return static_cast<float>(dpiX) / 96.0f;
+}
+
+inline static BOOL CALLBACK RGE_ImGui_ImplWin32_UpdateMonitorsCallback(HMONITOR monitor, HDC hdc, LPRECT rect, LPARAM userData) {
+	(void)hdc;
+	(void)rect;
+
+	ImGuiPlatformIO* platformIO = reinterpret_cast<ImGuiPlatformIO*>(userData);
+
+	MONITORINFO monitorInfo;
+	ZeroMemory(&monitorInfo, sizeof(MONITORINFO));
+	monitorInfo.cbSize = sizeof(MONITORINFO);
+
+	if (!GetMonitorInfoW(monitor, &monitorInfo))
+		return TRUE;
+
+	ImGuiPlatformMonitor platformMonitor{};
+	platformMonitor.MainPos = {
+		static_cast<float>(monitorInfo.rcMonitor.left),
+		static_cast<float>(monitorInfo.rcMonitor.top)
+	};
+	platformMonitor.MainSize = {
+		static_cast<float>(monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left),
+		static_cast<float>(monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top)
+	};
+	platformMonitor.WorkPos = {
+		static_cast<float>(monitorInfo.rcWork.left),
+		static_cast<float>(monitorInfo.rcWork.top)
+	};
+	platformMonitor.WorkSize = {
+		static_cast<float>(monitorInfo.rcWork.right - monitorInfo.rcWork.left),
+		static_cast<float>(monitorInfo.rcWork.bottom - monitorInfo.rcWork.top)
+	};
+
+	platformMonitor.DpiScale = RGE_ImGui_ImplWin32_GetMonitorDpiScale(monitor);
+	platformMonitor.PlatformHandle = monitor;
+
+	platformIO->Monitors.push_back(platformMonitor);
+	return TRUE;
+}
+
+inline static void RGE_ImGui_ImplWin32_UpdateMonitors() {
+	ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+
+	platformIO.Monitors.resize(0);
+	EnumDisplayMonitors(nullptr, nullptr, RGE_ImGui_ImplWin32_UpdateMonitorsCallback, reinterpret_cast<LPARAM>(&platformIO));
+}
+
+inline static bool RGE_ImGui_ImplWin32_RegisterViewportClass() {
+	WNDCLASSEXW windowClass;
+	ZeroMemory(&windowClass, sizeof(WNDCLASSEXW));
+	windowClass.cbSize = sizeof(WNDCLASSEXW);
+	windowClass.style = CS_HREDRAW | CS_VREDRAW;
+	windowClass.lpfnWndProc = RGE_ImGui_ImplWin32_PlatformWndProc;
+	windowClass.hInstance = GetModuleHandleW(nullptr);
+	windowClass.lpszClassName = RGE_ImGui_ImplWin32_ViewportClassName;
+
+	if (!RegisterClassExW(&windowClass)) {
+		DWORD error = GetLastError();
+		if (error != ERROR_CLASS_ALREADY_EXISTS) {
+			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to register ImGui viewport window class! Error: %lu", error);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+inline static void RGE_ImGui_ImplWin32_SetupPlatformInterface(HWND hWnd) {
+	ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+	platformIO.Platform_CreateWindow = RGE_ImGui_ImplWin32_CreateWindow;
+	platformIO.Platform_DestroyWindow = RGE_ImGui_ImplWin32_DestroyWindow;
+	platformIO.Platform_ShowWindow = RGE_ImGui_ImplWin32_ShowWindow;
+	platformIO.Platform_SetWindowPos = RGE_ImGui_ImplWin32_SetWindowPos;
+	platformIO.Platform_GetWindowPos = RGE_ImGui_ImplWin32_GetWindowPos;
+	platformIO.Platform_SetWindowSize = RGE_ImGui_ImplWin32_SetWindowSize;
+	platformIO.Platform_GetWindowSize = RGE_ImGui_ImplWin32_GetWindowSize;
+	platformIO.Platform_SetWindowFocus = RGE_ImGui_ImplWin32_SetWindowFocus;
+	platformIO.Platform_GetWindowFocus = RGE_ImGui_ImplWin32_GetWindowFocus;
+	platformIO.Platform_GetWindowMinimized = RGE_ImGui_ImplWin32_GetWindowMinimized;
+	platformIO.Platform_SetWindowTitle = RGE_ImGui_ImplWin32_SetWindowTitle;
+	platformIO.Platform_SetWindowAlpha = RGE_ImGui_ImplWin32_SetWindowAlpha;
+	platformIO.Platform_UpdateWindow = RGE_ImGui_ImplWin32_UpdateWindow;
+	platformIO.Platform_GetWindowDpiScale = RGE_ImGui_ImplWin32_GetWindowDpiScale;
+	platformIO.Platform_OnChangedViewport = RGE_ImGui_ImplWin32_OnChangedViewport;
+
+	ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+	mainViewport->PlatformHandle = hWnd;
+	mainViewport->PlatformHandleRaw = hWnd;
+
+	RGE_ImGui_ImplWin32_UpdateMonitors();
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
+	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;
+}
+
+inline static void RGE_ImGui_ImplWin32_ShutdownPlatformInterface() {
+	ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+	platformIO.Platform_CreateWindow = nullptr;
+	platformIO.Platform_DestroyWindow = nullptr;
+	platformIO.Platform_ShowWindow = nullptr;
+	platformIO.Platform_SetWindowPos = nullptr;
+	platformIO.Platform_GetWindowPos = nullptr;
+	platformIO.Platform_SetWindowSize = nullptr;
+	platformIO.Platform_GetWindowSize = nullptr;
+	platformIO.Platform_SetWindowFocus = nullptr;
+	platformIO.Platform_GetWindowFocus = nullptr;
+	platformIO.Platform_GetWindowMinimized = nullptr;
+	platformIO.Platform_SetWindowTitle = nullptr;
+	platformIO.Platform_SetWindowAlpha = nullptr;
+	platformIO.Platform_UpdateWindow = nullptr;
+	platformIO.Platform_GetWindowDpiScale = nullptr;
+	platformIO.Platform_OnChangedViewport = nullptr;
+
+	platformIO.Monitors.clear();
+
+	ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+	mainViewport->PlatformHandle = nullptr;
+	mainViewport->PlatformHandleRaw = nullptr;
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.BackendFlags &= ~ImGuiBackendFlags_HasMouseCursors;
+	io.BackendFlags &= ~ImGuiBackendFlags_PlatformHasViewports;
+}
+
+inline static ImGuiViewport* RGE_ImGui_ImplWin32_FindViewportByHWND(HWND hwnd) {
+	ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+	for (int index = 0; index < platformIO.Viewports.Size; ++index) {
+		ImGuiViewport* viewport = platformIO.Viewports[index];
+		if (viewport->PlatformHandle == hwnd)
+			return viewport;
+	}
+
+	return nullptr;
+}
+
+inline static bool RGE_ImGui_ImplWin32_IsViewportWindow(HWND hwnd) {
+	if (!hwnd)
+		return false;
+
+	RGE_ImGui_ImplWin32_Data* backendData = getBackendWin32Data();
+	if (!backendData)
+		return false;
+
+	if (hwnd == backendData->hwnd)
+		return true;
+
+	return RGE_ImGui_ImplWin32_FindViewportByHWND(hwnd) != nullptr;
+}
+
+inline static LRESULT CALLBACK RGE_ImGui_ImplWin32_PlatformWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	if (!ImGui::GetCurrentContext()) {
+		if (RGE_ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+			return TRUE;
+
+		return DefWindowProcW(hWnd, msg, wParam, lParam);
+	}
+
+	ImGuiViewport* viewport = reinterpret_cast<ImGuiViewport*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
+	if (!viewport)
+		viewport = RGE_ImGui_ImplWin32_FindViewportByHWND(hWnd);
+
+	if (!viewport) {
+		if (RGE_ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+			return TRUE;
+
+		return DefWindowProcW(hWnd, msg, wParam, lParam);
+	}
+
+	switch (msg) {
+	case WM_NCCREATE: {
+		const CREATESTRUCTW* createStruct = reinterpret_cast<const CREATESTRUCTW*>(lParam);
+		if (createStruct)
+			SetWindowLongPtrW(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(createStruct->lpCreateParams));
+
+		break;
+	}
+	case WM_CLOSE:
+		viewport->PlatformRequestClose = true;
+		return 0;
+	case WM_MOVE:
+		viewport->PlatformRequestMove = true;
+		break;
+	case WM_SIZE:
+		viewport->PlatformRequestResize = true;
+		if (wParam == SIZE_MINIMIZED)
+			viewport->Flags |= ImGuiViewportFlags_IsMinimized;
+		else
+			viewport->Flags &= ~ImGuiViewportFlags_IsMinimized;
+
+		break;
+	case WM_DPICHANGED:
+		if (lParam) {
+			const RECT* suggestedRect = reinterpret_cast<const RECT*>(lParam);
+
+			int newWidth = suggestedRect->right - suggestedRect->left;
+			int newHeight = suggestedRect->bottom - suggestedRect->top;
+			if (!SetWindowPos(hWnd, nullptr, suggestedRect->left, suggestedRect->top, newWidth, newHeight, SWP_NOZORDER | SWP_NOACTIVATE))
+				CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to set window position and size on WM_DPICHANGED! Error: %lu", GetLastError());
+		}
+
+		return 0;
+	case WM_NCDESTROY:
+		SetWindowLongPtrW(hWnd, GWLP_USERDATA, 0);
+		break;
+	}
+
+	if (RGE_ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+		return TRUE;
+
+	return DefWindowProcW(hWnd, msg, wParam, lParam);
+}
+
 bool RGE_ImGui_ImplWin32_Init(HWND hWnd) {
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GRAY, "Initializing ImGui Win32 backend...");
 
@@ -247,6 +778,7 @@ bool RGE_ImGui_ImplWin32_Init(HWND hWnd) {
 
 	RGE_ImGui_ImplWin32_Data* backendData = IM_NEW(RGE_ImGui_ImplWin32_Data)();
 	backendData->hwnd = hWnd;
+	backendData->hInstance = GetModuleHandleW(nullptr);
 
 	io.BackendPlatformName = "RGE_ImGui_ImplWin32";
 	io.BackendPlatformUserData = backendData;
@@ -265,19 +797,14 @@ bool RGE_ImGui_ImplWin32_Init(HWND hWnd) {
 		return false;
 	}
 
-	RAWINPUTDEVICE device;
-	ZeroMemory(&device, sizeof(RAWINPUTDEVICE));
-	device.usUsagePage = HID_USAGE_PAGE_GENERIC;
-	device.usUsage = HID_USAGE_GENERIC_MOUSE;
-	device.dwFlags = RIDEV_INPUTSINK;
-	device.hwndTarget = hWnd;
-
-	if (!RegisterRawInputDevices(&device, 1, sizeof(RAWINPUTDEVICE))) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to register raw input devices! Error: %lu", GetLastError());
+	if (!RGE_ImGui_ImplWin32_RegisterViewportClass()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to register ImGui viewport window class! Error: %lu", GetLastError());
 
 		RGE_ImGui_ImplWin32_Shutdown();
 		return false;
 	}
+
+	RGE_ImGui_ImplWin32_SetupPlatformInterface(hWnd);
 
 	UpdateCodePage();
 	return true;
@@ -291,15 +818,10 @@ void RGE_ImGui_ImplWin32_Shutdown() {
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GRAY, "Shutting down ImGui Win32 backend...");
 
 	RGE_ImGui_ImplWin32_Data* backendData = getBackendWin32Data();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		ImGui::DestroyPlatformWindows();
 
-	RAWINPUTDEVICE device;
-	ZeroMemory(&device, sizeof(RAWINPUTDEVICE));
-	device.usUsagePage = HID_USAGE_PAGE_GENERIC;
-	device.usUsage = HID_USAGE_GENERIC_MOUSE;
-	device.dwFlags = RIDEV_REMOVE;
-
-	if (!RegisterRawInputDevices(&device, 1, sizeof(RAWINPUTDEVICE)))
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to unregister raw input device! Error: %lu", GetLastError());
+	RGE_ImGui_ImplWin32_ShutdownPlatformInterface();
 
 	IM_DELETE(backendData);
 
@@ -314,22 +836,17 @@ void RGE_ImGui_ImplWin32_NewFrame() {
 
 	RGE_ImGui_ImplWin32_Data* backendData = getBackendWin32Data();
 	IM_ASSERT(backendData->hwnd != nullptr && "HWND is null!");
-	backendData->isFocused = GetFocus() == backendData->hwnd;
 
-	if (backendData->initialDpiScale == -FLT_MAX) {
+	HWND foregroundWindow = GetForegroundWindow();
+	backendData->isFocused = RGE_ImGui_ImplWin32_IsViewportWindow(foregroundWindow);
+
+	if (backendData->initialDpiScale == -FLT_MAX)
 		backendData->initialDpiScale = GetDpiForWindow(backendData->hwnd) / 96.0f;
-	}
-
-	float currentDpiScale = GetDpiForWindow(backendData->hwnd) / 96.0f;
-	float fixedScale = backendData->initialDpiScale / currentDpiScale;
-
-	//I have no idea if we should apply this or not, cause this has both pro's and cons.
-	//ImGui::GetStyle().FontScaleDpi = currentDpiScale;
 
 	RECT rect;
 	if (GetClientRect(backendData->hwnd, &rect)) {
-		io.DisplaySize.x = static_cast<float>(rect.right - rect.left) * fixedScale;
-		io.DisplaySize.y = static_cast<float>(rect.bottom - rect.top) * fixedScale;
+		io.DisplaySize.x = static_cast<float>(rect.right - rect.left);
+		io.DisplaySize.y = static_cast<float>(rect.bottom - rect.top);
 	}
 
 	LARGE_INTEGER currentTime;
@@ -338,9 +855,26 @@ void RGE_ImGui_ImplWin32_NewFrame() {
 		backendData->lastTime = currentTime;
 	}
 
-	POINT mousePos;
-	if (backendData->isFocused && GetCursorPos(&mousePos) && ScreenToClient(backendData->hwnd, &mousePos))
-		io.AddMousePosEvent(static_cast<float>(mousePos.x) * fixedScale, static_cast<float>(mousePos.y) * fixedScale);
+	POINT mousePosition;
+	if (GetCursorPos(&mousePosition)) {
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+			io.AddMousePosEvent(static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y));
+		else if (backendData->isFocused && ScreenToClient(backendData->hwnd, &mousePosition))
+			io.AddMousePosEvent(static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y));
+	}
+
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+		RGE_ImGui_ImplWin32_UpdateMonitors();
+
+		ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+
+		for (ImGuiViewport* viewport : platformIO.Viewports) {
+			if (!viewport || viewport == ImGui::GetMainViewport())
+				continue;
+
+			RGE_ImGui_ImplWin32_UpdateWindow(viewport);
+		}
+	}
 }
 
 LRESULT RGE_ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -352,73 +886,82 @@ LRESULT RGE_ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, L
 	IM_ASSERT(io.BackendPlatformName != nullptr && "Did you call ImGui::CreateContext() and ImGui_ImplWin32_Init()?");
 
 	RGE_ImGui_ImplWin32_Data* backendData = getBackendWin32Data();
-	if (backendData->hwnd != hWnd)
+
+	ImGuiViewport* viewport = RGE_ImGui_ImplWin32_FindViewportByHWND(hWnd);
+	if (backendData->hwnd != hWnd && viewport == nullptr)
 		return FALSE;
 
 	switch (msg) {
+	case WM_MOUSEACTIVATE:
+		if (viewport->Flags & ImGuiViewportFlags_NoFocusOnClick)
+			return MA_NOACTIVATE;
+		break;
 	case WM_SETFOCUS:
 		io.AddFocusEvent(true);
 		return FALSE;
-	case WM_KILLFOCUS:
-		io.AddFocusEvent(false);
-		io.ClearInputKeys();
-		io.ClearEventsQueue();
-		return FALSE;
-	case WM_INPUT: {
-		UINT size = 0;
-		GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-		if (size == 0)
-			break;
+	case WM_KILLFOCUS: {
+		HWND newFocus = reinterpret_cast<HWND>(wParam);
 
-		std::vector<BYTE> rawInputData(size);
-		if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, rawInputData.data(), &size, sizeof(RAWINPUTHEADER)) != size) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to get raw input data!");
-			break;
-		}
+		if (!RGE_ImGui_ImplWin32_IsViewportWindow(newFocus)) {
+			io.AddFocusEvent(false);
+			io.ClearInputKeys();
 
-		if (!backendData->isFocused)
-			return FALSE;
-
-		const RAWINPUT* rawInput = reinterpret_cast<const RAWINPUT*>(rawInputData.data());
-		if (rawInput->header.dwType == RIM_TYPEMOUSE) {
-			const RAWMOUSE& mouse = rawInput->data.mouse;
-			UpdateMouseButton(mouse, RI_MOUSE_LEFT_BUTTON_DOWN, RI_MOUSE_LEFT_BUTTON_UP, ImGuiMouseButton_Left);
-			UpdateMouseButton(mouse, RI_MOUSE_RIGHT_BUTTON_DOWN, RI_MOUSE_RIGHT_BUTTON_UP, ImGuiMouseButton_Right);
-			UpdateMouseButton(mouse, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP, ImGuiMouseButton_Middle);
-
-			if (mouse.usButtonFlags & RI_MOUSE_WHEEL)
-				io.AddMouseWheelEvent(0.0f, static_cast<SHORT>(mouse.usButtonData) / static_cast<float>(WHEEL_DELTA));
-			if (mouse.usButtonFlags & RI_MOUSE_HWHEEL)
-				io.AddMouseWheelEvent(static_cast<SHORT>(mouse.usButtonData) / static_cast<float>(WHEEL_DELTA), 0.0f);
+			for (int button = 0; button < ImGuiMouseButton_COUNT; ++button)
+				io.AddMouseButtonEvent(button, false);
 		}
 
 		return FALSE;
 	}
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+		io.AddMouseButtonEvent(ImGuiMouseButton_Left, msg == WM_LBUTTONDOWN);
+		return FALSE;
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONUP:
+		io.AddMouseButtonEvent(ImGuiMouseButton_Right, msg == WM_RBUTTONDOWN);
+		return FALSE;
+	case WM_MBUTTONDOWN:
+	case WM_MBUTTONUP:
+		io.AddMouseButtonEvent(ImGuiMouseButton_Middle, msg == WM_MBUTTONDOWN);
+		return FALSE;
+	case WM_XBUTTONDOWN:
+	case WM_XBUTTONUP:
+		io.AddMouseButtonEvent((GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 4 : 5, msg == WM_XBUTTONDOWN);
+		return FALSE;
+	case WM_MOUSEWHEEL:
+		io.AddMouseWheelEvent(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / static_cast<float>(WHEEL_DELTA));
+		return FALSE;
+	case WM_MOUSEHWHEEL:
+		io.AddMouseWheelEvent(static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / static_cast<float>(WHEEL_DELTA), 0.0f);
+		return FALSE;
 	case WM_KEYDOWN:
 	case WM_KEYUP:
 	case WM_SYSKEYDOWN:
 	case WM_SYSKEYUP: {
-		const bool isDown = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
 		if (wParam >= 256)
 			break;
 
+		const bool isDown = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
 		ImGuiKey key = MapKeyToImGuiKey(wParam, lParam);
+
 		if (key != ImGuiKey_None)
 			io.AddKeyEvent(key, isDown);
 
-		// ImGui fucking sucks, WHY NOT DO THE MODIFERS IF YOU'RE ALREADY DOING THE FUCKING KEYS, JESUS CHRIST???
-
-		if (key == ImGuiKey_LeftShift || key == ImGuiKey_RightShift) io.AddKeyEvent(ImGuiMod_Shift, isDown);
-		else if (key == ImGuiKey_LeftCtrl || key == ImGuiKey_RightCtrl) io.AddKeyEvent(ImGuiMod_Ctrl, isDown);
-		else if (key == ImGuiKey_LeftAlt || key == ImGuiKey_RightAlt) io.AddKeyEvent(ImGuiMod_Alt, isDown);
-		else if (key == ImGuiKey_LeftSuper || key == ImGuiKey_RightSuper) io.AddKeyEvent(ImGuiMod_Super, isDown);
+		if (key == ImGuiKey_LeftShift || key == ImGuiKey_RightShift)
+			io.AddKeyEvent(ImGuiMod_Shift, isDown);
+		else if (key == ImGuiKey_LeftCtrl || key == ImGuiKey_RightCtrl)
+			io.AddKeyEvent(ImGuiMod_Ctrl, isDown);
+		else if (key == ImGuiKey_LeftAlt || key == ImGuiKey_RightAlt)
+			io.AddKeyEvent(ImGuiMod_Alt, isDown);
+		else if (key == ImGuiKey_LeftSuper || key == ImGuiKey_RightSuper)
+			io.AddKeyEvent(ImGuiMod_Super, isDown);
 
 		return FALSE;
 	}
 	case WM_CHAR:
-		if (IsWindowUnicode(backendData->hwnd)) {
+		if (IsWindowUnicode(hWnd)) {
 			if (wParam > 0 && wParam < 0x10000)
-				io.AddInputCharacter(static_cast<unsigned short>(wParam));
+				io.AddInputCharacterUTF16(static_cast<unsigned short>(wParam));
 		} else {
 			wchar_t character = 0;
 			MultiByteToWideChar(backendData->codePage, MB_PRECOMPOSED, reinterpret_cast<LPCCH>(&wParam), 2, &character, 1);
@@ -434,14 +977,14 @@ LRESULT RGE_ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, L
 		return (lParam & GCS_RESULTSTR) ? TRUE : result;
 	}
 	case WM_IME_CHAR:
-		if (IsWindowUnicode(backendData->hwnd) == FALSE) {
+		if (IsWindowUnicode(hWnd) == FALSE) {
 			if (IsDBCSLeadByte(HIBYTE(wParam)))
 				wParam = MAKEWORD(HIBYTE(wParam), LOBYTE(wParam));
 
 			wchar_t character = 0;
 			MultiByteToWideChar(backendData->codePage, MB_PRECOMPOSED, reinterpret_cast<LPCCH>(&wParam), 2, &character, 1);
-			io.AddInputCharacterUTF16(character);
 
+			io.AddInputCharacterUTF16(character);
 			return TRUE;
 		}
 
