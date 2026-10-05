@@ -3,6 +3,8 @@
 
 #include <ImGui/imgui.h>
 
+#include <rend/FullscreenPass.hpp>
+
 #include <algorithm>
 #include <functional>
 #include <string>
@@ -19,10 +21,16 @@ class RenderPanel : public Panel {
 
 	std::unordered_map<std::string, DebugRenderInfo> debugRenderInfos_;
 
-	void drawGrid() const;
+	// The checkerboard behind the render target, drawn by a pixel shader over a single fullscreen triangle.
+	rend::FullscreenPass gridPass_;
+
+	void drawGrid();
 	void drawDebugRenderInfos() const;
+
+	static void gridDrawCallback(const ImDrawList* drawList, const ImDrawCmd* drawCmd);
 public:
 	bool initialize() override;
+	void cleanup() override;
 
 	void render() override;
 

@@ -12,16 +12,25 @@ public:
 		const std::filesystem::path filePath(_file);
 		const std::string fileName = filePath.filename().string();
 
-		if (_level == MyGUI::LogLevel::Info)
-			//CONSOLE_LOG(LEVEL_MYGUI, COLOR_DARK_GRAY, "INFO  | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
-			do {} while (0); // Ignore info messages to reduce console spam
-		else if (_level == MyGUI::LogLevel::Warning)
-			CONSOLE_LOG(LEVEL_MYGUI, COLOR_YELLOW, "WARN  | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
-		else if (_level == MyGUI::LogLevel::Error)
+		if (_level == MyGUI::LogLevel::Info) {
+			// Do nothing
+		} else if (_level == MyGUI::LogLevel::Warning) {
+#if defined(_DEBUG) || defined(DEBUG)
+			if (_message.starts_with("Texture '") && _message.ends_with("' have non power of two size"))
+				return;
+#endif
+
+			std::string message = _message;
+			if (message.starts_with("dublicate"))
+				message.replace(0, 9, "duplicate");
+
+			CONSOLE_LOG(LEVEL_MYGUI, COLOR_YELLOW, "WARN  | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, message.c_str());
+		} else if (_level == MyGUI::LogLevel::Error) {
 			CONSOLE_LOG(LEVEL_MYGUI, COLOR_RED, "ERROR | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
-		else if (_level == MyGUI::LogLevel::Critical)
+		} else if (_level == MyGUI::LogLevel::Critical) {
 			CONSOLE_LOG(LEVEL_MYGUI, COLOR_RED, "FATAL | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
-		else
+		} else {
 			CONSOLE_LOG(LEVEL_MYGUI, COLOR_MAGENTA, "????  | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
-	};
+		}
+	}
 };

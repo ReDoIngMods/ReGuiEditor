@@ -33,8 +33,7 @@ bool UGCManager::getLocalIdFromMod(const std::filesystem::path& modPath, std::st
 
 	try {
 		localId = nlohmann::json::parse(data, nullptr, true, true).value("localId", "");
-	}
-	catch (const nlohmann::json::exception& error) {
+	} catch (const nlohmann::json::exception& error) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to parse description.json from %s. Error: %s", modPath.string().c_str(), error.what());
 		return false;
 	}

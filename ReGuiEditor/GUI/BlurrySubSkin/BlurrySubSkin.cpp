@@ -1,11 +1,13 @@
 #include "BlurrySubSkin.hpp"
 
-#include "../Application.hpp"
-
 #include "BlurrySubSkinRegistry.hpp"
 #include "BlurrySubSkinRenderer.hpp"
 
-#include <GUI/MyGuiDX11/Texture.hpp>
+#include <rend/Resources/ShaderResourceView.hpp>
+
+#include <GUI/MyGuiDX11/MGTexture.hpp>
+
+#include <UTILS/Strings.hpp>
 
 #include <MyGui/MyGUI_Diagnostic.h>
 #include <MyGui/MyGUI_ILayerNode.h>
@@ -17,95 +19,17 @@
 #include <MyGui/MyGUI_Types.h>
 #include <MyGui/MyGUI_VertexData.h>
 
-#include <UTILS/Strings.hpp>
-
-#include <Windows.h>
-
-#include <d3d11.h>
-#include <d3dcommon.h>
-#include <dxgiformat.h>
-
 #include <string>
 
-BlurrySubSkin::BlurrySubSkin() : MyGUI::SubSkin() {
-}
-
-BlurrySubSkin::~BlurrySubSkin() {
-	if (this->compositeTargetView_) {
-		this->compositeTargetView_->Release();
-		this->compositeTargetView_ = nullptr;
-	}
-}
-
 bool BlurrySubSkin::ensureCompositeTarget(int width, int height) {
-	if (width == this->compositeWidth_ && height == this->compositeHeight_ && this->compositeTargetView_) {
+	if (width == this->compositeWidth_ && height == this->compositeHeight_)
 		return true;
-	}
 
-	if (this->compositeTargetView_) {
-		this->compositeTargetView_->Release();
-		this->compositeTargetView_ = nullptr;
-	}
-
-	Application& app = Application::getInstance();
-	ID3D11Device* device = app.d3d11Device.getDevice();
-
-	D3D11_TEXTURE2D_DESC desc;
-	ZeroMemory(&desc, sizeof(desc));
-	desc.Width = width;
-	desc.Height = height;
-	desc.MipLevels = 1;
-	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	desc.SampleDesc.Count = 1;
-	desc.Usage = D3D11_USAGE_DEFAULT;
-	desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-
-	ID3D11Texture2D* texture = nullptr;
-	HRESULT result = device->CreateTexture2D(&desc, nullptr, &texture);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BlurrySubSkin::ensureCompositeTarget: Failed to create texture. HRESULT: 0x%X", result);
+	if (!this->compositeTexture_.resize(width, height))
 		return false;
-	}
-
-	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-	ZeroMemory(&rtvDesc, sizeof(rtvDesc));
-	rtvDesc.Format = desc.Format;
-	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-
-	result = device->CreateRenderTargetView(texture, &rtvDesc, &this->compositeTargetView_);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BlurrySubSkin::ensureCompositeTarget: Failed to create RTV. HRESULT: 0x%X", result);
-		
-		texture->Release();
-		return false;
-	}
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	ZeroMemory(&srvDesc, sizeof(srvDesc));
-	srvDesc.Format = desc.Format;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-
-	ID3D11ShaderResourceView* shaderResourceView = nullptr;
-	result = device->CreateShaderResourceView(texture, &srvDesc, &shaderResourceView);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BlurrySubSkin::ensureCompositeTarget: Failed to create SRV. HRESULT: 0x%X", result);
-
-		this->compositeTargetView_->Release();
-		this->compositeTargetView_ = nullptr;
-
-		texture->Release();
-		return false;
-	}
-
-	this->compositeTexture_.update(texture, shaderResourceView);
-	texture->Release();
-	shaderResourceView->Release();
 
 	this->compositeWidth_ = width;
 	this->compositeHeight_ = height;
-
 	return true;
 }
 
@@ -115,7 +39,8 @@ void BlurrySubSkin::createDrawItem(MyGUI::ITexture* _texture, MyGUI::ILayerNode*
 	this->atlasTexture_ = static_cast<MyGUICustom::DirectX11Texture*>(_texture);
 
 	std::string textureName = UTILS::formatString("BlurrySubSkin_%p", this);
-	this->compositeTexture_.initialize(textureName, this->compositeWidth_, this->compositeHeight_);
+	const bool isCompositeCreated = this->compositeTexture_.initialize(textureName, this->compositeWidth_, this->compositeHeight_);
+	MYGUI_ASSERT(isCompositeCreated, "Failed to create blur composite texture");
 
 	MyGUI::ITexture* ourTexture = MyGUI::RenderManager::getInstance().getTexture(this->compositeTexture_.getName());
 	this->mNode = _node;
@@ -135,11 +60,6 @@ void BlurrySubSkin::destroyDrawItem() {
 	this->mRenderItem = nullptr;
 
 	this->compositeTexture_.cleanup();
-
-	if (this->compositeTargetView_) {
-		this->compositeTargetView_->Release();
-		this->compositeTargetView_ = nullptr;
-	}
 
 	this->compositeWidth_ = 1;
 	this->compositeHeight_ = 1;
@@ -172,11 +92,11 @@ void BlurrySubSkin::doRender() {
 	this->mRenderItem->setLastVertexCount(MyGUI::VertexQuad::VertexCount);
 }
 
-void BlurrySubSkin::updateComposite(ID3D11ShaderResourceView* backdropView, int canvasWidth, int canvasHeight) {
+void BlurrySubSkin::updateComposite(const rend::ShaderResourceView* backdropView, int canvasWidth, int canvasHeight) {
 	if (!this->mVisible || this->mEmptyView || !this->mRenderItem)
 		return;
 
-	if (!this->atlasTexture_ || !this->atlasTexture_->shaderResourceView)
+	if (!this->atlasTexture_ || !this->atlasTexture_->getTexture())
 		return;
 
 	int width = this->mCurrentCoord.width;
@@ -196,5 +116,14 @@ void BlurrySubSkin::updateComposite(ID3D11ShaderResourceView* backdropView, int 
 	backdropUV.right = (absoluteLeft + width) / static_cast<float>(canvasWidth);
 	backdropUV.bottom = (absoluteTop + height) / static_cast<float>(canvasHeight);
 
-	BlurrySubSkinRenderer::getInstance().composite(backdropView, backdropUV, this->atlasTexture_->shaderResourceView, this->mCurrentTexture, this->compositeTargetView_, width, height);
+	const float atlasScaleX = static_cast<float>(this->atlasTexture_->getWidth()) / static_cast<float>(this->atlasTexture_->getTextureWidth());
+	const float atlasScaleY = static_cast<float>(this->atlasTexture_->getHeight()) / static_cast<float>(this->atlasTexture_->getTextureHeight());
+
+	MyGUI::FloatRect atlasUV = this->mCurrentTexture;
+	atlasUV.left *= atlasScaleX;
+	atlasUV.right *= atlasScaleX;
+	atlasUV.top *= atlasScaleY;
+	atlasUV.bottom *= atlasScaleY;
+
+	BlurrySubSkinRenderer::getInstance().composite(backdropView, backdropUV, this->atlasTexture_->getTexture().get(), atlasUV, this->compositeTexture_.getRenderView(), width, height);
 }

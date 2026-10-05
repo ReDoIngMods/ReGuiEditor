@@ -6,7 +6,8 @@
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
 
-#include "Window/D3D11Device.hpp"
+#include "rend/Renderer.hpp"
+
 #include "Window/Window.hpp"
 
 #include "GUI/FontManager.hpp"
@@ -30,9 +31,11 @@ public:
 	Application& operator=(Application&&) = delete;
 
 	bool isRunning = true;
+	bool isInitialized = false;
 
 	Window window;
-	D3D11Device d3d11Device;
+
+	rend::Renderer* renderer = nullptr;
 
 	ConfigManager* configManager = nullptr;
 	FilesystemManager* filesystemManager = nullptr;
@@ -40,10 +43,9 @@ public:
 	FontManager* fontManager = nullptr;
 	GuiSystemManager* guiSystemManager = nullptr;
 	LuaManager* luaManager = nullptr;
-
 	ExplorerPanel explorerPanel;
 	PropertiesPanel propertiesPanel;
-	RenderPanel renderPanel;	
+	RenderPanel renderPanel;
 
 	WindowDecoration windowDecoration;
 
@@ -60,5 +62,6 @@ public:
 
 	LRESULT windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 	bool onCloseRequest();
+	void onWindowResize(int width, int height);
 	void onResize(int width, int height);
 };

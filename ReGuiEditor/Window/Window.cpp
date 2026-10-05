@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 #include <dwmapi.h>
+#include <windowsx.h>
 
 #include <ImGui/imgui.h>
 
@@ -19,7 +20,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
 	}
 
-	Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+	Window* window = reinterpret_cast<Window*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 	if (!window)
 		return DefWindowProcW(hwnd, message, wParam, lParam);
 
@@ -46,7 +47,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		if (isHit != HTCLIENT)
 			return isHit;
 
-		POINT screenPoint{ LOWORD(lParam), HIWORD(lParam) };
+		POINT screenPoint{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
 
 		POINT cursorPosition = screenPoint;
 		ScreenToClient(hwnd, &cursorPosition);
@@ -69,7 +70,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		if (isOnTopBorder) return HTTOP;
 		if (isOnBottomBorder) return HTBOTTOM;
 
-		if (cursorPosition.y < ImGui::GetFrameHeightWithSpacing() && !TitlebarHitTest::isOverWidget({ (float)screenPoint.x, (float)screenPoint.y }))
+		// NCHITTEST arrives during window creation, before the ImGui context exists.
+		if (ImGui::GetCurrentContext() && cursorPosition.y < ImGui::GetFrameHeightWithSpacing() && !TitlebarHitTest::isOverWidget({ (float)screenPoint.x, (float)screenPoint.y }))
 			return HTCAPTION;
 
 		return HTCLIENT;
@@ -91,13 +93,24 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		PostQuitMessage(0);
 		return 0;
 	case WM_SIZE:
-		if (wParam == SIZE_MINIMIZED)
+		if (wParam == SIZE_MINIMIZED || LOWORD(lParam) == 0 || HIWORD(lParam) == 0)
 			return 0;
 
 		if (window->onResize_)
 			window->onResize_(LOWORD(lParam), HIWORD(lParam));
 
 		return 0;
+	case WM_DPICHANGED: {
+		// The resulting WM_SIZE takes care of resizing the swap chain.
+		const RECT* suggested = reinterpret_cast<const RECT*>(lParam);
+		SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left, suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
+		break;
+	}
+	case WM_ERASEBKGND:
+		return 1;
+	case WM_NCDESTROY:
+		SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+		break;
 	}
 
 	if (window->windowProc_)
@@ -167,11 +180,5 @@ void Window::restore() const { ShowWindowAsync(this->hwnd_, SW_RESTORE); }
 void Window::show() const { ShowWindowAsync(this->hwnd_, SW_SHOW); }
 
 bool Window::isMaximized() const {
-	WINDOWPLACEMENT placement;
-	ZeroMemory(&placement, sizeof(WINDOWPLACEMENT));
-	placement.length = sizeof(WINDOWPLACEMENT);
-
-	GetWindowPlacement(this->hwnd_, &placement);
-
-	return placement.showCmd == SW_MAXIMIZE;
+	return IsZoomed(this->hwnd_) != FALSE;
 }

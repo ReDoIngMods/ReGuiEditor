@@ -1,69 +1,54 @@
 #include "BackgroundImageHelper.hpp"
 
-#include "../Application.hpp"
-
-#include "ShaderManager.hpp"
-
-#include <GUI/MyGuiDX11/Texture.hpp>
+#include <GUI/MyGuiDX11/MGTexture.hpp>
 
 #include <MyGui/MyGUI_RenderManager.h>
 
-#include <Windows.h>
+#include <rend/ResourceManager.hpp>
 
-#include <d3d11.h>
-#include <d3dcommon.h>
+#include <rend/Common/SamplerAddressMode.hpp>
+#include <rend/Common/Viewport.hpp>
+
+#include <rend/FullscreenPass.hpp>
+
+#include <rend/Resources/RenderView.hpp>
 
 #include <string>
 
-#define SAFE_RELEASE(ptr) do { if (ptr) { (ptr)->Release(); (ptr) = nullptr; } } while(0)
-
-struct alignas(16) ConstantBufferData {
-	float uvScale[2] = { 1.0f, 1.0f };
-};
+namespace {
+	// Anonymous namespace: BlurrySubSkinRenderer.cpp has a differently laid out struct with the same name, and two
+	// definitions of one name with external linkage is an ODR violation.
+	struct alignas(16) ConstantBufferData {
+		float uvScale[2] = { 1.0f, 1.0f };
+	};
+}
 
 bool BackgroundImageHelper::initialize() {
-	ShaderManager& shaderManager = ShaderManager::getInstance();
-	if (!shaderManager.getShader("$RGE_DATA/Shaders/gui_fullscreen_triangle.hlsl", "vsMain", this->vertexShader_)) return false;
-	if (!shaderManager.getShader("$RGE_DATA/Shaders/gui_background.hlsl", "psMain", this->pixelShader_)) return false;
-	
-	D3D11_SAMPLER_DESC samplerDesc;
-	ZeroMemory(&samplerDesc, sizeof(samplerDesc));
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-	samplerDesc.MinLOD = 0;
-	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
-	
-	ID3D11Device* device = Application::getInstance().d3d11Device.getDevice();
-	HRESULT result = device->CreateSamplerState(&samplerDesc, &this->samplerState_);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BackgroundImageHelper::initialize: Failed to create sampler state. HRESULT: 0x%X", result);
+	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
+
+	rend::FullscreenPassDesc passDesc;
+	passDesc.pixelShader = "$RGE_DATA/Shaders/gui_background.hlsl";
+	passDesc.constantBufferSize = sizeof(ConstantBufferData);
+	passDesc.debugName = "BackgroundImage";
+
+	if (!this->fullscreenPass_.init(passDesc)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BackgroundImageHelper::initialize: Failed to create fullscreen pass.");
 		return false;
 	}
 
-	D3D11_BUFFER_DESC constantBufferDesc;
-	ZeroMemory(&constantBufferDesc, sizeof(constantBufferDesc));
-	constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	constantBufferDesc.ByteWidth = sizeof(ConstantBufferData);
-	constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-	result = device->CreateBuffer(&constantBufferDesc, nullptr, &this->constantBuffer_);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BackgroundImageHelper::initialize: Failed to create constant buffer. HRESULT: 0x%X", result);
+	this->samplerState_ = resourceManager.createLinearSamplerState(rend::SamplerAddressMode::Wrap);
+	if (!this->samplerState_) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "BackgroundImageHelper::initialize: Failed to create sampler state.");
 		return false;
 	}
+	this->samplerState_->setDebugName("BackgroundImage::SamplerState");
 
 	return true;
 }
 
 void BackgroundImageHelper::cleanup() {
-	SAFE_RELEASE(this->constantBuffer_);
-	SAFE_RELEASE(this->samplerState_);
-	SAFE_RELEASE(this->pixelShader_);
-	SAFE_RELEASE(this->vertexShader_);
+	this->samplerState_.reset();
+	this->fullscreenPass_.cleanup();
 }
 
 void BackgroundImageHelper::setBackgroundTexture(const std::string& texturePath) {
@@ -85,37 +70,20 @@ void BackgroundImageHelper::setBackgroundTexture(const std::string& texturePath)
 	}
 }
 
-void BackgroundImageHelper::render() {
-	if (!this->backgroundTexture_)
+void BackgroundImageHelper::render(rend::RenderView* renderView, float width, float height) {
+	if (!this->backgroundTexture_ || !this->fullscreenPass_.isValid())
 		return;
 
-	ID3D11DeviceContext* context = Application::getInstance().d3d11Device.getContext();
+	ConstantBufferData data;
+	data.uvScale[0] = this->backgroundTexture_->getWidth() / static_cast<float>(this->backgroundTexture_->getTextureWidth());
+	data.uvScale[1] = this->backgroundTexture_->getHeight() / static_cast<float>(this->backgroundTexture_->getTextureHeight());
 
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	if (SUCCEEDED(context->Map(this->constantBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource))) {
-		ConstantBufferData* data = reinterpret_cast<ConstantBufferData*>(mappedResource.pData);
-		data->uvScale[0] = static_cast<float>(this->backgroundTexture_->getRealWidth()) / static_cast<float>(this->backgroundTexture_->getWidth());
-		data->uvScale[1] = static_cast<float>(this->backgroundTexture_->getRealHeight()) / static_cast<float>(this->backgroundTexture_->getHeight());
+	rend::FullscreenDrawParams params;
+	params.target = renderView;
+	params.viewport = rend::Viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
+	params.constants = &data;
+	params.shaderResourceViews = { this->backgroundTexture_->getTexture().get() };
+	params.samplerStates = { this->samplerState_.get() };
 
-		context->Unmap(this->constantBuffer_, 0);
-	};
-
-	context->IASetInputLayout(nullptr);
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	context->VSSetShader(this->vertexShader_, nullptr, 0);
-	context->PSSetShader(this->pixelShader_, nullptr, 0);
-
-	ID3D11ShaderResourceView* resources[] = { this->backgroundTexture_->shaderResourceView };
-	context->PSSetSamplers(0, 1, &this->samplerState_);
-	context->PSSetShaderResources(0, 1, resources);
-	context->PSSetConstantBuffers(0, 1, &this->constantBuffer_);
-
-	context->Draw(3, 0);
-
-	ID3D11ShaderResourceView* nullResources[] = { nullptr };
-	context->PSSetShaderResources(0, 1, nullResources);
-
-	ID3D11Buffer* nullBuffers[] = { nullptr };
-	context->PSSetConstantBuffers(0, 1, nullBuffers);
+	this->fullscreenPass_.draw(params);
 }

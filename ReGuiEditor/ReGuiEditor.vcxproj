@@ -73,10 +73,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
+    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
+    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -188,8 +190,6 @@ exit /b 0</Command>
     <ClCompile Include="Dependencies\ImGui\imgui.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_demo.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_draw.cpp" />
-    <ClCompile Include="Dependencies\ImGui\imgui_impl_dx11.cpp" />
-    <ClCompile Include="Dependencies\ImGui\imgui_impl_win32.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_tables.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Dependencies\ImGui\misc\freetype\imgui_freetype.cpp" />
@@ -197,14 +197,14 @@ exit /b 0</Command>
     <ClCompile Include="GUI\BackgroundImageHelper.cpp" />
     <ClCompile Include="GUI\BlurrySubSkin\BlurrySubSkin.cpp" />
     <ClCompile Include="GUI\BlurrySubSkin\BlurrySubSkinRenderer.cpp" />
-    <ClCompile Include="GUI\FontManager.cpp" />
     <ClCompile Include="GUI\BlurrySubSkin\GuiBlurManager.cpp" />
     <ClCompile Include="GUI\BlurrySubSkin\GuiBlurSkinTexture.cpp" />
+    <ClCompile Include="GUI\FontManager.cpp" />
     <ClCompile Include="GUI\GuiSystemManager.cpp" />
-    <ClCompile Include="GUI\MyGuiDX11\RenderManager.cpp" />
-    <ClCompile Include="GUI\MyGuiDX11\RTTexture.cpp" />
-    <ClCompile Include="GUI\MyGuiDX11\Texture.cpp" />
-    <ClCompile Include="GUI\MyGuiDX11\VertexBuffer.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\MGRenderManager.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\MGRTTexture.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\MGTexture.cpp" />
+    <ClCompile Include="GUI\MyGuiDX11\MGVertexBuffer.cpp" />
     <ClCompile Include="GUI\MyGui\MyGuiDataManager.cpp" />
     <ClCompile Include="GUI\MyGui\MyGuiDataStream.cpp" />
     <ClCompile Include="GUI\MyGui\MyGuiFontManager.cpp" />
@@ -213,15 +213,35 @@ exit /b 0</Command>
     <ClCompile Include="GUI\Panels\PropertiesPanel.cpp" />
     <ClCompile Include="GUI\Panels\RenderPanel.cpp" />
     <ClCompile Include="GUI\ResolutionManager.cpp" />
-    <ClCompile Include="GUI\ShaderManager.cpp" />
-    <ClCompile Include="GUI\Utilities\D3D11RenderTarget.cpp" />
     <ClCompile Include="GUI\WindowDecoration.cpp" />
     <ClCompile Include="LuaManager\LuaManager.cpp" />
+    <ClCompile Include="rend\FullscreenPass.cpp" />
+    <ClCompile Include="rend\Resources\Buffers\BufferResource.cpp" />
+    <ClCompile Include="rend\Resources\Buffers\ConstantBuffer.cpp" />
+    <ClCompile Include="rend\Resources\Buffers\IndexBuffer.cpp" />
+    <ClCompile Include="rend\Resources\Buffers\VertexBuffer.cpp" />
+    <ClCompile Include="rend\D3D11Device.cpp" />
+    <ClCompile Include="rend\ImGui\RGE_ImGui_FreeType.cpp" />
+    <ClCompile Include="rend\ImGui\RGE_ImGui_Impl_DX11.cpp" />
+    <ClCompile Include="rend\ImGui\RGE_ImGui_Impl_Win32.cpp" />
+    <ClCompile Include="rend\Resources\PipelineContext.cpp" />
+    <ClCompile Include="rend\Renderer.cpp" />
+    <ClCompile Include="rend\Resources\Resource.cpp" />
+    <ClCompile Include="rend\ResourceManager.cpp" />
+    <ClCompile Include="rend\Resources\RenderView.cpp" />
+    <ClCompile Include="rend\Resources\Texture2D.cpp" />
+    <ClCompile Include="rend\Resources\Shaders\InputLayout.cpp" />
+    <ClCompile Include="rend\Resources\Shaders\PixelShader.cpp" />
+    <ClCompile Include="rend\ShaderManager.cpp" />
+    <ClCompile Include="rend\Resources\Shaders\VertexShader.cpp" />
+    <ClCompile Include="rend\Resources\BlendState.cpp" />
+    <ClCompile Include="rend\Resources\DepthStencilState.cpp" />
+    <ClCompile Include="rend\Resources\RasterizerState.cpp" />
+    <ClCompile Include="rend\Resources\SamplerState.cpp" />
     <ClCompile Include="UGCManager\UGCManager.cpp" />
     <ClCompile Include="UTILS\Console.cpp" />
     <ClCompile Include="UTILS\EnvVars.cpp" />
     <ClCompile Include="UTILS\Strings.cpp" />
-    <ClCompile Include="Window\D3D11Device.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Window\Window.cpp" />
   </ItemGroup>
@@ -230,8 +250,6 @@ exit /b 0</Command>
     <ClInclude Include="ConfigManager\ConfigManager.hpp" />
     <ClInclude Include="Dependencies\ImGui\imconfig.h" />
     <ClInclude Include="Dependencies\ImGui\imgui.h" />
-    <ClInclude Include="Dependencies\ImGui\imgui_impl_dx11.h" />
-    <ClInclude Include="Dependencies\ImGui\imgui_impl_win32.h" />
     <ClInclude Include="Dependencies\ImGui\imgui_internal.h" />
     <ClInclude Include="Dependencies\ImGui\imstb_rectpack.h" />
     <ClInclude Include="Dependencies\ImGui\imstb_textedit.h" />
@@ -466,14 +484,14 @@ exit /b 0</Command>
     <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkin.hpp" />
     <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkinRegistry.hpp" />
     <ClInclude Include="GUI\BlurrySubSkin\BlurrySubSkinRenderer.hpp" />
-    <ClInclude Include="GUI\FontManager.hpp" />
     <ClInclude Include="GUI\BlurrySubSkin\GuiBlurManager.hpp" />
     <ClInclude Include="GUI\BlurrySubSkin\GuiBlurSkinTexture.hpp" />
+    <ClInclude Include="GUI\FontManager.hpp" />
     <ClInclude Include="GUI\GuiSystemManager.hpp" />
-    <ClInclude Include="GUI\MyGuiDX11\RenderManager.hpp" />
-    <ClInclude Include="GUI\MyGuiDX11\RTTexture.hpp" />
-    <ClInclude Include="GUI\MyGuiDX11\Texture.hpp" />
-    <ClInclude Include="GUI\MyGuiDX11\VertexBuffer.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\MGRenderManager.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\MGRTTexture.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\MGTexture.hpp" />
+    <ClInclude Include="GUI\MyGuiDX11\MGVertexBuffer.hpp" />
     <ClInclude Include="GUI\MyGui\MyGuiDataManager.hpp" />
     <ClInclude Include="GUI\MyGui\MyGuiDataStream.hpp" />
     <ClInclude Include="GUI\MyGui\MyGuiFontManager.hpp" />
@@ -485,11 +503,50 @@ exit /b 0</Command>
     <ClInclude Include="GUI\Panels\RenderPanel.hpp" />
     <ClInclude Include="GUI\ResolutionManager.hpp" />
     <ClInclude Include="GUI\Lucide\IconsLucide.h" />
-    <ClInclude Include="GUI\ShaderManager.hpp" />
     <ClInclude Include="LuaManager\LuaManager.hpp" />
+    <ClInclude Include="rend\FullscreenPass.hpp" />
+    <ClInclude Include="rend\Resources\Buffers\BufferResource.hpp" />
+    <ClInclude Include="rend\Resources\Buffers\ConstantBuffer.hpp" />
+    <ClInclude Include="rend\Resources\Buffers\IndexBuffer.hpp" />
+    <ClInclude Include="rend\Resources\Buffers\VertexBuffer.hpp" />
+    <ClInclude Include="rend\Common\Alignment.hpp" />
+    <ClInclude Include="rend\D3D11Device.hpp" />
+    <ClInclude Include="rend\ImGui\RGE_ImGui_FreeType.hpp" />
+    <ClInclude Include="rend\ImGui\RGE_ImGui_Impl_DX11.hpp" />
+    <ClInclude Include="rend\ImGui\RGE_ImGui_Impl_Win32.hpp" />
+    <ClInclude Include="rend\Resources\PipelineContext.hpp" />
+    <ClInclude Include="rend\Common\RefCounter.hpp" />
+    <ClInclude Include="rend\Renderer.hpp" />
+    <ClInclude Include="rend\Resources\Resource.hpp" />
+    <ClInclude Include="rend\ResourceManager.hpp" />
+    <ClInclude Include="rend\Resources\RenderView.hpp" />
+    <ClInclude Include="rend\Resources\ShaderResourceView.hpp" />
+    <ClInclude Include="rend\Resources\Texture2D.hpp" />
+    <ClInclude Include="rend\Resources\Shaders\InputLayout.hpp" />
+    <ClInclude Include="rend\Resources\Shaders\PixelShader.hpp" />
+    <ClInclude Include="rend\Resources\Shaders\ShaderBlob.hpp" />
+    <ClInclude Include="rend\Unknown.hpp" />
+    <ClInclude Include="rend\ShaderManager.hpp" />
+    <ClInclude Include="rend\Resources\Shaders\ShaderResource.hpp" />
+    <ClInclude Include="rend\Resources\Shaders\VertexShader.hpp" />
+    <ClInclude Include="rend\Resources\BlendState.hpp" />
+    <ClInclude Include="rend\Resources\DepthStencilState.hpp" />
+    <ClInclude Include="rend\Resources\RasterizerState.hpp" />
+    <ClInclude Include="rend\Resources\SamplerState.hpp" />
+    <ClInclude Include="rend\Common\BlendMode.hpp" />
+    <ClInclude Include="rend\Common\BlendOperand.hpp" />
+    <ClInclude Include="rend\Common\Color.hpp" />
+    <ClInclude Include="rend\Common\ComparisonFunction.hpp" />
+    <ClInclude Include="rend\Common\CullingMode.hpp" />
+    <ClInclude Include="rend\Common\Format.hpp" />
+    <ClInclude Include="rend\Common\PrimitiveTopology.hpp" />
+    <ClInclude Include="rend\Common\Rectangle.hpp" />
+    <ClInclude Include="rend\Common\SamplerAddressMode.hpp" />
+    <ClInclude Include="rend\Common\SamplerFilter.hpp" />
+    <ClInclude Include="rend\Common\StencilOperand.hpp" />
+    <ClInclude Include="rend\Common\Viewport.hpp" />
     <ClInclude Include="UGCManager\UGCManager.hpp" />
     <ClInclude Include="Window\TitlebarHitTest.hpp" />
-    <ClInclude Include="GUI\Utilities\D3D11RenderTarget.hpp" />
     <ClInclude Include="GUI\WindowDecoration.hpp" />
     <ClInclude Include="UTILS\ByteStreamReader.hpp" />
     <ClInclude Include="UTILS\ByteStreamWriter.hpp" />
@@ -544,7 +601,6 @@ exit /b 0</Command>
     <ClInclude Include="UTILS\EnvVars.hpp" />
     <ClInclude Include="UTILS\Singleton.hpp" />
     <ClInclude Include="UTILS\Strings.hpp" />
-    <ClInclude Include="Window\D3D11Device.hpp" />
     <ClInclude Include="Dependencies\dlg\dlg.h" />
     <ClInclude Include="Dependencies\dlg\output.h" />
     <ClInclude Include="Dependencies\FreeImage\FreeImage.h" />

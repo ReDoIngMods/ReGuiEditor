@@ -90,17 +90,32 @@ public:
 	[[nodiscard]] bool readFileRaw(const std::filesystem::path& path, std::vector<char>& outputContent) const;
 	[[nodiscard]] bool writeFileRaw(const std::filesystem::path& path, const std::vector<char>& content) const;
 
-	[[nodiscard]] bool readFile(const std::string& path, std::string& outputContent) const {
+	[[nodiscard]] bool readFile(const std::string& path, std::vector<char>& outputContent) const {
 		std::filesystem::path resolvedPath;
 		if (!this->resolveDirectory(path, resolvedPath))
 			return false;
 
+		if (!this->readFileRaw(resolvedPath, outputContent))
+			return false;
+
+		return true;
+	}
+
+	[[nodiscard]] bool readFile(const std::string& path, std::string& outputContent) const {
 		std::vector<char> buffer;
-		if (!this->readFileRaw(resolvedPath, buffer))
+		if (!this->readFile(path, buffer))
 			return false;
 
 		outputContent.assign(buffer.begin(), buffer.end());
 		return true;
+	}
+
+	[[nodiscard]] bool writeFile(const std::string& path, const std::vector<char>& content) const {
+		std::filesystem::path resolvedPath;
+		if (!this->resolveDirectory(path, resolvedPath))
+			return false;
+
+		return this->writeFileRaw(resolvedPath, content);
 	}
 
 	[[nodiscard]] bool writeFile(const std::string& path, const std::string& content) const {

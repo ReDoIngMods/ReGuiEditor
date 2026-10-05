@@ -2,6 +2,7 @@
 #include <Windows.h>
 
 #include <functional>
+#include <utility>
 
 class Window {
 	HWND hwnd_ = nullptr;
@@ -25,17 +26,9 @@ public:
 
 	bool isMaximized() const;
 
-	void setWindowProc(std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)> windowProc) {
-		this->windowProc_ = windowProc;
-	}
-
-	void setOnCloseRequest(std::function<bool()> onCloseRequest) {
-		this->onCloseRequest_ = onCloseRequest;
-	}
-
-	void setOnResize(std::function<void(int, int)> onResize) {
-		this->onResize_ = onResize;
-	}
+	void setWindowProc(std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)> windowProc) { this->windowProc_ = std::move(windowProc); }
+	void setOnCloseRequest(std::function<bool()> onCloseRequest) { this->onCloseRequest_ = std::move(onCloseRequest); }
+	void setOnResize(std::function<void(int, int)> onResize) { this->onResize_ = std::move(onResize); }
 
 	HWND getHwnd() const { return this->hwnd_; }
 	bool wantsExit() const { return this->wantsExit_; }

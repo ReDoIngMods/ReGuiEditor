@@ -1,12 +1,14 @@
 #include "GuiBlurSkinTexture.hpp"
 
-#include <GUI/MyGuiDX11/Texture.hpp>
+#include <GUI/MyGuiDX11/MGTexture.hpp>
 
 #include <MyGui/MyGUI_ITexture.h>
 #include <MyGui/MyGUI_RenderFormat.h>
 #include <MyGui/MyGUI_RenderManager.h>
 
-#include <d3d11.h>
+#include <rend/ResourceManager.hpp>
+
+#include <UTILS/Console.hpp>
 
 #include <string>
 
@@ -20,28 +22,37 @@ bool GuiBlurSkinTexture::initialize(const std::string& name, int width, int heig
 	}
 
 	this->texture_ = static_cast<MyGUICustom::DirectX11Texture*>(texture);
-	this->texture_->createManual(width, height, MyGUI::TextureUsage::Default, MyGUI::PixelFormat::R8G8B8A8);
-
-	return true;
+	return this->resize(width, height);
 }
 
 void GuiBlurSkinTexture::cleanup() {
+	this->renderView_.reset();
+
 	if (this->texture_) {
 		MyGUI::RenderManager::getInstance().destroyTexture(this->texture_);
 		this->texture_ = nullptr;
 	}
 }
 
-void GuiBlurSkinTexture::update(ID3D11Texture2D* texture, ID3D11ShaderResourceView* shaderResourceView) {
+bool GuiBlurSkinTexture::resize(int width, int height) {
 	if (!this->texture_)
-		return;
+		return false;
 
-	if (this->texture_->texture) this->texture_->texture->Release();
-	if (this->texture_->shaderResourceView) this->texture_->shaderResourceView->Release();
+	this->renderView_.reset();
+	this->texture_->createManual(width, height, MyGUI::TextureUsage::RenderTarget, MyGUI::PixelFormat::R8G8B8A8);
 
-	texture->AddRef();
-	shaderResourceView->AddRef();
+	if (!this->texture_->getTexture()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurSkinTexture::resize: Failed to create %dx%d texture '%s'.", width, height, this->name_.c_str());
+		return false;
+	}
 
-	this->texture_->texture = texture;
-	this->texture_->shaderResourceView = shaderResourceView;
+	this->renderView_ = rend::ResourceManager::getInstance().createRenderView(this->texture_->getTexture());
+	if (!this->renderView_) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurSkinTexture::resize: Failed to create render view for '%s'.", this->name_.c_str());
+		return false;
+	}
+
+	this->renderView_->setDebugName("BlurrySubSkin composite \"" + this->name_ + "\" (RenderView)");
+
+	return true;
 }

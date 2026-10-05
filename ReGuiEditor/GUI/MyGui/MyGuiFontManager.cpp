@@ -6,8 +6,12 @@
 #include <UTILS/ByteStreamWriter.hpp>
 #include <UTILS/Strings.hpp>
 
-#include <GUI/MyGuiDX11/RenderManager.hpp>
-#include <GUI/MyGuiDX11/Texture.hpp>
+#include <GUI/MyGuiDX11/MGTexture.hpp>
+
+#include <rend/ResourceManager.hpp>
+#include <rend/Resources/Texture2D.hpp>
+
+#include <LZ4/lz4.h>
 
 #include <MyGui/MyGUI_FactoryManager.h>
 #include <MyGui/MyGUI_FontData.h>
@@ -19,12 +23,7 @@
 #include <MyGui/MyGUI_Version.h>
 #include <MyGui/MyGUI_XmlDocument.h>
 
-#include <LZ4/lz4.h>
-
 #include <freetype/fttypes.h>
-
-#include <Windows.h>
-#include <d3d11.h>
 
 #include <cstdint>
 #include <cstring>
@@ -37,7 +36,7 @@
 struct FontCacheHeader {
 	char magic[4] = { 'M', 'G', 'F', 'C' }; // MyGui Font Cache
 
-	uint32_t version = 1;
+	uint32_t version = 2;
 	uint32_t width = 0;
 	uint32_t height = 0;
 };
@@ -90,7 +89,7 @@ uint64_t MyGuiFontManager::generateHashFromXMLElement(MyGUI::xml::ElementPtr ele
 }
 
 std::string MyGuiFontManager::getCacheFilepath(const std::string& fontName, uint64_t hash) {
-	return UTILS::formatString("$RGE_CACHE_DATA/Fonts/%s_%016llx", fontName.c_str(), hash);
+	return UTILS::formatString("$RGE_CACHE_DATA/Fonts/%s_%016llx.mgfc", fontName.c_str(), hash);
 }
 
 bool MyGuiFontManager::loadFromCache(const std::string& filePath, MyGUI::xml::ElementPtr element, MyGUI::ResourceTrueTypeFont** outputFontResource) {
@@ -108,7 +107,7 @@ bool MyGuiFontManager::loadFromCache(const std::string& filePath, MyGUI::xml::El
 		return false;
 	}
 
-	if (header.version != 1) {
+	if (header.version != FontCacheHeader{}.version) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Unsupported cache version (%d) in file: %s", header.version, filePath.c_str());
 		return false;
 	}
@@ -140,7 +139,9 @@ bool MyGuiFontManager::loadFromCache(const std::string& filePath, MyGUI::xml::El
 		MyGUI::Char first = reader.read<MyGUI::Char>();
 		MyGUI::Char second = reader.read<MyGUI::Char>();
 
-		for (MyGUI::Char codePoint = static_cast<MyGUI::Char>(first); codePoint < static_cast<MyGUI::Char>(second); ++codePoint) {
+		for (uint64_t value = first; value <= second; ++value) {
+			const MyGUI::Char codePoint = static_cast<MyGUI::Char>(value);
+
 			MyGUI::GlyphInfo glyphInfo{};
 			glyphInfo.codePoint = codePoint;
 			glyphInfo.width = reader.read<float>();
@@ -226,58 +227,32 @@ bool MyGuiFontManager::generateCacheFile(const std::string& filePath, const std:
 		return false;
 	}
 
-	if (!texture->texture) {
+	const rend::Texture2DHandle fontTexture = texture->getTexture();
+	if (!fontTexture) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Texture font is not initialized for: %s", fontName.c_str());
 		return false;
 	}
 
-	D3D11_TEXTURE2D_DESC desc;
-	texture->texture->GetDesc(&desc);
-
-	const uint32_t width = desc.Width;
-	const uint32_t height = desc.Height;
+	const uint32_t width = fontTexture->getWidth();
+	const uint32_t height = fontTexture->getHeight();
 	if (width == 0 || height == 0) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Invalid texture dimensions for: %s", fontName.c_str());
 		return false;
 	}
 
-
-	D3D11_TEXTURE2D_DESC stagingDesc = desc;
-	stagingDesc.Usage = D3D11_USAGE_STAGING;
-	stagingDesc.BindFlags = 0;
-	stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	stagingDesc.MiscFlags = 0;
-
-	MyGUICustom::DirectX11RenderManager& renderManager = MyGUICustom::DirectX11RenderManager::getInstance();
-	ID3D11Device* device = renderManager.device;
-	ID3D11DeviceContext* context = renderManager.context;
-
-	if (!device || !context) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: DirectX11 device or context is null for: %s", fontName.c_str());
+	rend::Texture2DHandle stagingTexture = rend::ResourceManager::getInstance().createTexture2D(width, height, fontTexture->getFormat(), rend::Texture2DFlags::StagingRead);
+	if (!stagingTexture || !fontTexture->copyResource(stagingTexture)) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Failed to create staging texture for: %s", fontName.c_str());
 		return false;
 	}
+	stagingTexture->setDebugName("MyGUI::Font \"" + fontName + "\" (Staging)");
 
-	ID3D11Texture2D* stagingTexture = nullptr;
-	HRESULT result = device->CreateTexture2D(&stagingDesc, nullptr, &stagingTexture);
-	if (FAILED(result) || !stagingTexture) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Failed to create staging texture for: %s. HRESULT: 0x%X", fontName.c_str(), result);
+	const size_t dataSize = fontTexture->getTotalSize();
+	std::vector<uint8_t> pixelData(dataSize);
+	if (!stagingTexture->readData(pixelData.data(), static_cast<uint32_t>(pixelData.size()))) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Failed to read back texture data for: %s", fontName.c_str());
 		return false;
 	}
-
-	context->CopyResource(stagingTexture, texture->texture);
-
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	result = context->Map(stagingTexture, 0, D3D11_MAP_READ, 0, &mappedResource);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Failed to map staging texture for reading: %s. HRESULT: 0x%X", fontName.c_str(), result);
-
-		stagingTexture->Release();
-		return false;
-	}
-
-	uint8_t bytesPerPixel = 4;
-	size_t rowSize = static_cast<size_t>(width) * bytesPerPixel;
-	size_t dataSize = rowSize * height;
 
 	UTILS::ByteStreamWriter writer;
 
@@ -304,7 +279,9 @@ bool MyGuiFontManager::generateCacheFile(const std::string& filePath, const std:
 		writer.write<uint32_t>(range.first);
 		writer.write<uint32_t>(range.second);
 
-		for (MyGUI::Char codePoint = range.first; codePoint < range.second; ++codePoint) {
+		for (uint64_t value = range.first; value <= range.second; ++value) {
+			const MyGUI::Char codePoint = static_cast<MyGUI::Char>(value);
+
 			MyGUI::GlyphInfo* glyphInfo = fontResource->getGlyphInfo(codePoint);
 			if (!glyphInfo) {
 				CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to retrieve glyph info for code point: %u in font: %s", codePoint, fontName.c_str());
@@ -329,30 +306,20 @@ bool MyGuiFontManager::generateCacheFile(const std::string& filePath, const std:
 
 	writer.write<size_t>(dataSize);
 
-	const uint8_t* pixelData = static_cast<const uint8_t*>(mappedResource.pData);
-	
 	// Compress using LZ4
+	const int maxCompressedSize = LZ4_compressBound(static_cast<int>(dataSize));
+	std::vector<char> compressedData(static_cast<size_t>(maxCompressedSize));
 
-	int maxCompressedSize = LZ4_compressBound(static_cast<int>(dataSize));
-	char* compressedData = new char[maxCompressedSize];
-
-	int compressedSize = LZ4_compress_default(reinterpret_cast<const char*>(pixelData), compressedData, static_cast<int>(dataSize), maxCompressedSize);
+	const int compressedSize = LZ4_compress_default(reinterpret_cast<const char*>(pixelData.data()), compressedData.data(), static_cast<int>(dataSize), maxCompressedSize);
 	if (compressedSize <= 0) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Failed to compress font data: %s", fontName.c_str());
-		
-		delete[] compressedData;
 		return false;
 	}
 
 	writer.write<size_t>(static_cast<size_t>(compressedSize));
-	writer.writeBytes(compressedData, static_cast<size_t>(compressedSize));
+	writer.writeBytes(compressedData.data(), static_cast<size_t>(compressedSize));
 
-	delete[] compressedData;
-
-	context->Unmap(stagingTexture, 0);
-	stagingTexture->Release();
-
-	if (!FilesystemManager::getInstance().writeFileRaw(resolvedPath, writer.toVector())) {
+	if (!FilesystemManager::getInstance().writeFileRaw(resolvedPath.string(), writer.toVector())) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "MyGuiFontManager::generateCacheFile: Failed to write cache file: %s", resolvedPath.string().c_str());
 		return false;
 	}
@@ -403,14 +370,14 @@ bool MyGuiFontManager::loadFontXML(const std::string& xmlFilePath) {
 			resourceManager.removeByName(fontName);
 
 		uint64_t hash = this->generateHashFromXMLElement(resourceElement.current());
-		
+
 		std::string cacheFilePath = this->getCacheFilepath(fontName, hash);
-		
+
 		{
 			MyGUI::ResourceTrueTypeFont* fontResource = nullptr;
 			if (this->loadFromCache(cacheFilePath, resourceElement.current(), &fontResource)) {
 				this->loadedFonts_.push_back(fontResource);
-		
+
 				CONSOLE_LOG(LEVEL_RENDER, COLOR_DARK_BLUE, "Loaded font: %s from XML file: %s", fontName.c_str(), xmlFilePath.c_str());
 				continue;
 			}

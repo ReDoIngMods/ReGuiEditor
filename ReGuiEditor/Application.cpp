@@ -1,13 +1,18 @@
 #include "Application.hpp"
 
 #include <ImGui/imgui.h>
-#include <ImGui/imgui_impl_dx11.h>
-#include <ImGui/imgui_impl_win32.h>
+
+#include <rend/ImGui/RGE_ImGui_FreeType.hpp>
+#include <rend/ImGui/RGE_ImGui_Impl_DX11.hpp>
+#include <rend/ImGui/RGE_ImGui_Impl_Win32.hpp>
 
 #include "ConfigManager/ConfigManager.hpp"
 #include "FilesystemManager/FilesystemManager.hpp"
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
+
+#include <rend/D3D11Device.hpp>
+#include <rend/Renderer.hpp>
 
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
@@ -16,8 +21,6 @@
 #include <Windows.h>
 
 #include <functional>
-
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 void applyImGuiTheme();
 
@@ -51,17 +54,22 @@ Application::~Application() {
 		this->ugcManager = nullptr;
 	}
 
+	if (ImGui::GetCurrentContext()) {
+		RGE_ImGui_ImplDX11_Shutdown();
+		RGE_ImGui_ImplWin32_Shutdown();
+
+		ImGui::DestroyContext();
+	}
+
+	if (this->renderer) {
+		this->renderer->destroyInstance();
+		this->renderer = nullptr;
+	}
+
 	if (this->filesystemManager) {
 		this->filesystemManager->destroyInstance();
 		this->filesystemManager = nullptr;
 	}
-
-	ImGui_ImplDX11_Shutdown();
-	ImGui_ImplWin32_Shutdown();
-
-	ImGui::DestroyContext();
-
-	this->d3d11Device.cleanup();
 	this->window.cleanup();
 }
 
@@ -70,38 +78,11 @@ bool Application::initialize() {
 	QueryPerformanceCounter(&this->counter);
 
 	this->window.setOnCloseRequest(std::bind(&Application::onCloseRequest, this));
-	this->window.setOnResize(std::bind(&Application::onResize, this, std::placeholders::_1, std::placeholders::_2));
+	this->window.setOnResize(std::bind(&Application::onWindowResize, this, std::placeholders::_1, std::placeholders::_2));
 	this->window.setWindowProc(std::bind(&Application::windowProc, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 
 	if (!this->window.create(L"ReGui Layout Editor", 1920, 1080)) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to create window");
-		return false;
-	}
-
-	if (!this->d3d11Device.initialize(this->window.getHwnd())) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize D3D11 device");
-		return false;
-	}
-
-	IMGUI_CHECKVERSION();
-
-	ImGui::CreateContext();
-
-	ImGuiIO& io = ImGui::GetIO();
-	io.IniFilename = NULL;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-	applyImGuiTheme();
-
-	if (!ImGui_ImplWin32_Init(this->window.getHwnd())) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize ImGui Win32 backend");
-		return false;
-	}
-
-	if (!ImGui_ImplDX11_Init(this->d3d11Device.getDevice(), this->d3d11Device.getContext())) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize ImGui DX11 backend");
 		return false;
 	}
 
@@ -110,6 +91,36 @@ bool Application::initialize() {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize FilesystemManager");
 		return false;
 	}
+
+	this->renderer = rend::Renderer::createInstance();
+	if (!this->renderer->init(this->window.getHwnd())) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize renderer");
+		return false;
+	}
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.IniFilename = NULL;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	io.Fonts->SetFontLoader(RGE_ImGui_FreeType_GetFontLoader());
+
+	applyImGuiTheme();
+
+	if (!RGE_ImGui_ImplWin32_Init(this->window.getHwnd())) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize ImGui Win32 backend");
+		return false;
+	}
+
+	if (!RGE_ImGui_ImplDX11_Init()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize ImGui DX11 backend");
+		return false;
+	}
+
+	io.Fonts->SetFontLoader(RGE_ImGui_FreeType_GetFontLoader());
 
 	this->ugcManager = UGCManager::createInstance();
 	if (!this->ugcManager->initialize()) {
@@ -153,6 +164,7 @@ bool Application::initialize() {
 	}
 
 	this->window.show();
+	this->isInitialized = true;
 	return true;
 }
 
@@ -177,7 +189,6 @@ void Application::update() {
 		this->fixedUpdate();
 		this->fixedUpdateTimeAccumulator -= 1.0 / 60.0;
 	}
-
 }
 
 void Application::fixedUpdate() {
@@ -189,8 +200,10 @@ void Application::fixedUpdate() {
 void Application::render(bool vsyncEnabled) {
 	this->guiSystemManager->render();
 
-	ImGui_ImplWin32_NewFrame();
-	ImGui_ImplDX11_NewFrame();
+	rend::D3D11Device* d3d11Device = this->renderer->getD3D11Device();
+	d3d11Device->beginFrame();
+
+	RGE_ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
 	this->windowDecoration.render();
@@ -203,13 +216,12 @@ void Application::render(bool vsyncEnabled) {
 	ImGui::UpdatePlatformWindows();
 	ImGui::RenderPlatformWindowsDefault();
 
-	this->d3d11Device.updateRenderTarget();
-	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-	this->d3d11Device.present(vsyncEnabled);
+	RGE_ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData(), this->renderer->getBackBufferRenderView());
+	d3d11Device->endFrame();
 }
 
 LRESULT Application::windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
-	if (ImGui_ImplWin32_WndProcHandler(hwnd, message, wParam, lParam))
+	if (RGE_ImGui_ImplWin32_WndProcHandler(hwnd, message, wParam, lParam))
 		return true;
 
 	return DefWindowProcW(hwnd, message, wParam, lParam);
@@ -219,14 +231,17 @@ bool Application::onCloseRequest() {
 	return true;
 }
 
-void Application::onResize(int width, int height) {
-	if (!this->d3d11Device.isInitialized())
+void Application::onWindowResize(int width, int height) {
+	if (!this->isInitialized || !this->renderer || width <= 0 || height <= 0)
 		return;
 
-	if (!this->d3d11Device.resize(width, height)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to resize D3D11 device");
+	if (!this->renderer->resize(static_cast<UINT>(width), static_cast<UINT>(height)))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to resize renderer to %dx%d", width, height);
+}
+
+void Application::onResize(int width, int height) {
+	if (!this->isInitialized)
 		return;
-	}
 
 	this->render(false);
 }

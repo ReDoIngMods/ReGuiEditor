@@ -1,6 +1,5 @@
 #include "GuiSystemManager.hpp"
 
-#include "../Application.hpp"
 #include "../ConfigManager/ConfigManager.hpp"
 
 #include "BackgroundImageHelper.hpp"
@@ -12,10 +11,16 @@
 #include "MyGui/MyGuiDataManager.hpp"
 #include "MyGui/MyGuiFontManager.hpp"
 
+#include "NotificationManager.hpp"
 #include "ResolutionManager.hpp"
-#include "ShaderManager.hpp"
 
-#include <GUI/MyGuiDX11/RenderManager.hpp>
+#include <GUI/MyGuiDX11/MGRenderManager.hpp>
+
+#include <rend/Common/Format.hpp>
+#include <rend/D3D11Device.hpp>
+#include <rend/ResourceManager.hpp>
+
+#include <rend/Resources/Texture2D.hpp>
 
 #include <MyGui/MyGUI_Align.h>
 #include <MyGui/MyGUI_Exception.h>
@@ -28,98 +33,43 @@
 #include <MyGui/MyGUI_ResourceTrueTypeFont.h>
 #include <MyGui/MyGUI_Widget.h>
 
-#include <Windows.h>
+#include <DirectXColors.h>
+#include <d3d11.h>
 
 #include <array>
 #include <cstdint>
-
-#include "NotificationManager.hpp"
-#include <DirectXColors.h>
-#include <d3d11.h>
-#include <d3dcommon.h>
-#include <dxgiformat.h>
 #include <string>
 
 bool GuiSystemManager::createRenderTarget(uint32_t width, uint32_t height) {
 	this->cleanupRenderTarget();
 
-	D3D11_TEXTURE2D_DESC desc;
-	ZeroMemory(&desc, sizeof(desc));
-	desc.Width = width;
-	desc.Height = height;
-	desc.MipLevels = 1;
-	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	desc.SampleDesc.Count = 1;
-	desc.Usage = D3D11_USAGE_DEFAULT;
-	desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
 
-	Application& app = Application::getInstance();
-	ID3D11Device* device = app.d3d11Device.getDevice();
-
-	HRESULT result = device->CreateTexture2D(&desc, nullptr, &this->renderTexture);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiSystemManager::createRenderTarget: Failed to create RTV texture. HRESULT: 0x%X", result);
+	rend::Texture2DHandle texture = resourceManager.createTexture2D(width, height, rend::Format::R8G8B8A8_UNORM, rend::Texture2DFlags::ShaderResource | rend::Texture2DFlags::RenderTarget);
+	if (!texture) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiSystemManager::createRenderTarget: Failed to create render target texture.");
 		return false;
 	}
+	texture->setDebugName("GuiSystemManager::RenderTarget (Texture)");
 
-	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-	ZeroMemory(&rtvDesc, sizeof(rtvDesc));
-	rtvDesc.Format = desc.Format;
-	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-
-	result = device->CreateRenderTargetView(this->renderTexture, &rtvDesc, &this->renderTargetView);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiSystemManager::createRenderTarget: Failed to create RTV. HRESULT: 0x%X", result);
-
-		this->renderTexture->Release();
-		this->renderTexture = nullptr;
-
+	this->renderView_ = resourceManager.createRenderView(texture);
+	if (!this->renderView_) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiSystemManager::createRenderTarget: Failed to create render view.");
 		return false;
 	}
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	ZeroMemory(&srvDesc, sizeof(srvDesc));
-	srvDesc.Format = desc.Format;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-
-	result = device->CreateShaderResourceView(this->renderTexture, &srvDesc, &this->renderShaderResourceView);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiSystemManager::createRenderTarget: Failed to create SRV. HRESULT: 0x%X", result);
-		
-		this->renderTargetView->Release();
-		this->renderTargetView = nullptr;
-
-		this->renderTexture->Release();
-		this->renderTexture = nullptr;
-		
-		return false;
-	}
+	this->renderView_->setDebugName("GuiSystemManager::RenderTarget (RenderView)");
 
 	this->renderTargetWidth_ = width;
 	this->renderTargetHeight_ = height;
 
+	this->renderManager_->setRenderView(this->renderView_);
 	this->renderManager_->setViewSize(static_cast<int>(width), static_cast<int>(height));
 
 	return true;
 }
 
 void GuiSystemManager::cleanupRenderTarget() {
-	if (this->renderShaderResourceView) {
-		this->renderShaderResourceView->Release();
-		this->renderShaderResourceView = nullptr;
-	}
-
-	if (this->renderTargetView) {
-		this->renderTargetView->Release();
-		this->renderTargetView = nullptr;
-	}
-
-	if (this->renderTexture) {
-		this->renderTexture->Release();
-		this->renderTexture = nullptr;
-	}
+	this->renderView_.reset();
 
 	this->renderTargetWidth_ = 0;
 	this->renderTargetHeight_ = 0;
@@ -127,10 +77,6 @@ void GuiSystemManager::cleanupRenderTarget() {
 
 bool GuiSystemManager::initialize() {
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GRAY, "Initializing GuiSystemManager...");
-
-	// Initialize Shader Manager
-
-	this->shaderManager_ = ShaderManager::createInstance();
 
 	// Initialize Logging
 
@@ -151,7 +97,7 @@ bool GuiSystemManager::initialize() {
 
 	this->renderManager_ = new MyGUICustom::DirectX11RenderManager;
 	try {
-		if(!this->renderManager_->initialise(Application::getInstance().d3d11Device.getDevice())) {
+		if (!this->renderManager_->initialise()) {
 			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to initialize MyGUI DirectX11RenderManager.");
 			return false;
 		}
@@ -324,11 +270,6 @@ void GuiSystemManager::cleanup() {
 		this->myGuiFontManager_ = nullptr;
 	}
 
-	if (this->shaderManager_) {
-		this->shaderManager_->destroyInstance();
-		this->shaderManager_ = nullptr;
-	}
-
 	this->cleanupRenderTarget();
 
 	if (this->renderManager_) {
@@ -378,32 +319,17 @@ bool GuiSystemManager::changeResolution(uint32_t width, uint32_t height) {
 }
 
 void GuiSystemManager::render() {
-	if (!this->renderTargetView) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiSystemManager::render: Render target view is not created.");
+	if (!this->renderView_) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiSystemManager::render: Render view is not created.");
 		return;
 	}
 
-	ID3D11DeviceContext* context = Application::getInstance().d3d11Device.getContext();
-	context->ClearRenderTargetView(this->renderTargetView, DirectX::Colors::Aquamarine);
-	context->OMSetRenderTargets(1, &this->renderTargetView, nullptr);
+	rend::D3D11Device::getInstance().getDeviceContext1()->ClearRenderTargetView(this->renderView_->getRenderTargetView(), DirectX::Colors::Aquamarine);
 
-	D3D11_VIEWPORT viewport;
-	ZeroMemory(&viewport, sizeof(viewport));
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = static_cast<FLOAT>(this->renderTargetWidth_);
-	viewport.Height = static_cast<FLOAT>(this->renderTargetHeight_);
-	viewport.MinDepth = 0.0f;
-	viewport.MaxDepth = 1.0f;
+	this->backgroundImageHelper_->render(this->renderView_, static_cast<float>(this->renderTargetWidth_), static_cast<float>(this->renderTargetHeight_));
 
-	context->RSSetViewports(1, &viewport);
+	this->guiBlurManager_->captureAndBlur(this->renderView_);
+	this->blurrySubSkinRegistry_->updateAllInstances(this->guiBlurManager_->getResultShaderResourceView(), static_cast<int>(this->renderTargetWidth_), static_cast<int>(this->renderTargetHeight_));
 
-	this->backgroundImageHelper_->render();
-
-	this->guiBlurManager_->captureAndBlur(this->renderShaderResourceView);
-	this->blurrySubSkinRegistry_->updateAllInstances(this->guiBlurManager_->getResultShaderResourceView(), this->renderTargetWidth_, this->renderTargetHeight_);
-
-	context->RSSetViewports(1, &viewport);
-	context->OMSetRenderTargets(1, &this->renderTargetView, nullptr);
 	this->renderManager_->drawOneFrame();
 }

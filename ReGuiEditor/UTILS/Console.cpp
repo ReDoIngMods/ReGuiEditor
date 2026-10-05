@@ -13,6 +13,8 @@
 
 #include <MyGui/MyGUI_ResourceManager.h>
 
+#include <rend/ResourceManager.hpp>
+
 thread_local static std::wstring gThreadName;
 thread_local static DWORD gThreadId;
 
@@ -28,7 +30,8 @@ static std::array<const wchar_t*, LEVEL_COUNT> gConsoleLogLevelNames = {
 
 	L"[MyGUI]",
 	L"[Shader]",
-	L"[Render]"
+	L"[Render]",
+	L"[Resource]"
 };
 
 inline static const wchar_t* consoleLogColorToAnsiEscapeCode(const ConsoleLogColor color) {
@@ -241,13 +244,19 @@ void UTILS::Console::log(ConsoleLogLevel level, ConsoleLogColor color, const std
 
 	EnterCriticalSection(&this->criticalSection_);
 
-	size_t resourceCount = 0;
+	size_t myGuiResourceCount = 0;
+	size_t renderResourceCount = 0;
+
 	MyGUI::ResourceManager* resourceManager = MyGUI::ResourceManager::getInstancePtr();
 	if (resourceManager)
-		resourceCount = resourceManager->getCount();
+		myGuiResourceCount = resourceManager->getCount();
+
+	rend::ResourceManager* rendResourceManager = rend::ResourceManager::getInstancePtr();
+	if (rendResourceManager)
+		renderResourceCount = rendResourceManager->getResourceCount();
 
 	const wchar_t* levelString = (level >= 0 && level < LEVEL_COUNT) ? gConsoleLogLevelNames[level] : L"[Unknown]";
-	const std::wstring formattedMessage = UTILS::formatString(L"%02d:%02d:%02d (%llu) %s %s\n", time.wHour, time.wMinute, time.wSecond, resourceCount, levelString, message.c_str());
+	const std::wstring formattedMessage = UTILS::formatString(L"%02d:%02d:%02d (%llu/%llu) %s %s\n", time.wHour, time.wMinute, time.wSecond, myGuiResourceCount, renderResourceCount, levelString, message.c_str());
 
 	if (this->consoleAllocated_) {		
 		const wchar_t* colorCode = consoleLogColorToAnsiEscapeCode(color);

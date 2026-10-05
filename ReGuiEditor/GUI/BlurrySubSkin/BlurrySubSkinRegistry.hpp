@@ -6,7 +6,7 @@
 #include <MyGui/MyGUI_CommonStateInfo.h>
 #include <MyGui/MyGUI_FactoryManager.h>
 
-#include <d3d11.h>
+#include <rend/Resources/ShaderResourceView.hpp>
 
 #include <memory>
 #include <vector>
@@ -33,7 +33,7 @@ public:
 		this->instances_.erase(std::remove(this->instances_.begin(), this->instances_.end(), instance), this->instances_.end());
 	}
 
-	void updateAllInstances(ID3D11ShaderResourceView* backdropView, int canvasWidth, int canvasHeight) {
+	void updateAllInstances(const rend::ShaderResourceView* backdropView, int canvasWidth, int canvasHeight) {
 		for (BlurrySubSkin* instance : this->instances_)
 			instance->updateComposite(backdropView, canvasWidth, canvasHeight);
 	}

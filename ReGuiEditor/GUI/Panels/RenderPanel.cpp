@@ -4,11 +4,38 @@
 #include "../GuiSystemManager.hpp"
 #include "../NotificationManager.hpp"
 
+#include <rend/FullscreenPass.hpp>
+
+#include <rend/Common/Viewport.hpp>
+
+#include <rend/ImGui/RGE_ImGui_Impl_DX11.hpp>
+
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
+#include <UTILS/Console.hpp>
+
 #include <algorithm>
-#include <cmath>
+#include <cstring>
+
+constexpr float GRID_BASE_SIZE = 45.0f;
+
+struct alignas(16) GridConstants {
+	float origin[2] = {};
+	float pan[2] = {};
+	float cellSize = 1.0f;
+	float padding[3] = {};
+	float backgroundColor[4] = { 15.0f / 255.0f, 17.0f / 255.0f, 20.0f / 255.0f, 1.0f };
+	float checkerColor[4] = { 20.0f / 255.0f, 22.0f / 255.0f, 26.0f / 255.0f, 1.0f };
+};
+
+struct GridCallbackData {
+	RenderPanel* panel = nullptr;
+	ImVec2 windowPosition = { 0.0f, 0.0f };
+	ImVec2 pan = { 0.0f, 0.0f };
+	float zoom = 1.0f;
+};
+
 
 void RenderPanel::drawDebugRenderInfos() const {
 	const GuiSystemManager& guiSystemManager = GuiSystemManager::getInstance();
@@ -55,65 +82,65 @@ bool RenderPanel::initialize() {
 		ImGui::Text("Render Target Size: (%.2f, %.2f)", static_cast<float>(guiSystemManager.getRenderTargetWidth()), static_cast<float>(guiSystemManager.getRenderTargetHeight()));
 	});
 
+	rend::FullscreenPassDesc gridPassDesc;
+	gridPassDesc.pixelShader = "$RGE_DATA/Shaders/gui_grid.hlsl";
+	gridPassDesc.constantBufferSize = sizeof(GridConstants);
+	gridPassDesc.debugName = "RenderPanel::Grid";
+
+	if (!this->gridPass_.init(gridPassDesc))
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RenderPanel::initialize: Failed to create the grid pass, the grid will not be drawn.");
+
 	return true;
 }
 
-// TODO: Optimize so the entire grid is drawn via a shader. We probably wanna rework the entire renderer however to use the renderer
-//       from SMX because otherwise things will get too messy.
+void RenderPanel::cleanup() {
+	this->gridPass_.cleanup();
+}
 
-void RenderPanel::drawGrid() const {
-	const ImVec2 cursorPosition = ImGui::GetWindowPos();
-	const ImVec2 windowSize = ImGui::GetWindowSize();
-	ImDrawList* drawList = ImGui::GetWindowDrawList();
+void RenderPanel::gridDrawCallback(const ImDrawList*, const ImDrawCmd* drawCmd) {
+	GridCallbackData data;
+	memcpy(&data, drawCmd->UserCallbackData, sizeof(GridCallbackData));
 
-	constexpr float BASE_SIZE = 45.0f;
-
-	constexpr ImU32 BACKGROUND_COLOR = IM_COL32(15, 17, 20, 255);
-	constexpr ImU32 CHECKER_COLOR = IM_COL32(20, 22, 26, 255);
-
-	const float cellSize = BASE_SIZE * this->zoom_;
-
-	if (cellSize <= 0.0f || windowSize.x <= 0.0f || windowSize.y <= 0.0f)
+	const RGE_ImGui_ImplDX11_FrameInfo* frameInfo = RGE_ImGui_ImplDX11_GetFrameInfo();
+	if (!data.panel || !frameInfo || !frameInfo->renderView)
 		return;
 
-	const float panX = this->pan_.x * this->zoom_;
-	const float panY = this->pan_.y * this->zoom_;
+	rend::Viewport viewport;
+	if (!RGE_ImGui_ImplDX11_GetCallbackViewport(drawCmd, viewport))
+		return;
 
-	const ImVec2 max = {
-		cursorPosition.x + windowSize.x,
-		cursorPosition.y + windowSize.y
-	};
+	const ImVec2 scale = frameInfo->framebufferScale;
 
-	drawList->AddRectFilled(cursorPosition, max, BACKGROUND_COLOR);
+	GridConstants constants;
+	constants.origin[0] = (data.windowPosition.x - frameInfo->displayPos.x) * scale.x;
+	constants.origin[1] = (data.windowPosition.y - frameInfo->displayPos.y) * scale.y;
+	constants.pan[0] = data.pan.x * data.zoom * scale.x;
+	constants.pan[1] = data.pan.y * data.zoom * scale.y;
+	constants.cellSize = GRID_BASE_SIZE * data.zoom * scale.x;
 
-	const int startX = static_cast<int>(std::floor(panX / cellSize)) - 1;
-	const int endX = static_cast<int>(std::floor((panX + windowSize.x) / cellSize)) + 1;
-	const int startY = static_cast<int>(std::floor(panY / cellSize)) - 1;
-	const int endY = static_cast<int>(std::floor((panY + windowSize.y) / cellSize)) + 1;
+	rend::FullscreenDrawParams params;
+	params.target = frameInfo->renderView;
+	params.viewport = viewport;
+	params.constants = &constants;
 
-	for (int y = startY; y <= endY; ++y) {
-		const float top = cursorPosition.y + y * cellSize - panY;
-		const float bottom = top + cellSize;
+	data.panel->gridPass_.draw(params);
+}
 
-		if (bottom <= cursorPosition.y || top >= max.y)
-			continue;
+void RenderPanel::drawGrid() {
+	if (!this->gridPass_.isValid())
+		return;
 
-		for (int x = startX; x <= endX; ++x) {
-			if (((x ^ y) & 1) == 0)
-				continue;
+	const ImVec2 windowSize = ImGui::GetWindowSize();
+	if (this->zoom_ <= 0.0f || windowSize.x <= 0.0f || windowSize.y <= 0.0f)
+		return;
 
-			const float left = cursorPosition.x + x * cellSize - panX;
-			const float right = left + cellSize;
+	GridCallbackData data;
+	data.panel = this;
+	data.windowPosition = ImGui::GetWindowPos();
+	data.pan = this->pan_;
+	data.zoom = this->zoom_;
 
-			if (right <= cursorPosition.x || left >= max.x)
-				continue;
-
-			const ImVec2 topLeft = { std::max(left, cursorPosition.x), std::max(top, cursorPosition.y) };
-			const ImVec2 bottomRight = { std::min(right, max.x), std::min(bottom, max.y) };
-
-			drawList->AddRectFilled(topLeft, bottomRight, CHECKER_COLOR);
-		}
-	}
+	ImGui::GetWindowDrawList()->AddCallback(&RenderPanel::gridDrawCallback, &data, sizeof(data));
 }
 
 void RenderPanel::render() {
@@ -134,7 +161,6 @@ void RenderPanel::render() {
 	const ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
 	ImGui::BeginChild("RenderView", viewportSize, false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-
 
 	const ImGuiIO& io = ImGui::GetIO();
 
@@ -188,7 +214,7 @@ void RenderPanel::render() {
 	};
 
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
-	drawList->AddImage(reinterpret_cast<ImTextureID>(guiSystemManager.renderShaderResourceView), imagePositionStart, imagePositionEnd, { 0, 0 }, { 1, 1 });
+	drawList->AddImage(reinterpret_cast<ImTextureID>(guiSystemManager.getRenderShaderResourceView()), imagePositionStart, imagePositionEnd, { 0, 0 }, { 1, 1 });
 	drawList->AddRect(imagePositionStart, imagePositionEnd, IM_COL32(255, 255, 255, 255), 0.0f, 1.0f);
 
 	ImGui::EndChild();

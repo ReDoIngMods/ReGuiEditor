@@ -23,6 +23,10 @@ namespace UTILS {
 			return *instance_;
 		}
 
+		static T* getInstancePtr() {
+			return instance_;
+		}
+
 		static void destroyInstance() {
 			assert(instance_ != nullptr && "Singleton instance does not exist.");
 			delete instance_;

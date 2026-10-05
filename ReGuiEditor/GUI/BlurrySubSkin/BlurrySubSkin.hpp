@@ -1,20 +1,19 @@
 #pragma once
 #include "GuiBlurSkinTexture.hpp"
 
-#include <GUI/MyGuiDX11/Texture.hpp>
+#include <GUI/MyGuiDX11/MGTexture.hpp>
 
 #include <MyGui/MyGUI_ILayerNode.h>
 #include <MyGui/MyGUI_ITexture.h>
 #include <MyGui/MyGUI_RTTI.h>
 #include <MyGui/MyGUI_SubSkin.h>
 
-#include <d3d11.h>
+#include <rend/Resources/ShaderResourceView.hpp>
 
 class BlurrySubSkin : public MyGUI::SubSkin {
 	MYGUI_RTTI_DERIVED(BlurrySubSkin)
 
 	GuiBlurSkinTexture compositeTexture_;
-	ID3D11RenderTargetView* compositeTargetView_ = nullptr;
 	MyGUICustom::DirectX11Texture* atlasTexture_ = nullptr;
 
 	int compositeWidth_ = 1;
@@ -22,13 +21,13 @@ class BlurrySubSkin : public MyGUI::SubSkin {
 
 	bool ensureCompositeTarget(int width, int height);
 public:
-	BlurrySubSkin();
-	virtual ~BlurrySubSkin();
+	BlurrySubSkin() = default;
+	~BlurrySubSkin() override = default;
 
-	virtual void createDrawItem(MyGUI::ITexture* _texture, MyGUI::ILayerNode* _node) override;
-	virtual void destroyDrawItem() override;
+	void createDrawItem(MyGUI::ITexture* _texture, MyGUI::ILayerNode* _node) override;
+	void destroyDrawItem() override;
 
-	virtual void doRender() override;
+	void doRender() override;
 
-	void updateComposite(ID3D11ShaderResourceView* backdropView, int canvasWidth, int canvasHeight);
+	void updateComposite(const rend::ShaderResourceView* backdropView, int canvasWidth, int canvasHeight);
 };

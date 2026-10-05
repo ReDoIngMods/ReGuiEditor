@@ -407,3 +407,4 @@ enc_temp_folder/*
 
 Cache/
 !ReGuiEditor/Dependencies/Libraries/**/*.pdb
+Intermediate/

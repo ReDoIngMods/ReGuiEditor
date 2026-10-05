@@ -3,26 +3,19 @@
 
 #include <MyGui/MyGUI_Types.h>
 
-#include <d3d11.h>
+#include <rend/FullscreenPass.hpp>
+
+#include <rend/Resources/RenderView.hpp>
+#include <rend/Resources/ShaderResourceView.hpp>
+
+#include <rend/Resources/SamplerState.hpp>
 
 class BlurrySubSkinRenderer : public UTILS::Singleton<BlurrySubSkinRenderer> {
-	struct alignas(16) ConstantBufferData {
-		float backdropUV[4];
-		float atlasUV[4];
-	};
-
-	ID3D11VertexShader* vertexShader_ = nullptr;
-	ID3D11PixelShader* pixelShader_ = nullptr;
-	ID3D11SamplerState* samplerState_ = nullptr;
-	ID3D11Buffer* paramsBuffer_ = nullptr;
-
-	bool initialized_ = false;
+	rend::FullscreenPass fullscreenPass_;
+	rend::SamplerStateHandle samplerState_;
 public:
-	BlurrySubSkinRenderer() = default;
-	~BlurrySubSkinRenderer() { this->cleanup(); }
-
 	bool initialize();
 	void cleanup();
 
-	void composite(ID3D11ShaderResourceView* backdropView, const MyGUI::FloatRect& backdropUV, ID3D11ShaderResourceView* atlasView, const MyGUI::FloatRect& atlasUV, ID3D11RenderTargetView* destinationView, int destinationWidth, int destinationHeight);
+	void composite(const rend::ShaderResourceView* backdropView, const MyGUI::FloatRect& backdropUV, const rend::ShaderResourceView* atlasView, const MyGUI::FloatRect& atlasUV, rend::RenderView* destinationView, int destinationWidth, int destinationHeight);
 };

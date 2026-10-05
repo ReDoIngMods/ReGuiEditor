@@ -1,15 +1,18 @@
 #pragma once
-#include <GUI/MyGuiDX11/Texture.hpp>
+#include <GUI/MyGuiDX11/MGTexture.hpp>
 
-#include <d3d11.h>
+#include <rend/Common/RefCounter.hpp>
+
+#include <rend/FullscreenPass.hpp>
+
+#include <rend/Resources/RenderView.hpp>
+#include <rend/Resources/SamplerState.hpp>
 
 #include <string>
 
 class BackgroundImageHelper {
-	ID3D11VertexShader* vertexShader_ = nullptr;
-	ID3D11PixelShader* pixelShader_ = nullptr;
-	ID3D11SamplerState* samplerState_ = nullptr;
-	ID3D11Buffer* constantBuffer_ = nullptr;
+	rend::FullscreenPass fullscreenPass_;
+	rend::SamplerStateHandle samplerState_;
 
 	MyGUICustom::DirectX11Texture* backgroundTexture_ = nullptr;
 public:
@@ -18,5 +21,5 @@ public:
 
 	void setBackgroundTexture(const std::string& path);
 
-	void render();
+	void render(rend::RenderView* renderView, float width, float height);
 };

@@ -8,9 +8,7 @@
 #include <Windows.h>
 #include <sal.h>
 
-#include <chrono>
 #include <cstdlib>
-#include <thread>
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow) {
 	SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -44,11 +42,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		SteamAPI_RunCallbacks();
 
 		application->update();
-		if (application->d3d11Device.isOccluded()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-			continue;
-		}
-
 		application->render();
 	}
 

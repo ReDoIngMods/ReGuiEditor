@@ -1,73 +1,91 @@
 #include "GuiBlurManager.hpp"
 
-#include "../../Application.hpp"
-#include "../ShaderManager.hpp"
+#include <rend/Common/Format.hpp>
+#include <rend/Common/SamplerAddressMode.hpp>
+#include <rend/Common/Viewport.hpp>
 
-#include <Windows.h>
+#include <rend/FullscreenPass.hpp>
+#include <rend/ResourceManager.hpp>
+
+#include <rend/Resources/RenderView.hpp>
+#include <rend/Resources/ShaderResourceView.hpp>
+#include <rend/Resources/Texture2D.hpp>
+
 #include <algorithm>
 #include <cstdint>
-#include <d3d11.h>
-#include <d3dcommon.h>
-#include <dxgiformat.h>
-
-#include "../Utilities/D3D11RenderTarget.hpp"
-
-#define SAFE_RELEASE(ptr) do { if (ptr) { (ptr)->Release(); (ptr) = nullptr; } } while(0)
-
-
-void GuiBlurManager::cleanupRenderTargets(ID3D11Texture2D*& texture, ID3D11RenderTargetView*& targetView, ID3D11ShaderResourceView*& shaderResourceView) {
-	SAFE_RELEASE(shaderResourceView);
-	SAFE_RELEASE(targetView);
-	SAFE_RELEASE(texture);
-}
+#include <string>
 
 bool GuiBlurManager::createRenderObjects() {
-	ShaderManager& shaderManager = ShaderManager::getInstance();
-	if (!shaderManager.getShader("$RGE_DATA/Shaders/gui_fullscreen_triangle.hlsl", "vsMain"          , this->shaderVertex_              )) return false;
-	if (!shaderManager.getShader("$RGE_DATA/Shaders/post_blur.hlsl"              , "psMainHorizontal", this->shaderPixelBlurHorizontal_ )) return false;
-	if (!shaderManager.getShader("$RGE_DATA/Shaders/post_blur.hlsl"              , "psMainVertical"  , this->shaderPixelBlurVertical_   )) return false;
-	if (!shaderManager.getShader("$RGE_DATA/Shaders/post_blur.hlsl"              , "psMainCopy"      , this->shaderPixelCopy_           )) return false;
+	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
 
-	Application& application = Application::getInstance();
-	ID3D11Device* device = application.d3d11Device.getDevice();
+	const auto createPass = [](rend::FullscreenPass& pass, const char* entrypoint, const char* debugName) {
+		rend::FullscreenPassDesc passDesc;
+		passDesc.pixelShader = "$RGE_DATA/Shaders/post_blur.hlsl";
+		passDesc.pixelEntrypoint = entrypoint;
+		passDesc.constantBufferSize = sizeof(BlurParameters);
+		passDesc.debugName = debugName;
 
-	D3D11_SAMPLER_DESC samplerDesc;
-	ZeroMemory(&samplerDesc, sizeof(samplerDesc));
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		if (!pass.init(passDesc)) {
+			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::createRenderObjects: Failed to create fullscreen pass (%s).", debugName);
+			return false;
+		}
 
-	HRESULT result = device->CreateSamplerState(&samplerDesc, &this->samplerState_);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::createRenderObjects: Failed to create sampler state. HRESULT: 0x%X", result);
+		return true;
+	};
+
+	if (!createPass(this->copyPass_, "psMainCopy", "GuiBlurManager::Copy"))
+		return false;
+
+	if (!createPass(this->blurHorizontalPass_, "psMainHorizontal", "GuiBlurManager::BlurHorizontal"))
+		return false;
+
+	if (!createPass(this->blurVerticalPass_, "psMainVertical", "GuiBlurManager::BlurVertical"))
+		return false;
+
+	this->samplerState_ = resourceManager.createLinearSamplerState(rend::SamplerAddressMode::Clamp);
+	if (!this->samplerState_) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::createRenderObjects: Failed to create sampler state.");
 		return false;
 	}
 
-	D3D11_BUFFER_DESC bufferDesc;
-	ZeroMemory(&bufferDesc, sizeof(bufferDesc));
-	bufferDesc.ByteWidth = sizeof(ConstantBuffer);
-	bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-	result = device->CreateBuffer(&bufferDesc, nullptr, &this->constantBuffer_);
-	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::createRenderObjects: Failed to create constant buffer. HRESULT: 0x%X", result);
-		return false;
-	}
+	this->samplerState_->setDebugName("GuiBlurManager::SamplerState");
 
 	return true;
 }
 
-void GuiBlurManager::cleanupRenderObjects() {
-	SAFE_RELEASE(this->constantBuffer_);
-	SAFE_RELEASE(this->samplerState_);
+rend::RenderViewHandle GuiBlurManager::createRenderTarget(const std::string& name) {
+	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
+	rend::Texture2DHandle texture = resourceManager.createTexture2D(this->lowWidth_, this->lowHeight_, rend::Format::R8G8B8A8_UNORM, rend::Texture2DFlags::ShaderResource | rend::Texture2DFlags::RenderTarget);
+	if (!texture) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::createRenderTarget: Failed to create texture for '%s'.", name.c_str());
+		return nullptr;
+	}
+	texture->setDebugName("GuiBlurManager " + name + " (Texture)");
 
-	SAFE_RELEASE(this->shaderPixelCopy_);
-	SAFE_RELEASE(this->shaderPixelBlurVertical_);
-	SAFE_RELEASE(this->shaderPixelBlurHorizontal_);
-	SAFE_RELEASE(this->shaderVertex_);
+	rend::RenderViewHandle renderView = resourceManager.createRenderView(texture);
+	if (!renderView) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::createRenderTarget: Failed to create render view for '%s'.", name.c_str());
+		return nullptr;
+	}
+	renderView->setDebugName("GuiBlurManager " + name + " (RenderView)");
+	return renderView;
+}
+
+bool GuiBlurManager::createRenderTargets() {
+	this->captureView_ = this->createRenderTarget("Capture");
+	if (!this->captureView_) return false;
+
+	this->pingView_ = this->createRenderTarget("Ping");
+	if (!this->pingView_) return false;
+
+	this->pongView_ = this->createRenderTarget("Pong");
+	return this->pongView_ != nullptr;
+}
+
+void GuiBlurManager::cleanupRenderTargets() {
+	this->pongView_.reset();
+	this->pingView_.reset();
+	this->captureView_.reset();
 }
 
 bool GuiBlurManager::initialize(uint32_t fullWidth, uint32_t fullHeight, uint32_t downsample) {
@@ -82,18 +100,8 @@ bool GuiBlurManager::initialize(uint32_t fullWidth, uint32_t fullHeight, uint32_
 		return false;
 	}
 
-	if (!RenderTargetUtils::createColorfulRTV(this->lowWidth_, this->lowHeight_, DXGI_FORMAT_R8G8B8A8_UNORM, this->captureTexture, this->captureTargetView, this->captureShaderResourceView)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::initialize: Failed to create capture render target.");
-		return false;
-	}
-
-	if (!RenderTargetUtils::createColorfulRTV(this->lowWidth_, this->lowHeight_, DXGI_FORMAT_R8G8B8A8_UNORM, this->pingTexture, this->pingTargetView, this->pingShaderResourceView)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::initialize: Failed to create ping render target.");
-		return false;
-	}
-
-	if (!RenderTargetUtils::createColorfulRTV(this->lowWidth_, this->lowHeight_, DXGI_FORMAT_R8G8B8A8_UNORM, this->pongTexture, this->pongTargetView, this->pongShaderResourceView)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::initialize: Failed to create pong render target.");
+	if (!this->createRenderTargets()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::initialize: Failed to create render targets.");
 		return false;
 	}
 
@@ -101,11 +109,13 @@ bool GuiBlurManager::initialize(uint32_t fullWidth, uint32_t fullHeight, uint32_
 }
 
 void GuiBlurManager::cleanup() {
-	this->cleanupRenderTargets(this->pongTexture, this->pongTargetView, this->pongShaderResourceView);
-	this->cleanupRenderTargets(this->pingTexture, this->pingTargetView, this->pingShaderResourceView);
-	this->cleanupRenderTargets(this->captureTexture, this->captureTargetView, this->captureShaderResourceView);
+	this->cleanupRenderTargets();
 
-	this->cleanupRenderObjects();
+	this->samplerState_.reset();
+
+	this->blurVerticalPass_.cleanup();
+	this->blurHorizontalPass_.cleanup();
+	this->copyPass_.cleanup();
 
 	this->lowWidth_ = 0;
 	this->lowHeight_ = 0;
@@ -114,76 +124,43 @@ void GuiBlurManager::cleanup() {
 }
 
 bool GuiBlurManager::resize(uint32_t fullWidth, uint32_t fullHeight) {
-	this->cleanupRenderTargets(this->pongTexture, this->pongTargetView, this->pongShaderResourceView);
-	this->cleanupRenderTargets(this->pingTexture, this->pingTargetView, this->pingShaderResourceView);
-	this->cleanupRenderTargets(this->captureTexture, this->captureTargetView, this->captureShaderResourceView);
+	this->cleanupRenderTargets();
 
 	this->fullWidth_ = fullWidth;
 	this->fullHeight_ = fullHeight;
 	this->lowWidth_ = std::max<uint32_t>(1, fullWidth / this->downsample_);
 	this->lowHeight_ = std::max<uint32_t>(1, fullHeight / this->downsample_);
 
-	if (!RenderTargetUtils::createColorfulRTV(this->lowWidth_, this->lowHeight_, DXGI_FORMAT_R8G8B8A8_UNORM, this->captureTexture, this->captureTargetView, this->captureShaderResourceView)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::resize: Failed to recreate capture render target.");
-		return false;
-	}
-
-	if (!RenderTargetUtils::createColorfulRTV(this->lowWidth_, this->lowHeight_, DXGI_FORMAT_R8G8B8A8_UNORM, this->pingTexture, this->pingTargetView, this->pingShaderResourceView)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::resize: Failed to recreate ping render target.");
-		return false;
-	}
-
-	if (!RenderTargetUtils::createColorfulRTV(this->lowWidth_, this->lowHeight_, DXGI_FORMAT_R8G8B8A8_UNORM, this->pongTexture, this->pongTargetView, this->pongShaderResourceView)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::resize: Failed to recreate pong render target.");
+	if (!this->createRenderTargets()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "GuiBlurManager::resize: Failed to recreate render targets.");
 		return false;
 	}
 
 	return true;
 }
 
-void GuiBlurManager::blurPass(ID3D11ShaderResourceView* sourceView, ID3D11RenderTargetView* destinationView, ID3D11PixelShader* pixelShader, float texelSizeX, float texelSizeY) {
-	ID3D11DeviceContext* context = Application::getInstance().d3d11Device.getContext();
+void GuiBlurManager::blurPass(const rend::ShaderResourceView* sourceView, rend::RenderView* destinationView, rend::FullscreenPass& pass, float texelSizeX, float texelSizeY) {
+	const BlurParameters parameters = { texelSizeX, texelSizeY };
 
-	D3D11_MAPPED_SUBRESOURCE mapped;
-	HRESULT result = context->Map(this->constantBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-	if (SUCCEEDED(result)) {
-		ConstantBuffer* data = static_cast<ConstantBuffer*>(mapped.pData);
-		data->texelSizeX = texelSizeX;
-		data->texelSizeY = texelSizeY;
-		context->Unmap(this->constantBuffer_, 0);
-	}
+	rend::FullscreenDrawParams params;
+	params.target = destinationView;
+	params.viewport = rend::Viewport(0.0f, 0.0f, static_cast<float>(this->lowWidth_), static_cast<float>(this->lowHeight_), 0.0f, 1.0f);
+	params.constants = &parameters;
+	params.shaderResourceViews = { sourceView };
+	params.samplerStates = { this->samplerState_.get() };
 
-	D3D11_VIEWPORT viewport;
-	ZeroMemory(&viewport, sizeof(viewport));
-	viewport.Width = static_cast<FLOAT>(this->lowWidth_);
-	viewport.Height = static_cast<FLOAT>(this->lowHeight_);
-	viewport.MinDepth = 0.0f;
-	viewport.MaxDepth = 1.0f;
-
-	context->RSSetViewports(1, &viewport);
-	context->OMSetRenderTargets(1, &destinationView, nullptr);
-
-	context->VSSetShader(this->shaderVertex_, nullptr, 0);
-
-	context->PSSetShader(pixelShader, nullptr, 0);
-	context->PSSetShaderResources(0, 1, &sourceView);
-	context->PSSetSamplers(0, 1, &this->samplerState_);
-	context->PSSetConstantBuffers(0, 1, &this->constantBuffer_);
-
-	context->IASetInputLayout(nullptr);
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	context->Draw(3, 0);
-
-	ID3D11ShaderResourceView* nullView = nullptr;
-	context->PSSetShaderResources(0, 1, &nullView);
+	// The pass unbinds the source and the target again afterwards, so the target of one pass can be the source of the next.
+	pass.draw(params);
 }
 
-void GuiBlurManager::captureAndBlur(ID3D11ShaderResourceView* sourceView) {
-	this->blurPass(sourceView, this->captureTargetView, this->shaderPixelCopy_, 0.0f, 0.0f);
+void GuiBlurManager::captureAndBlur(const rend::ShaderResourceView* sourceView) {
+	if (!this->pongView_ || !this->copyPass_.isValid() || !this->blurHorizontalPass_.isValid() || !this->blurVerticalPass_.isValid())
+		return;
 
-	float texelSizeX = 1.0f / static_cast<float>(this->lowWidth_);
-	float texelSizeY = 1.0f / static_cast<float>(this->lowHeight_);
+	const float texelSizeX = 1.0f / static_cast<float>(this->lowWidth_);
+	const float texelSizeY = 1.0f / static_cast<float>(this->lowHeight_);
 
-	this->blurPass(this->captureShaderResourceView, this->pingTargetView, this->shaderPixelBlurHorizontal_, texelSizeX, 0.0f);
-	this->blurPass(this->pingShaderResourceView, this->pongTargetView, this->shaderPixelBlurVertical_, 0.0f, texelSizeY);
+	this->blurPass(sourceView, this->captureView_.get(), this->copyPass_, 0.0f, 0.0f);
+	this->blurPass(this->captureView_.get(), this->pingView_.get(), this->blurHorizontalPass_, texelSizeX, 0.0f);
+	this->blurPass(this->pingView_.get(), this->pongView_.get(), this->blurVerticalPass_, 0.0f, texelSizeY);
 }
