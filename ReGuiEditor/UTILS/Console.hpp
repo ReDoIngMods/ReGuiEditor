@@ -105,4 +105,35 @@ namespace UTILS {
 
 #define CONSOLE_LOG UTILS::Console::getInstance().log
 
+#define WIDEN_IMPL(x) L##x
+#define WIDEN(x) WIDEN_IMPL(x)
+
+#define CONSOLE_ERROR(x, ...) do { \
+    if constexpr (std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(*(x))>>, wchar_t>) { \
+        const wchar_t* file = WIDEN(__FILE__); \
+        if (const wchar_t* lastSlash = wcsrchr(file, L'\\')) file = lastSlash + 1; \
+        auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+        UTILS::Console::getInstance().log(LEVEL_ERROR, COLOR_RED, L"%ls:%d %ls", file, __LINE__, formattedMessage.c_str()); \
+    } else { \
+        const char* file = __FILE__; \
+        if (const char* lastSlash = strrchr(file, '\\')) file = lastSlash + 1; \
+        auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+        UTILS::Console::getInstance().log(LEVEL_ERROR, COLOR_RED, "%s:%d %s", file, __LINE__, formattedMessage.c_str()); \
+    } \
+} while (0)
+
+#define CONSOLE_WARNING(x, ...) do { \
+    if constexpr (std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(*(x))>>, wchar_t>) { \
+        const wchar_t* file = WIDEN(__FILE__); \
+        if (const wchar_t* lastSlash = wcsrchr(file, L'\\')) file = lastSlash + 1; \
+        auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+        UTILS::Console::getInstance().log(LEVEL_WARNING, COLOR_YELLOW, L"%ls:%d %ls", file, __LINE__, formattedMessage.c_str()); \
+    } else { \
+        const char* file = __FILE__; \
+        if (const char* lastSlash = strrchr(file, '\\')) file = lastSlash + 1; \
+        auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+        UTILS::Console::getInstance().log(LEVEL_WARNING, COLOR_YELLOW, "%s:%d %s", file, __LINE__, formattedMessage.c_str()); \
+    } \
+} while (0)
+
 #endif

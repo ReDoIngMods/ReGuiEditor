@@ -216,6 +216,11 @@ exit /b 0</Command>
     <ClCompile Include="GUI\WindowDecoration.cpp" />
     <ClCompile Include="LuaManager\LuaManager.cpp" />
     <ClCompile Include="LuaManager\LuaScriptWatcher.cpp" />
+    <ClCompile Include="LuaManager\LuaUtil.cpp" />
+    <ClCompile Include="LuaManager\LuaVM.cpp" />
+    <ClCompile Include="LuaManager\wrap_global.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_log.cpp" />
     <ClCompile Include="rend\FullscreenPass.cpp" />
     <ClCompile Include="rend\Resources\Buffers\BufferResource.cpp" />
     <ClCompile Include="rend\Resources\Buffers\ConstantBuffer.cpp" />
@@ -507,6 +512,11 @@ exit /b 0</Command>
     <ClInclude Include="GUI\Lucide\IconsLucide.h" />
     <ClInclude Include="LuaManager\LuaManager.hpp" />
     <ClInclude Include="LuaManager\LuaScriptWatcher.hpp" />
+    <ClInclude Include="LuaManager\LuaUtil.hpp" />
+    <ClInclude Include="LuaManager\LuaVM.hpp" />
+    <ClInclude Include="LuaManager\wrap_global.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_log.hpp" />
     <ClInclude Include="rend\FullscreenPass.hpp" />
     <ClInclude Include="rend\Resources\Buffers\BufferResource.hpp" />
     <ClInclude Include="rend\Resources\Buffers\ConstantBuffer.hpp" />
