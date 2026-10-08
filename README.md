@@ -1,6 +1,6 @@
 <img src="https://placehold.co/1920x1080" alt="ReGui Editor Banner" width="100%" height="auto">
 
-<img src=".github/Icon.png" alt="ReGui Editor Icon" width="100" height="100">
+<img align="left" src=".github/Icon.png" alt="ReGui Editor Icon" width="100" height="100">
 
 <img src=".github/stupid-title-bypass.svg" alt="ReGui Editor Title" width="100%" height="auto">
 
