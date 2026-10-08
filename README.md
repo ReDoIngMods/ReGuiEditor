@@ -2,9 +2,9 @@
 
 <img align="left" src=".github/Icon.png" alt="ReGui Editor Icon" width="100" height="100">
 
-<img src=".github/stupid-title-bypass.svg" alt="ReGui Editor Title" width="100%" height="auto">
+<h1>ReGui Editor</h1>
 
-<p>ReGui is an advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature. This is the GUI editor for ReGui</p>
+<p>ReGui is an advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature. This is the GUI editor for ReGui.</p>
 
 <br clear="left">
 
