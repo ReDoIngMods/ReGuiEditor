@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="200" height="34" viewBox="0 0 200 34">
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="32" viewBox="0 0 200 32">
     <style>
         text {
             font: 600 32px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -20,5 +20,5 @@
         }
     </style>
 
-    <text x="0" y="27"><tspan class="orange">Re</tspan><tspan class="red">Gui</tspan>Editor</text>
+    <text x="0" y="24"><tspan class="orange">Re</tspan><tspan class="red">Gui</tspan>Editor</text>
 </svg>
