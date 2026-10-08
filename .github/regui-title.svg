@@ -5,8 +5,12 @@
             fill: #1f2328;
         }
 
-        .accent {
+        .orange {
             fill: #DF7F00;
+        }
+
+        .red {
+            fill: #FF0000;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -16,5 +20,5 @@
         }
     </style>
 
-    <text x="0" y="27"><tspan class="accent">ReGui</tspan>Editor</text>
+    <text x="0" y="27"><tspan class="orange">Re</tspan><tspan class="red">Gui</tspan>Editor</text>
 </svg>
