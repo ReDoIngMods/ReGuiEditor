@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="190" height="34" viewBox="0 0 190 34">
+    <style>
+        text {
+            font: 600 32px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            fill: #1f2328;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            text {
+                fill: #f0f6fc;
+            }
+        }
+    </style>
+
+    <text x="0" y="25">ReGuiEditor</text>
+</svg>

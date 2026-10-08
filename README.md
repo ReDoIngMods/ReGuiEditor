@@ -1,8 +1,8 @@
 <img src="https://placehold.co/1920x1080" alt="ReGui Editor Banner" width="100%" height="auto">
 
-<img align="left" src=".github/Icon.png" alt="ReGui Editor Icon" width="100" height="100">
+<img align="left" src=".github/icon.png" alt="ReGui Editor Icon" width="100" height="100">
 
-<img src=".github/stupid-title-bypass.svg" alt="ReGui Editor">
+<img src=".github/title.svg" alt="ReGui Editor">
 
 <p>ReGui is an advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature. This is the GUI editor for ReGui.</p>
 
