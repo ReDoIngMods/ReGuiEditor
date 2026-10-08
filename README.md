@@ -1,12 +1,12 @@
 <img src="https://placehold.co/1920x1080" alt="ReGui Editor Banner" width="100%" height="auto">
 
-<div style="display: flex; align-items: center; gap: 20px;">
-    <img src=".github/Icon.png" alt="ReGui Editor Icon" width="100" height="100">
-    <div style="width: 100%;">
-        <h1>ReGui Editor</h1>
-        <p>ReGui is a advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature. This is the GUI editor for ReGui</p>
-    </div>
-</div>
+<img align="left" src=".github/Icon.png" alt="ReGui Editor Icon" width="100" height="100">
+
+<h1>ReGui Editor</h1>
+
+<p>ReGui is an advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature. This is the GUI editor for ReGui.</p>
+
+<br clear="left">
 
 > [!WARNING]
 > ReGui is **still in development** and its unrecommended to use it in production. Expect bugs and missing features!
