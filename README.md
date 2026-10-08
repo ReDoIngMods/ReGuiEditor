@@ -3,7 +3,7 @@
 <div style="display: flex; align-items: center; gap: 20px;">
     <img src=".github/Icon.png" alt="ReGui Editor Icon" width="100" height="100">
     <div style="width: 100%;">
-        <h1>ReGui Editor</h1>
+        <img src=".github/stupid-title-bypass.svg" alt="ReGui Editor Title" width="100%" height="auto">
         <p>ReGui is a advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature. This is the GUI editor for ReGui</p>
     </div>
 </div>
