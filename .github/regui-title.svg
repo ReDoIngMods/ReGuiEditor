@@ -1,8 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="190" height="34" viewBox="0 0 190 34">
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="34" viewBox="0 0 190 34">
     <style>
         text {
             font: 600 32px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
             fill: #1f2328;
+        }
+
+        .accent {
+            fill: #DF7F00;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -12,5 +16,5 @@
         }
     </style>
 
-    <text x="0" y="27">ReGuiEditor</text>
+    <text x="0" y="27"><tspan class="accent">ReGui</tspan>Editor</text>
 </svg>
