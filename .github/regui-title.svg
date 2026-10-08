@@ -3,6 +3,7 @@
         text {
             font: 600 32px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
             fill: #1f2328;
+            word-spacing: -4px;
         }
 
         .accent {
