@@ -4,7 +4,7 @@
 
 <img src=".github/regui-title.svg" alt="ReGui Editor">
 
-<p>ReGui is an advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature, providing Quality-of-life features aswel as making complex UI a lot easier to create and manage. This repository is the <strong>GUI editor</strong> for ReGui.</p>
+<p>ReGui is an advanced GUI library built on top of <a href="https://store.steampowered.com/app/387990/">Scrap Mechanic</a>'s JsonGui feature, providing Quality-of-life features aswel as making complex UI a lot easier to create and manage.</p>
 
 <br clear="left">
 
