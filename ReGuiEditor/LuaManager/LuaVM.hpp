@@ -1,7 +1,6 @@
 #pragma once
 #include "LuaScriptWatcher.hpp"
 
-#include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
 #include <string>

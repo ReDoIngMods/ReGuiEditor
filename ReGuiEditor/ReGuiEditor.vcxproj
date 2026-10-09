@@ -720,6 +720,12 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\ft2build.h" />
     <ClInclude Include="Window\Window.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon.ico" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

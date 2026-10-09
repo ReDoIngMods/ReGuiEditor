@@ -125,7 +125,7 @@ bool Window::create(const wchar_t* title, int width, int height) {
 	wc.lpfnWndProc = WindowProc;
 	wc.hInstance = GetModuleHandle(NULL);
 	wc.lpszClassName = CLASS_NAME;
-	wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+	wc.hIcon = LoadIconW(wc.hInstance, IDI_APPLICATION);
 
 	if (!RegisterClassW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to register window class");
