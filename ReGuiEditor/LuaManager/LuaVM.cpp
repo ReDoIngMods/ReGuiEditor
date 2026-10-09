@@ -2,12 +2,8 @@
 
 #include <FilesystemManager/FilesystemManager.hpp>
 
-#include "wrap_global.hpp"
-#include "wrap_sm/wrap_sm.hpp"
-
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
-#include <LuaJIT/lualib.h>
 
 #include <algorithm>
 #include <sstream>
@@ -35,73 +31,66 @@ inline static std::string getChunkName(const std::string& path) {
 	return "@" + name;
 }
 
-static int luaPanic(lua_State* L) {
-	const char* message = lua_tostring(L, 1);
-	CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "PANIC: %s", message ? message : "unknown error");
+inline static void setCurrentVm(lua_State* L, LuaVM* vm) {
+	if (vm)
+		lua_pushlightuserdata(L, vm);
+	else
+		lua_pushnil(L);
 
-	LuaVM::dumpStack(L);
-	return 0;
+	lua_setfield(L, LUA_REGISTRYINDEX, "VMPtr");
 }
 
-LuaVM& LuaVM::fromState(lua_State* L) {
+LuaVM* LuaVM::fromState(lua_State* L) {
 	lua_getfield(L, LUA_REGISTRYINDEX, "VMPtr");
 	LuaVM* vm = static_cast<LuaVM*>(lua_touserdata(L, -1));
 	lua_pop(L, 1);
 
-	return *vm;
+	return vm;
 }
 
 bool LuaVM::initialize(const std::string& entryScript) {
-	if (this->state_)
+	if (this->isInitialized())
 		return true;
 
 	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Initializing Lua VM for mod %s...", this->modLocalId_.c_str());
 
-	this->state_ = luaL_newstate();
-	if (!this->state_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create Lua state.");
-		return false;
-	}
-
 	lua_State* L = this->state_;
-	lua_atpanic(L, luaPanic);
-
-	lua_pushlightuserdata(L, this);
-	lua_setfield(L, LUA_REGISTRYINDEX, "VMPtr");
-
-	luaL_openlibs(L);
-
-	wrap_global(L);
-	wrap_sm(L);
-
 	lua_newtable(L);
 
-	lua_pushstring(L, "0.1.0");
-	lua_setfield(L, -2, "version");
+	lua_newtable(L);
+	lua_getglobal(L, "unsafe_env");
+	lua_setfield(L, -2, "__index");
+	lua_setmetatable(L, -2);
 
-	lua_setglobal(L, "reguieditor");
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "_G");
+
+	lua_setfield(L, LUA_REGISTRYINDEX, this->envKey_.c_str());
+	this->initialized_ = true;
 
 	return this->doFile(entryScript);
 }
 
 void LuaVM::cleanup() {
-	if (!this->state_)
+	if (!this->isInitialized())
 		return;
 
 	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Cleaning up Lua VM for mod %s...", this->modLocalId_.c_str());
 
-	lua_close(this->state_);
+	lua_pushnil(this->state_);
+	lua_setfield(this->state_, LUA_REGISTRYINDEX, this->envKey_.c_str());
+	lua_gc(this->state_, LUA_GCCOLLECT, 0);
 
-	this->state_ = nullptr;
+	this->initialized_ = false;
 	this->scriptWatcher_.clearFiles();
 }
 
 void LuaVM::update(float deltaTime) {
-	if (!this->state_)
+	if (!this->isInitialized())
 		return;
 
 	this->pollTimer_ += deltaTime;
-	if (this->pollTimer_ < 0.5)
+	if (this->pollTimer_ < 0.5f)
 		return;
 
 	this->pollTimer_ = 0.0f;
@@ -111,11 +100,12 @@ void LuaVM::update(float deltaTime) {
 }
 
 int LuaVM::errorHandler(lua_State* L) {
-	LuaError& luaError = LuaVM::fromState(L).pendingError_;
+	LuaVM* self = LuaVM::fromState(L);
+	if (!self)
+		return luaL_error(L, "LuaVM::errorHandler called without a valid LuaVM instance");
 
-	const char* message = lua_tostring(L, 1);
-	luaError.message = message ? message : luaL_typename(L, 1);
-	luaError.frames.clear();
+	self->pendingError_.reset();
+	self->pendingError_.setMessage(lua_tostring(L, 1), luaL_typename(L, 1));
 
 	lua_Debug debug;
 	for (int level = 1; lua_getstack(L, level, &debug); ++level) {
@@ -127,7 +117,7 @@ int LuaVM::errorHandler(lua_State* L) {
 		frame.what = debug.what;
 		frame.line = debug.currentline;
 
-		luaError.frames.push_back(std::move(frame));
+		self->pendingError_.frames.push_back(std::move(frame));
 	}
 
 	return 1;
@@ -178,7 +168,14 @@ int LuaVM::loadFile(const std::string& path) {
 	}
 
 	const std::string chunkName = getChunkName(resolvedPath);
-	return luaL_loadbuffer(this->state_, content.data(), content.size(), chunkName.c_str());
+	const int status = luaL_loadbuffer(this->state_, content.data(), content.size(), chunkName.c_str());
+	if (status != LUA_OK)
+		return status;
+
+	lua_getfield(this->state_, LUA_REGISTRYINDEX, this->envKey_.c_str());
+	lua_setfenv(this->state_, -2);
+
+	return LUA_OK;
 }
 
 bool LuaVM::protectedCall(int argCount, int resultCount) {
@@ -188,10 +185,17 @@ bool LuaVM::protectedCall(int argCount, int resultCount) {
 	lua_pushcfunction(L, LuaVM::errorHandler);
 	lua_insert(L, handlerIndex);
 
-	this->pendingError_ = {};
+	this->pendingError_.reset();
+
+	LuaVM* previousVM = LuaVM::fromState(L);
+	lua_pushlightuserdata(L, this);
+	lua_setfield(L, LUA_REGISTRYINDEX, "VMPtr");
 
 	const int status = lua_pcall(L, argCount, resultCount, handlerIndex);
 	lua_remove(L, handlerIndex);
+
+	lua_pushlightuserdata(L, previousVM);
+	lua_setfield(L, LUA_REGISTRYINDEX, "VMPtr");
 
 	if (status != LUA_OK) {
 		const std::string message = popString(L, "unknown error");
@@ -206,7 +210,7 @@ bool LuaVM::protectedCall(int argCount, int resultCount) {
 }
 
 bool LuaVM::doFile(const std::string& path) {
-	if (!this->state_) {
+	if (!this->isInitialized()) {
 		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Lua state is not initialized. Cannot dofile %s", path.c_str());
 		return false;
 	}

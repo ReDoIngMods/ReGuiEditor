@@ -8,53 +8,15 @@
 
 #include <string>
 
-static int global_class_metatable__call(lua_State* L) {
-	lua_newtable(L);
-	lua_pushvalue(L, 1);
-	lua_setmetatable(L, -2);
-
-	return 1;
-}
-
-static int global_class(lua_State* L) {
-	const int argCount = lua_gettop(L);
-	if (argCount > 1)
-		return luaL_error(L, "class expects at most one argument");
-
-	if (argCount == 1)
-		luaL_checktype(L, 1, LUA_TTABLE);
-
-	lua_newtable(L);
-
-	if (argCount == 1) {
-		const int classIndex = lua_gettop(L);
-
-		lua_pushnil(L);
-		while (lua_next(L, 1) != 0) {
-			lua_pushvalue(L, -2);
-			lua_insert(L, -2);
-			lua_settable(L, classIndex);
-		}
-	}
-
-	lua_newtable(L);
-
-	lua_pushcfunction(L, global_class_metatable__call);
-	lua_setfield(L, -2, "__call");
-
-	lua_setmetatable(L, -2);
-
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
-
-	return 1;
-}
-
 static int global_dofile(lua_State* L) {
+	LuaVM* luaVM = LuaVM::fromState(L);
+	if (!luaVM)
+		return luaL_error(L, "Failed to get LuaVM instance");
+
 	const char* path = luaL_checkstring(L, 1);
 	lua_settop(L, 1);
 
-	if (LuaVM::fromState(L).loadFile(path) != LUA_OK)
+	if (luaVM->loadFile(path) != LUA_OK)
 		return lua_error(L);
 
 	lua_call(L, 0, LUA_MULTRET);
@@ -106,7 +68,6 @@ void wrap_global(lua_State* L) {
 	CONSOLE_LOG(LEVEL_LUA, COLOR_CYAN, "Wrapping 'global' library...");
 
 	static const luaL_Reg functions[] = {
-		{"class", global_class},
 		{"dofile", global_dofile},
 		{"enumType", global_enumType},
 		{"print", global_print},

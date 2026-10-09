@@ -17,11 +17,22 @@ struct LuaStackFrame {
 struct LuaError {
 	std::string message;
 	std::vector<LuaStackFrame> frames;
+
+	void reset() {
+		this->message = "unknown error";
+		this->frames.clear();
+	}
+
+	void setMessage(const char* message, const char* defaultMessage = nullptr) {
+		this->message = message ? message : (defaultMessage ? defaultMessage : "unknown error");
+	}
 };
 
 class LuaVM {
 	lua_State* state_ = nullptr;
 	std::string modLocalId_;
+	std::string envKey_;
+	bool initialized_ = false;
 
 	LuaScriptWatcher scriptWatcher_;
 	float pollTimer_ = 0.0f;
@@ -34,7 +45,7 @@ class LuaVM {
 
 	static int errorHandler(lua_State* L);
 public:
-	explicit LuaVM(const std::string& modLocalId) : modLocalId_(modLocalId) {}
+	LuaVM(lua_State* state, const std::string& modLocalId) : state_(state), modLocalId_(modLocalId), envKey_("env." + modLocalId) { }
 	~LuaVM() { this->cleanup(); }
 
 	LuaVM(const LuaVM&) = delete;
@@ -42,7 +53,7 @@ public:
 	LuaVM(LuaVM&&) = delete;
 	LuaVM& operator=(LuaVM&&) = delete;
 
-	static LuaVM& fromState(lua_State* L);
+	static LuaVM* fromState(lua_State* L);
 	static void dumpStack(lua_State* L);
 
 	bool initialize(const std::string& entryScript);
@@ -51,6 +62,7 @@ public:
 	void update(float deltaTime);
 
 	lua_State* getState() const { return this->state_; }
+	bool isInitialized() const { return this->initialized_; }
 	const std::string& getModLocalId() const { return this->modLocalId_; }
 
 	int loadFile(const std::string& path);

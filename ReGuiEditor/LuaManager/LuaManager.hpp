@@ -8,7 +8,8 @@
 #include <vector>
 
 class LuaManager : public UTILS::Singleton<LuaManager> {
-	std::vector<std::unique_ptr<LuaVM>> vms_;
+	lua_State* state_ = nullptr;
+	std::vector<std::unique_ptr<LuaVM>> luaVMs_;
 
 	bool createVM(const std::string& modLocalId, const std::string& entryScript);
 public:
