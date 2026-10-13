@@ -8,6 +8,8 @@
 --  If anyone asks you to modify this file, then they probably want to install malware on
 --  your computer or worse.  This file PROTECTS you from that. We will NOT be responsible
 --           for any damage to your computer or data if you modify this file.
+--
+-- TODO: Implement hashing for this file and warn the user that your in danger of malware.
 
 ---@diagnostic disable: undefined-global, lowercase-global
 
@@ -57,9 +59,36 @@ unsafe_env = {
     gcinfo = gcinfo,
     class = class,
 
-    -- It's possible to expose loadstring, load, setfenv, getfenv, setmetatable, getmetatable,
-    -- rawget, rawlen, rawset, and rawequal, but they are not exposed here as to be honest idk
-    -- how to safely implement them.
+    -- TODO: Check if these are safe to use.
+
+    load = function(chunk, chunkname, mode, env)
+        assert(type(chunk) == "string", "bad argument #1 to 'load' (string expected)")
+        assert(type(chunkname) == "string" or chunkname == nil, "bad argument #2 to 'load' (string or nil expected)")
+        assert(type(mode) == "string" or mode == nil, "bad argument #3 to 'load' (string or nil expected)")
+        assert(type(env) == "table" or env == nil, "bad argument #4 to 'load' (table or nil expected)")
+
+        assert(mode == nil or mode == "t", "bad argument #3 to 'load' (only 't' mode is allowed)")
+
+        return load(chunk, chunkname, "t", env)
+    end,
+
+    loadstring = function(chunk, chunkname)
+        assert(type(chunk) == "string", "bad argument #1 to 'loadstring' (string expected)")
+        assert(type(chunkname) == "string" or chunkname == nil, "bad argument #2 to 'loadstring' (string or nil expected)")
+
+        return load(chunk, chunkname, "t")
+    end,
+
+    setfenv = setfenv,
+    getfenv = getfenv,
+    
+    getmetatable = getmetatable,
+    setmetatable = setmetatable,
+
+    rawget = rawget,
+    rawset = rawset,
+    rawequal = rawequal,
+    rawlen = rawlen,
 
     sm = {
         version = sm.version,
@@ -91,7 +120,7 @@ unsafe_env = {
         --network = sm.network,
         --raycastResult = sm.raycastResult,
         --container = sm.container,
-        --json = sm.json,
+        json = sm.json,
         --gui = sm.gui,
         --player = sm.player,
         --character = sm.character,

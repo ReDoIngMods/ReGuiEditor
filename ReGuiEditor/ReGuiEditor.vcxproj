@@ -219,6 +219,7 @@ exit /b 0</Command>
     <ClCompile Include="LuaManager\LuaUtil.cpp" />
     <ClCompile Include="LuaManager\LuaVM.cpp" />
     <ClCompile Include="LuaManager\wrap_global.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_json.cpp" />
     <ClCompile Include="LuaManager\wrap_sm\wrap_sm.cpp" />
     <ClCompile Include="LuaManager\wrap_sm\wrap_sm_log.cpp" />
     <ClCompile Include="rend\FullscreenPass.cpp" />
@@ -516,6 +517,7 @@ exit /b 0</Command>
     <ClInclude Include="LuaManager\LuaVM.hpp" />
     <ClInclude Include="LuaManager\wrap_global.hpp" />
     <ClInclude Include="LuaManager\wrap_sm\wrap_sm.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_json.hpp" />
     <ClInclude Include="LuaManager\wrap_sm\wrap_sm_log.hpp" />
     <ClInclude Include="rend\FullscreenPass.hpp" />
     <ClInclude Include="rend\Resources\Buffers\BufferResource.hpp" />

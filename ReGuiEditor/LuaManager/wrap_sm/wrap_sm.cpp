@@ -1,5 +1,6 @@
 #include "wrap_sm.hpp" // VCIC-Excluded
 
+#include "wrap_sm_json.hpp"
 #include "wrap_sm_log.hpp"
 
 #include <LuaJIT/lauxlib.h>
@@ -61,7 +62,7 @@ void wrap_sm(lua_State* L) {
 
 	lua_setfield(L, -2, "types");
 
-	// Sub-libraries
+	wrap_sm_json(L);
 	wrap_sm_log(L);
 
 	lua_setglobal(L, "sm");
