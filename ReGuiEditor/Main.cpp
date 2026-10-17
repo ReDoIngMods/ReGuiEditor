@@ -16,8 +16,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, L"Command line: %s", pCmdLine);
 
-	// Far superior than steam_appid.txt
 	_putenv_s("SteamAppId", "387990");
+	_putenv_s("SteamNoOverlayUIDrawing", "1");
 
 	SteamErrMsg errMsg;
 	if (SteamAPI_InitEx(&errMsg) != k_ESteamAPIInitResult_OK) {

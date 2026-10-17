@@ -520,6 +520,7 @@ exit /b 0</Command>
     <ClInclude Include="GUI\Panels\RenderPanel.hpp" />
     <ClInclude Include="GUI\ResolutionManager.hpp" />
     <ClInclude Include="GUI\Lucide\IconsLucide.h" />
+    <ClInclude Include="LuaManager\LuaError.hpp" />
     <ClInclude Include="LuaManager\LuaManager.hpp" />
     <ClInclude Include="LuaManager\LuaScriptWatcher.hpp" />
     <ClInclude Include="LuaManager\LuaUtil.hpp" />

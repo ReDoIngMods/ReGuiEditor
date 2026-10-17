@@ -16,7 +16,9 @@ class LuaManager : public UTILS::Singleton<LuaManager> {
 
 	UserdataManager* userdataManager_ = nullptr;
 
-	bool createVM(const std::string& modLocalId, const std::string& entryScript);
+	LuaVM* reGuiVM_ = nullptr;
+
+	LuaVM* createVM(const std::string& modLocalId, const std::string& entryScript);
 public:
 	LuaManager() = default;
 	~LuaManager() { this->cleanup(); }
@@ -30,6 +32,8 @@ public:
 	void cleanup();
 
 	void update(float deltaTime);
+	void tick();
 
 	[[nodiscard]] LuaVM* getVM(const std::string& modLocalId) const;
+	[[nodiscard]] LuaVM* getReGuiVM() const { return this->reGuiVM_; }
 };

@@ -195,9 +195,9 @@ void Application::update() {
 	NotificationManager::getInstance().update(static_cast<float>(this->deltaTime));
 
 	this->fixedUpdateTimeAccumulator += this->deltaTime;
-	while (this->fixedUpdateTimeAccumulator >= 1.0 / 60.0) {
+	while (this->fixedUpdateTimeAccumulator >= 1.0 / 40.0) {
 		this->fixedUpdate();
-		this->fixedUpdateTimeAccumulator -= 1.0 / 60.0;
+		this->fixedUpdateTimeAccumulator -= 1.0 / 40.0;
 	}
 }
 
@@ -210,6 +210,8 @@ void Application::fixedUpdate() {
 }
 
 void Application::render(bool vsyncEnabled) {
+	this->luaManager->tick();
+
 	if(!this->swapChain->clearRenderTarget(rend::Color::darkGray()))
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to clear render target");
 

@@ -89,27 +89,33 @@ bool LuaManager::initialize() {
 
 	this->state_ = L;
 
-	return this->createVM(REGUI_MOD_LOCALID, "$CONTENT_DATA/Scripts/Application/Loader.lua");
+	this->reGuiVM_ = this->createVM(REGUI_MOD_LOCALID, "$CONTENT_DATA/Scripts/Application/Loader.lua");
+	if (!this->reGuiVM_) {
+		lua_close(L);
+		return false;
+	}
+
+	return true;
 }
 
-bool LuaManager::createVM(const std::string& modLocalId, const std::string& entryScript) {
+LuaVM* LuaManager::createVM(const std::string& modLocalId, const std::string& entryScript) {
 	auto iterator = std::find_if(this->luaVMs_.begin(), this->luaVMs_.end(), [&modLocalId](const std::unique_ptr<LuaVM>& vm) {
 		return vm->getModLocalId() == modLocalId;
 	});
 
 	if (iterator != this->luaVMs_.end()) {
 		CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "Lua VM for mod %s already exists. Skipping creation.", modLocalId.c_str());
-		return true;
+		return nullptr;
 	}
 
 	auto luaVM = std::make_unique<LuaVM>(this->state_, modLocalId);
 	if (!luaVM->initialize(entryScript)) {
 		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to initialize Lua VM for mod %s.", modLocalId.c_str());
-		return false;
+		return nullptr;
 	}
 
 	this->luaVMs_.push_back(std::move(luaVM));
-	return true;
+	return this->luaVMs_.back().get();
 }
 
 void LuaManager::cleanup() {
@@ -131,6 +137,11 @@ void LuaManager::cleanup() {
 void LuaManager::update(float deltaTime) {
 	for (const auto& luaVM : this->luaVMs_)
 		luaVM->update(deltaTime);
+}
+
+void LuaManager::tick() {
+	for (const auto& luaVM : this->luaVMs_)
+		luaVM->tick();
 }
 
 LuaVM* LuaManager::getVM(const std::string& modLocalId) const {
