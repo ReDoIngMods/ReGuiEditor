@@ -2,194 +2,343 @@
 
 #include "../UserdataManager.hpp"
 
-#include <UTILS/Hashing.hpp>
 #include <UTILS/Vector3.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <random>
 
-// UGLY WARNING! I REPEAT! UGLY FUCKING CODE WARNING! SPARE YO FUCKING EYES .-.
+// NOTE: The game's exact hash/noise algorithms are unknown. Outputs are deterministic, but won't match the game's values.
+
+constexpr float PI = 3.14159265358979323846f;
+constexpr float DEGREES_TO_RADIANS = PI / 180.0f;
+constexpr int MAX_OCTAVES = 32;
 
 static thread_local std::random_device randomDevice;
 static thread_local std::mt19937 randomGenerator(randomDevice());
 
-constexpr float PI = 3.14159265358979323846f;
-
-inline static float getRandomFloat() {
-	return std::uniform_real_distribution<float>(0.0f, 1.0f)(randomGenerator);
-}
-
-inline static uint32_t hash(int32_t x, int32_t y, int32_t z, int32_t seed) {
-	size_t hash = 0;
-	UTILS::hashCombine(hash, x);
-	UTILS::hashCombine(hash, y);
-	UTILS::hashCombine(hash, z);
-	UTILS::hashCombine(hash, seed);
-
-	return static_cast<uint32_t>(hash);
-}
-
+inline static float lerp(float a, float b, float t) { return a + (b - a) * t; }
 inline static float fade(float t) { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
-inline static float mix(float a, float b, float t) { return a + (b - a) * t; }
 
-inline static float gradient1(uint32_t h, float x) { return (h & 1) ? x : -x; }
+inline static float randomUnitFloat() { return std::uniform_real_distribution<float>(0.0f, 1.0f)(randomGenerator); }
 
-inline static float gradient2(uint32_t h, float x, float y) {
-	switch (h & 3) {
-	case 0:  return x + y;
+inline static constexpr uint32_t finalize(uint32_t hash) {
+	hash ^= hash >> 16;
+	hash *= 0x85EBCA6Bu;
+	hash ^= hash >> 13;
+	hash *= 0xC2B2AE35u;
+	hash ^= hash >> 16;
+	return hash;
+}
+
+inline static constexpr uint32_t hash2d(int32_t x, int32_t y, int32_t seed) {
+	const uint32_t hashedSeed = finalize(static_cast<uint32_t>(seed));
+	const uint32_t hashedY = finalize(static_cast<uint32_t>(y) * 0x85EBCA77u ^ hashedSeed);
+
+	return finalize(static_cast<uint32_t>(x) * 0x9E3779B1u ^ hashedY);
+}
+
+inline static float perlinGradient(uint32_t hash, float x, float y) {
+	switch (hash & 3) {
+	case 0:  return  x + y;
 	case 1:  return -x + y;
-	case 2:  return x - y;
+	case 2:  return  x - y;
 	default: return -x - y;
 	}
 }
 
-inline static float gradient3(uint32_t h, float x, float y, float z) {
-	switch (h % 12) {
-	case 0:  return x + y;
-	case 1:  return -x + y;
-	case 2:  return x - y;
-	case 3:  return -x - y;
-	case 4:  return x + z;
-	case 5:  return -x + z;
-	case 6:  return x - z;
-	case 7:  return -x - z;
-	case 8:  return y + z;
-	case 9:  return -y + z;
-	case 10: return y - z;
-	default: return -y - z;
-	}
+inline static float getPerlinCornerValue(int cellX, int cellY, int offsetX, int offsetY, float localX, float localY, int32_t seed) {
+	const uint32_t hash = hash2d(cellX + offsetX, cellY + offsetY, seed);
+	return perlinGradient(hash, localX - static_cast<float>(offsetX), localY - static_cast<float>(offsetY));
 }
 
-inline static float perlin1(float x, int32_t seed) {
-	const int32_t x0 = static_cast<int32_t>(std::floor(x));
-	const float fx = x - x0;
+inline static float perlin2d(float x, float y, int32_t seed) {
+	const int cellX = static_cast<int>(std::floor(x));
+	const int cellY = static_cast<int>(std::floor(y));
 
-	return std::clamp(mix(gradient1(hash(x0, 0, 0, seed), fx), gradient1(hash(x0 + 1, 0, 0, seed), fx - 1.0f), fade(fx)) * 2.0f, -1.0f, 1.0f);
+	const float localX = x - static_cast<float>(cellX);
+	const float localY = y - static_cast<float>(cellY);
+
+	const float blendX = fade(localX);
+	const float blendY = fade(localY);
+
+	const float bottom = lerp(getPerlinCornerValue(cellX, cellY, 0, 0, localX, localY, seed), getPerlinCornerValue(cellX, cellY, 1, 0, localX, localY, seed), blendX);
+	const float top = lerp(getPerlinCornerValue(cellX, cellY, 0, 1, localX, localY, seed), getPerlinCornerValue(cellX, cellY, 1, 1, localX, localY, seed), blendX);
+
+	return lerp(bottom, top, blendY);
 }
 
-inline static float perlin2(float x, float y, int32_t seed) {
-	const int32_t x0 = static_cast<int32_t>(std::floor(x)), y0 = static_cast<int32_t>(std::floor(y));
-	const float fx = x - x0, fy = y - y0;
-	const float u = fade(fx), v = fade(fy);
+inline static float octavePerlin2d(float x, float y, int octaves, int32_t seed) {
+	float sum = 0.0f;
+	float amplitudeSum = 0.0f;
+	float amplitude = 1.0f;
+	float frequency = 1.0f;
 
-	const float bottom = mix(gradient2(hash(x0, y0, 0, seed), fx, fy), gradient2(hash(x0 + 1, y0, 0, seed), fx - 1.0f, fy), u);
-	const float top = mix(gradient2(hash(x0, y0 + 1, 0, seed), fx, fy - 1.0f), gradient2(hash(x0 + 1, y0 + 1, 0, seed), fx - 1.0f, fy - 1.0f), u);
-
-	return std::clamp(mix(bottom, top, v), -1.0f, 1.0f);
-}
-
-inline static float getGradientCorner(int32_t x, int32_t y, int32_t z, float fx, float fy, float fz, int32_t seed) {
-	return gradient3(hash(x, y, z, seed), fx, fy, fz);
-}
-
-inline static float perlin3(float x, float y, float z, int32_t seed) {
-	const int32_t x0 = static_cast<int32_t>(std::floor(x)), y0 = static_cast<int32_t>(std::floor(y)), z0 = static_cast<int32_t>(std::floor(z));
-	const float fx = x - x0, fy = y - y0, fz = z - z0;
-	const float u = fade(fx), v = fade(fy), w = fade(fz);
-
-	const float bottom = mix(mix(getGradientCorner(x0, y0, z0, fx, fy, fz, seed), getGradientCorner(x0 + 1, y0, z0, fx - 1.0f, fy, fz, seed), u), mix(getGradientCorner(x0, y0 + 1, z0, fx, fy - 1.0f, fz, seed), getGradientCorner(x0 + 1, y0 + 1, z0, fx - 1.0f, fy - 1.0f, fz, seed), u), v);
-	const float top = mix(mix(getGradientCorner(x0, y0, z0 + 1, fx, fy, fz - 1.0f, seed), getGradientCorner(x0 + 1, y0, z0 + 1, fx - 1.0f, fy, fz - 1.0f, seed), u), mix(getGradientCorner(x0, y0 + 1, z0 + 1, fx, fy - 1.0f, fz - 1.0f, seed), getGradientCorner(x0 + 1, y0 + 1, z0 + 1, fx - 1.0f, fy - 1.0f, fz - 1.0f, seed), u), v);
-
-	return std::clamp(mix(bottom, top, w), -1.0f, 1.0f);
-}
-
-template <typename Sample>
-inline static float fractal(lua_State* L, int firstOptionalIndex, Sample sample) {
-	const int octaves = static_cast<int>(luaL_optinteger(L, firstOptionalIndex, 1));
-	const float persistence = static_cast<float>(luaL_optnumber(L, firstOptionalIndex + 1, 0.5));
-	const int32_t seed = static_cast<int32_t>(luaL_optinteger(L, firstOptionalIndex + 2, 0));
-
-	if (octaves < 1 || octaves > 16)
-		luaL_error(L, "octaves must be between 1 and 16");
-
-	float sum = 0.0f, amplitude = 1.0f, total = 0.0f, frequency = 1.0f;
 	for (int octave = 0; octave < octaves; ++octave) {
-		sum += sample(frequency, seed + octave) * amplitude;
-		total += amplitude;
-
-		amplitude *= persistence;
+		sum += perlin2d(x * frequency, y * frequency, seed + octave) * amplitude;
+		amplitudeSum += amplitude;
+		amplitude *= 0.5f;
 		frequency *= 2.0f;
 	}
 
-	return sum / total;
+	return sum / amplitudeSum;
 }
 
-inline static float checkFloat(lua_State* L, int index) {
-	return static_cast<float>(luaL_checknumber(L, index));
+inline static std::array<uint8_t, 512> generatePermutationTable() {
+	std::array<uint8_t, 256> shuffled{};
+	for (size_t index = 0; index < shuffled.size(); ++index)
+		shuffled[index] = static_cast<uint8_t>(index);
+
+	std::shuffle(shuffled.begin(), shuffled.end(), randomGenerator);
+
+	std::array<uint8_t, 512> table{};
+	for (size_t index = 0; index < table.size(); ++index)
+		table[index] = shuffled[index & 255];
+
+	return table;
 }
 
-// API
+static thread_local const std::array<uint8_t, 512> PERMUTATION = generatePermutationTable();
 
-static int noise_randomRange(lua_State* L) {
-	const float minimum = checkFloat(L, 1);
-	const float maximum = checkFloat(L, 2);
+inline static float simplexGradient1d(int hash, float x) {
+	const float magnitude = 1.0f + static_cast<float>(hash & 7);
+	return ((hash & 8) ? -magnitude : magnitude) * x;
+}
 
-	lua_pushnumber(L, minimum + (maximum - minimum) * getRandomFloat());
-	return 1;
+inline static float simplexGradient2d(int hash, float x, float y) {
+	hash &= 7;
+
+	const float major = hash < 4 ? x : y;
+	const float minor = hash < 4 ? y : x;
+
+	return ((hash & 1) ? -major : major) + ((hash & 2) ? -2.0f * minor : 2.0f * minor);
+}
+
+inline static float simplexGradient3d(int hash, float x, float y, float z) {
+	hash &= 15;
+
+	const float a = hash < 8 ? x : y;
+	const float b = hash < 4 ? y : (hash == 12 || hash == 14 ? x : z);
+
+	return ((hash & 1) ? -a : a) + ((hash & 2) ? -b : b);
+}
+
+inline static float simplexFalloff(float radiusSquared, float distanceSquared) {
+	const float t = radiusSquared - distanceSquared;
+	if (t < 0.0f)
+		return 0.0f;
+
+	return t * t * t * t;
+}
+
+inline static float getSimplexCornerValue(int cell, int offset, float local, int dimension) {
+	const float distance = local - static_cast<float>(offset);
+	const float distanceSquared = distance * distance;
+	
+	switch (dimension) {
+	case 1: return simplexFalloff(1.0f, distanceSquared) * simplexGradient1d(PERMUTATION[(static_cast<size_t>(cell) + offset) & 255], distance);
+	case 2: return simplexFalloff(0.5f, distanceSquared) * simplexGradient2d(PERMUTATION[(static_cast<size_t>(cell) + offset) & 255], distance, 0.0f);
+	case 3: return simplexFalloff(0.6f, distanceSquared) * simplexGradient3d(PERMUTATION[(static_cast<size_t>(cell) + offset) & 255], distance, 0.0f, 0.0f);
+	default: return 0.0f;
+	}
+}
+
+inline static float simplex1d(float x) {
+	const int cell = static_cast<int>(std::floor(x));
+	const float local = x - static_cast<float>(cell);
+
+	return 0.395f * (getSimplexCornerValue(cell, 0, local, 1) + getSimplexCornerValue(cell, 1, local, 1));
+}
+
+inline static float simplex2d(float x, float y) {
+	constexpr float SKEW = 0.3660254037844386f;   // (sqrt(3) - 1) / 2
+	constexpr float UNSKEW = 0.21132486540518713f; // (3 - sqrt(3)) / 6
+	constexpr float RADIUS_SQUARED = 0.5f;
+	constexpr float SCALE = 45.23065f;
+
+	const float skew = (x + y) * SKEW;
+	const int cellX = static_cast<int>(std::floor(x + skew));
+	const int cellY = static_cast<int>(std::floor(y + skew));
+	const float unskew = static_cast<float>(cellX + cellY) * UNSKEW;
+	const float localX = x - (static_cast<float>(cellX) - unskew);
+	const float localY = y - (static_cast<float>(cellY) - unskew);
+
+	const int stepX = localX > localY ? 1 : 0;
+	const int stepY = 1 - stepX;
+
+	const int wrappedX = cellX & 255;
+	const int wrappedY = cellY & 255;
+
+	return SCALE * (getSimplexCornerValue(wrappedX, 0, localX, 2) + getSimplexCornerValue(wrappedX, stepX, localX, 2) + getSimplexCornerValue(wrappedX, 1, localX, 2));
+}
+
+inline static float simplex3d(float x, float y, float z) {
+	constexpr float SKEW = 1.0f / 3.0f;
+	constexpr float UNSKEW = 1.0f / 6.0f;
+	constexpr float RADIUS_SQUARED = 0.6f;
+	constexpr float SCALE = 32.0f;
+
+	const float skew = (x + y + z) * SKEW;
+	const int cellX = static_cast<int>(std::floor(x + skew));
+	const int cellY = static_cast<int>(std::floor(y + skew));
+	const int cellZ = static_cast<int>(std::floor(z + skew));
+
+	const float unskew = static_cast<float>(cellX + cellY + cellZ) * UNSKEW;
+	const float localX = x - (static_cast<float>(cellX) - unskew);
+	const float localY = y - (static_cast<float>(cellY) - unskew);
+	const float localZ = z - (static_cast<float>(cellZ) - unskew);
+
+	struct Step {
+		int x;
+		int y;
+		int z;
+	};
+	Step first, second;
+
+	if (localX >= localY) {
+		if (localY >= localZ) {
+			first =  { 1, 0, 0 };
+			second = { 1, 1, 0 };
+		} else if (localX >= localZ) {
+			first =  { 1, 0, 0 };
+			second = { 1, 0, 1 };
+		} else {
+			first =  { 0, 0, 1 };
+			second = { 1, 0, 1 };
+		}
+	} else {
+		if (localY < localZ) {
+			first =  { 0, 0, 1 };
+			second = { 0, 1, 1 };
+		} else if (localX < localZ) {
+			first =  { 0, 1, 0 };
+			second = { 0, 1, 1 };
+		} else {
+			first =  { 0, 1, 0 };
+			second = { 1, 1, 0 };
+		}
+	}
+
+	const int wrappedX = cellX & 255;
+	const int wrappedY = cellY & 255;
+	const int wrappedZ = cellZ & 255;
+
+	return SCALE * (getSimplexCornerValue(wrappedX, 0, localX, 3) + getSimplexCornerValue(wrappedX, first.x, localX, 3) + getSimplexCornerValue(wrappedX, second.x, localX, 3) + getSimplexCornerValue(wrappedX, 1, localX, 3));
 }
 
 static int noise_intNoise2d(lua_State* L) {
-	const uint32_t value = hash(static_cast<int32_t>(luaL_checkinteger(L, 1)), static_cast<int32_t>(luaL_checkinteger(L, 2)), 0, static_cast<int32_t>(luaL_optinteger(L, 3, 0)));
+	const int cellX = static_cast<int>(std::floor(static_cast<float>(luaL_checknumber(L, 1))));
+	const int cellY = static_cast<int>(std::floor(static_cast<float>(luaL_checknumber(L, 2))));
+	const int32_t seed = static_cast<int32_t>(luaL_checkinteger(L, 3));
 
-	lua_pushinteger(L, static_cast<lua_Integer>(value));
+	lua_pushnumber(L, static_cast<lua_Number>(hash2d(cellX, cellY, seed)));
 	return 1;
 }
 
 static int noise_floatNoise2d(lua_State* L) {
-	const uint32_t value = hash(static_cast<int32_t>(luaL_checkinteger(L, 1)), static_cast<int32_t>(luaL_checkinteger(L, 2)), 0, static_cast<int32_t>(luaL_optinteger(L, 3, 0)));
+	const int cellX = static_cast<int>(std::floor(static_cast<float>(luaL_checknumber(L, 1))));
+	const int cellY = static_cast<int>(std::floor(static_cast<float>(luaL_checknumber(L, 2))));
+	const int32_t seed = static_cast<int32_t>(luaL_checkinteger(L, 3));
 
-	lua_pushnumber(L, (value >> 8) / 16777216.0);
+	const uint32_t hash = hash2d(cellX, cellY, seed);
+	lua_pushnumber(L, static_cast<lua_Number>(hash >> 8) / 16777216.0);
+
 	return 1;
 }
 
-static int noise_perlin1d(lua_State* L) {
-	const float x = checkFloat(L, 1);
+static int noise_perlinNoise2d(lua_State* L) {
+	const float x = static_cast<float>(luaL_checknumber(L, 1));
+	const float y = static_cast<float>(luaL_checknumber(L, 2));
+	const int32_t seed = static_cast<int32_t>(luaL_checkinteger(L, 3));
 
-	lua_pushnumber(L, fractal(L, 2, [x](float frequency, int32_t seed) { return perlin1(x * frequency, seed); }));
+	lua_pushnumber(L, static_cast<lua_Number>(perlin2d(x, y, seed)));
 	return 1;
 }
 
-static int noise_perlin2d(lua_State* L) {
-	const float x = checkFloat(L, 1), y = checkFloat(L, 2);
+static int noise_octaveNoise2d(lua_State* L) {
+	const float x = static_cast<float>(luaL_checknumber(L, 1));
+	const float y = static_cast<float>(luaL_checknumber(L, 2));
+	const int octaves = static_cast<int>(luaL_checkinteger(L, 3));
+	const int32_t seed = static_cast<int32_t>(luaL_checkinteger(L, 4));
 
-	lua_pushnumber(L, fractal(L, 3, [x, y](float frequency, int32_t seed) { return perlin2(x * frequency, y * frequency, seed); }));
+	luaL_argcheck(L, octaves >= 1 && octaves <= MAX_OCTAVES, 3, "octaves out of range");
+	
+	lua_pushnumber(L, static_cast<lua_Number>(octavePerlin2d(x, y, octaves, seed)));
 	return 1;
 }
 
-static int noise_perlin3d(lua_State* L) {
-	const float x = checkFloat(L, 1), y = checkFloat(L, 2), z = checkFloat(L, 3);
+static int noise_simplexNoise1d(lua_State* L) {
+	const float x = static_cast<float>(luaL_checknumber(L, 1));
 
-	lua_pushnumber(L, fractal(L, 4, [x, y, z](float frequency, int32_t seed) { return perlin3(x * frequency, y * frequency, z * frequency, seed); }));
+	lua_pushnumber(L, static_cast<lua_Number>(simplex1d(x)));
 	return 1;
 }
+
+static int noise_simplexNoise2d(lua_State* L) {
+	const float x = static_cast<float>(luaL_checknumber(L, 1));
+	const float y = static_cast<float>(luaL_checknumber(L, 2));
+
+	lua_pushnumber(L, static_cast<lua_Number>(simplex2d(x, y)));
+	return 1;
+}
+
+static int noise_simplexNoise3d(lua_State* L) {
+	const float x = static_cast<float>(luaL_checknumber(L, 1));
+	const float y = static_cast<float>(luaL_checknumber(L, 2));
+	const float z = static_cast<float>(luaL_checknumber(L, 3));
+
+	lua_pushnumber(L, static_cast<lua_Number>(simplex3d(x, y, z)));
+	return 1;
+}
+
+static int noise_randomRange(lua_State* L) {
+	const float min = static_cast<float>(luaL_checknumber(L, 1));
+	const float max = static_cast<float>(luaL_checknumber(L, 2));
+
+	lua_pushnumber(L, static_cast<lua_Number>(lerp(min, max, randomUnitFloat())));
+	return 1;
+}
+
+static int noise_randomNormalDistribution(lua_State* L) {
+	const float mean = static_cast<float>(luaL_checknumber(L, 1));
+	const float deviation = static_cast<float>(luaL_checknumber(L, 2));
+
+	lua_pushnumber(L, static_cast<lua_Number>(std::normal_distribution<float>(mean, deviation)(randomGenerator)));
+	return 1;
+}
+
 
 static int noise_gunSpread(lua_State* L) {
-	const UTILS::Vector3& direction = UserdataManager::getInstance().check<UTILS::Vector3>(L, 1);
-	const float spread = checkFloat(L, 2) * (PI / 180.0f);
+	UserdataManager& userdataManager = UserdataManager::getInstance();
+
+	const UTILS::Vector3& direction = userdataManager.check<UTILS::Vector3>(L, 1);
+	const float spread = static_cast<float>(luaL_checknumber(L, 2)) * DEGREES_TO_RADIANS;
 
 	const float length = direction.length();
 	if (length <= 0.0f) {
-		UserdataManager::getInstance().create<UTILS::Vector3>(L, direction);
+		userdataManager.create<UTILS::Vector3>(L, direction);
 		return 1;
 	}
 
 	const UTILS::Vector3 forward = direction / length;
-
-	const float cosTheta = 1.0f - getRandomFloat() * (1.0f - std::cos(spread));
-	const float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
-	const float phi = getRandomFloat() * 2.0f * PI;
-
 	const UTILS::Vector3 helper = std::abs(forward.z) < 0.9f ? UTILS::Vector3(0.0f, 0.0f, 1.0f) : UTILS::Vector3(1.0f, 0.0f, 0.0f);
-	const UTILS::Vector3 right = forward.cross(helper) / forward.cross(helper).length();
+	const UTILS::Vector3 tangent = forward.cross(helper);
+	const UTILS::Vector3 right = tangent / tangent.length();
 	const UTILS::Vector3 up = forward.cross(right);
 
-	UserdataManager::getInstance().create<UTILS::Vector3>(L, (forward * cosTheta + (right * std::cos(phi) + up * std::sin(phi)) * sinTheta) * length);
+	const float cosTheta = lerp(1.0f, std::cos(spread), randomUnitFloat());
+	const float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
+	const float phi = randomUnitFloat() * 2.0f * PI;
+
+	const UTILS::Vector3 offset = (right * std::cos(phi) + up * std::sin(phi)) * sinTheta;
+
+	userdataManager.create<UTILS::Vector3>(L, (forward * cosTheta + offset) * length);
 	return 1;
 }
 
@@ -197,13 +346,16 @@ void wrap_sm_noise(lua_State* L) {
 	CONSOLE_LOG(LEVEL_LUA, COLOR_CYAN, "Wrapping 'sm.noise' library...");
 
 	static const luaL_Reg functions[] = {
-		{"randomRange", noise_randomRange},
-		{"intNoise2d", noise_intNoise2d},
 		{"floatNoise2d", noise_floatNoise2d},
-		{"perlin1d", noise_perlin1d},
-		{"perlin2d", noise_perlin2d},
-		{"perlin3d", noise_perlin3d},
 		{"gunSpread", noise_gunSpread},
+		{"intNoise2d", noise_intNoise2d},
+		{"octaveNoise2d", noise_octaveNoise2d},
+		{"perlinNoise2d", noise_perlinNoise2d},
+		{"randomNormalDistribution", noise_randomNormalDistribution},
+		{"randomRange", noise_randomRange},
+		{"simplexNoise1d", noise_simplexNoise1d},
+		{"simplexNoise2d", noise_simplexNoise2d},
+		{"simplexNoise3d", noise_simplexNoise3d},
 
 		{nullptr, nullptr}
 	};

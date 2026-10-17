@@ -117,7 +117,7 @@ inline static void toJson(lua_State* L, int index, int depth, nlohmann::json& ou
 		output = lua_tonumber(L, index);
 		return;
 	case LUA_TSTRING:
-		output = lua_tostring(L, index); // Intentionally not using lua_tolstring, game devs are retards.
+		output = lua_tostring(L, index);
 		return;
 	case LUA_TTABLE:
 		break;
@@ -134,19 +134,20 @@ inline static void toJson(lua_State* L, int index, int depth, nlohmann::json& ou
 	}
 
 	const int length = static_cast<int>(lua_objlen(L, index));
-	bool isArray = entries == length;
+	bool isArray = entries == static_cast<size_t>(length);
 
-	for (int index = 1; isArray && index <= length; ++index) {
-		lua_rawgeti(L, index, static_cast<int>(index));
+	for (int objectIndex = 1; isArray && objectIndex <= length; ++objectIndex) {
+		lua_rawgeti(L, index, objectIndex);
 		isArray = !lua_isnil(L, -1);
+
 		lua_pop(L, 1);
 	}
 
 	if (isArray) {
 		output = nlohmann::json::array();
 
-		for (int index = 1; index <= length; ++index) {
-			lua_rawgeti(L, index, static_cast<int>(index));
+		for (int objectIndex = 1; objectIndex <= length; ++objectIndex) {
+			lua_rawgeti(L, index, objectIndex);
 			toJson(L, lua_gettop(L), depth + 1, output.emplace_back());
 			lua_pop(L, 1);
 		}
@@ -159,8 +160,10 @@ inline static void toJson(lua_State* L, int index, int depth, nlohmann::json& ou
 	lua_pushnil(L);
 
 	while (lua_next(L, index)) {
-		if (lua_type(L, -2) != LUA_TSTRING)
+		if (lua_type(L, -2) != LUA_TSTRING) {
+			lua_pop(L, 1);
 			continue;
+		}
 
 		std::string key = lua_tostring(L, -2);
 		toJson(L, lua_gettop(L), depth + 1, output[std::move(key)]);
@@ -208,10 +211,27 @@ inline static bool openJson(lua_State* L, const char* path, std::string& error) 
 	return true;
 }
 
+static int sm_json_fileExists(lua_State* L) {
+	std::string path = luaL_checkstring(L, 1);
+	
+	std::string error;
+	if (!resolveModPath(L, path, error)) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	std::vector<char> content;
+	if (!FilesystemManager::getInstance().readFile(path, content)) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	lua_pushboolean(L, true);
+	return 1;
+}
+
 static int sm_json_open(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
-	if (lua_gettop(L) >= 2 && !lua_isboolean(L, 2))
-		return luaL_error(L, "bad argument #2: expected boolean, got %s", luaL_typename(L, 2));
 
 	std::string error;
 	if (!openJson(L, path, error))
@@ -260,10 +280,12 @@ void wrap_sm_json(lua_State* L) {
 	CONSOLE_LOG(LEVEL_LUA, COLOR_CYAN, "Wrapping 'sm.json' library...");
 
 	static const luaL_Reg functions[] = {
+		{"fileExists", sm_json_fileExists},
 		{"open", sm_json_open},
 		{"parseJsonString", sm_json_parseJsonString},
 		{"writeJsonString", sm_json_writeJsonString},
 		{"save", sm_json_save},
+
 		{nullptr, nullptr}
 	};
 

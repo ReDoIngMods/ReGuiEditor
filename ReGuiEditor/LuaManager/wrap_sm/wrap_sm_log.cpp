@@ -41,6 +41,7 @@ void wrap_sm_log(lua_State* L) {
 		{"info", sm_log_info},
 		{"warning", sm_log_warning},
 		{"error", sm_log_error},
+
 		{nullptr, nullptr}
 	};
 
