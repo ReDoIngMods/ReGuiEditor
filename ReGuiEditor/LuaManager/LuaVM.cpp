@@ -21,14 +21,7 @@ inline static std::string popString(lua_State* L, const char* defaultValue = "")
 }
 
 inline static std::string getChunkName(const std::string& path) {
-	std::string name = path;
-	if (name.size() > 60) {
-		const size_t excess = name.size() - 60;
-		const size_t dotCount = std::min<size_t>(3, excess);
-		name = std::string(dotCount, '.') + name.substr(excess);
-	}
-
-	return "@" + name;
+	return "@" + path;
 }
 
 inline static void setCurrentVm(lua_State* L, LuaVM* vm) {
@@ -68,7 +61,12 @@ bool LuaVM::initialize(const std::string& entryScript) {
 	lua_setfield(L, LUA_REGISTRYINDEX, this->envKey_.c_str());
 	this->initialized_ = true;
 
+#if defined(_DEBUG) || defined(DEBUG)
+	(void)this->doFile(entryScript);
+	return true;
+#else
 	return this->doFile(entryScript);
+#endif
 }
 
 void LuaVM::cleanup() {
@@ -150,6 +148,15 @@ void LuaVM::reportError(const LuaError& error) {
 	CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "%s", ss.str().c_str());
 }
 
+bool LuaVM::findChunkPath(const std::string& chunkName, std::string& path) const {
+	const auto iterator = this->chunkPaths_.find(chunkName);
+	if (iterator == this->chunkPaths_.end() || iterator->second.empty())
+		return false;
+
+	path = iterator->second;
+	return true;
+}
+
 int LuaVM::loadFile(const std::string& path) {
 	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
 
@@ -168,7 +175,12 @@ int LuaVM::loadFile(const std::string& path) {
 	}
 
 	const std::string chunkName = getChunkName(resolvedPath);
-	const int status = luaL_loadbuffer(this->state_, content.data(), content.size(), chunkName.c_str());
+
+	auto [chunkPath, inserted] = this->chunkPaths_.try_emplace(chunkName, resolvedPath);
+	if (!inserted && chunkPath->second != resolvedPath)
+		chunkPath->second.clear();
+
+	const int status = luaL_loadbufferx(this->state_, content.data(), content.size(), chunkName.c_str(), "t");
 	if (status != LUA_OK)
 		return status;
 

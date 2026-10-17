@@ -1,7 +1,10 @@
 #pragma once
 #include "LuaVM.hpp"
+#include "UserdataManager.hpp"
 
 #include <UTILS/Singleton.hpp>
+
+#include <LuaJIT/lua.h>
 
 #include <memory>
 #include <string>
@@ -10,6 +13,8 @@
 class LuaManager : public UTILS::Singleton<LuaManager> {
 	lua_State* state_ = nullptr;
 	std::vector<std::unique_ptr<LuaVM>> luaVMs_;
+
+	UserdataManager* userdataManager_ = nullptr;
 
 	bool createVM(const std::string& modLocalId, const std::string& entryScript);
 public:

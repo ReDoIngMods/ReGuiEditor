@@ -1,7 +1,13 @@
 #include "wrap_sm.hpp" // VCIC-Excluded
 
+#include "wrap_sm_color.hpp"
 #include "wrap_sm_json.hpp"
 #include "wrap_sm_log.hpp"
+#include "wrap_sm_noise.hpp"
+#include "wrap_sm_quat.hpp"
+#include "wrap_sm_util.hpp"
+#include "wrap_sm_uuid.hpp"
+#include "wrap_sm_vec3.hpp"
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
@@ -62,8 +68,14 @@ void wrap_sm(lua_State* L) {
 
 	lua_setfield(L, -2, "types");
 
+	wrap_sm_color(L);
 	wrap_sm_json(L);
 	wrap_sm_log(L);
+	wrap_sm_noise(L);
+	wrap_sm_quat(L);
+	wrap_sm_util(L);
+	wrap_sm_uuid(L);
+	wrap_sm_vec3(L);
 
 	lua_setglobal(L, "sm");
 }

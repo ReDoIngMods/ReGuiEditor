@@ -4,16 +4,16 @@
 #include <vector>
 
 namespace TitlebarHitTest {
-    inline std::vector<ImRect> gRectangles;
+	inline std::vector<ImRect> gRectangles;
 
-    inline void beginFrame() { gRectangles.clear(); }
-    inline void addRect(ImVec2 min, ImVec2 max) { gRectangles.push_back({ min, max }); }
+	inline void beginFrame() { gRectangles.clear(); }
+	inline void addRect(ImVec2 min, ImVec2 max) { gRectangles.push_back({ min, max }); }
 
-    inline bool isOverWidget(ImVec2 screenPoint) {
-        for (const ImRect& rectangle : gRectangles)
-            if (rectangle.Contains(screenPoint))
-                return true;
+	inline bool isOverWidget(ImVec2 screenPoint) {
+		for (const ImRect& rectangle : gRectangles)
+			if (rectangle.Contains(screenPoint))
+				return true;
 
-        return false;
-    }
+		return false;
+	}
 }

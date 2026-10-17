@@ -5,13 +5,13 @@
 #include <type_traits>
 
 namespace rend {
-    template <typename T>
-    class RefCountPtr  {
-    protected:
-        T* pointer_;
+	template <typename T>
+	class RefCountPtr  {
+	protected:
+		T* pointer_;
 
-        template <class U>
-        friend class RefCountPtr;
+		template <class U>
+		friend class RefCountPtr;
 
 		void internalAddRef() const noexcept {
 			if (this->pointer_ != nullptr)
@@ -29,29 +29,29 @@ namespace rend {
 
 			return ref;
 		}
-    public:
+	public:
 		RefCountPtr() noexcept : pointer_(nullptr) { }
-        RefCountPtr(std::nullptr_t) noexcept : pointer_(nullptr) { }
+		RefCountPtr(std::nullptr_t) noexcept : pointer_(nullptr) { }
 
-        template <class U>
-        RefCountPtr(U* other) noexcept : pointer_(other) {
+		template <class U>
+		RefCountPtr(U* other) noexcept : pointer_(other) {
 			this->internalAddRef();
-        }
+		}
 
-        RefCountPtr(const RefCountPtr& other) noexcept : pointer_(other.pointer_) {
+		RefCountPtr(const RefCountPtr& other) noexcept : pointer_(other.pointer_) {
 			this->internalAddRef();
-        }
+		}
 
 
 		template <class U>
-        RefCountPtr(const RefCountPtr<U>& other, typename std::enable_if<std::is_convertible<U*, T*>::value>::type* = nullptr) noexcept : pointer_(other.pointer_) {
+		RefCountPtr(const RefCountPtr<U>& other, typename std::enable_if<std::is_convertible<U*, T*>::value>::type* = nullptr) noexcept : pointer_(other.pointer_) {
 			this->internalAddRef();
-        }
+		}
 
-        RefCountPtr(RefCountPtr&& other) noexcept : pointer_(nullptr) {
+		RefCountPtr(RefCountPtr&& other) noexcept : pointer_(nullptr) {
 			if (this != reinterpret_cast<RefCountPtr*>(&reinterpret_cast<unsigned char&>(other)))
 				this->swap(other);
-        }
+		}
 
 		~RefCountPtr() noexcept {
 			this->internalRelease();
@@ -66,7 +66,7 @@ namespace rend {
 			if (this != &other)
 				RefCountPtr(other).swap(*this);
 		
-            return *this;
+			return *this;
 		}
 
 		template <typename U>
@@ -92,11 +92,11 @@ namespace rend {
 			return *this;
 		}
 
-        void swap(RefCountPtr&& other) noexcept {
-            T* tmp = this->pointer_;
-            this->pointer_ = other.pointer_;
-            other.pointer_ = tmp;
-        }
+		void swap(RefCountPtr&& other) noexcept {
+			T* tmp = this->pointer_;
+			this->pointer_ = other.pointer_;
+			other.pointer_ = tmp;
+		}
 
 		void swap(RefCountPtr& other) noexcept {
 			T* tmp = this->pointer_;
@@ -104,10 +104,10 @@ namespace rend {
 			other.pointer_ = tmp;
 		}
 
-        [[nodiscard]] T* operator->() const noexcept {
+		[[nodiscard]] T* operator->() const noexcept {
 			assert(this->pointer_ != nullptr && "Attempting to dereference a null pointer in RefCountPtr");
 			return this->pointer_;
-        }
+		}
 
 		[[nodiscard]] T& operator*() const noexcept {
 			assert(this->pointer_ != nullptr && "Attempting to dereference a null pointer in RefCountPtr");
@@ -130,18 +130,18 @@ namespace rend {
 			return this->pointer_ != nullptr;
 		}
 
-        [[nodiscard]] T* const* gtAddressOf() const noexcept  {
-            return &this->pointer_;
-        }
+		[[nodiscard]] T* const* gtAddressOf() const noexcept  {
+			return &this->pointer_;
+		}
 
-        [[nodiscard]] T** getAddressOf() noexcept {
-            return &this->pointer_;
-        }
+		[[nodiscard]] T** getAddressOf() noexcept {
+			return &this->pointer_;
+		}
 
-        [[nodiscard]] T** releaseAndGetAddressOf() noexcept {
+		[[nodiscard]] T** releaseAndGetAddressOf() noexcept {
 			this->internalRelease();
-            return &this->pointer_;
-        }
+			return &this->pointer_;
+		}
 
 		T* detach() noexcept {
 			T* ptr = this->pointer_;
@@ -161,17 +161,17 @@ namespace rend {
 			this->pointer_ = other;
 		}
 
-        static RefCountPtr<T> create(T* other)  {
-            RefCountPtr<T> Ptr;
-            Ptr.attach(other);
+		static RefCountPtr<T> create(T* other)  {
+			RefCountPtr<T> Ptr;
+			Ptr.attach(other);
 
-            return Ptr;
-        }
+			return Ptr;
+		}
 
 		uint32_t reset() {
 			return this->internalRelease();
 		}
-    };
+	};
 
 	template<class T>
 	RefCountPtr<T> makeRefCountPtr(T* other) {

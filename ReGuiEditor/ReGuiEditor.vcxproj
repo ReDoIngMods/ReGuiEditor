@@ -218,10 +218,17 @@ exit /b 0</Command>
     <ClCompile Include="LuaManager\LuaScriptWatcher.cpp" />
     <ClCompile Include="LuaManager\LuaUtil.cpp" />
     <ClCompile Include="LuaManager\LuaVM.cpp" />
+    <ClCompile Include="LuaManager\UserdataManager.cpp" />
     <ClCompile Include="LuaManager\wrap_global.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_color.cpp" />
     <ClCompile Include="LuaManager\wrap_sm\wrap_sm_json.cpp" />
     <ClCompile Include="LuaManager\wrap_sm\wrap_sm.cpp" />
     <ClCompile Include="LuaManager\wrap_sm\wrap_sm_log.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_noise.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_quat.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_util.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_uuid.cpp" />
+    <ClCompile Include="LuaManager\wrap_sm\wrap_sm_vec3.cpp" />
     <ClCompile Include="rend\FullscreenPass.cpp" />
     <ClCompile Include="rend\Resources\Buffers\BufferResource.cpp" />
     <ClCompile Include="rend\Resources\Buffers\ConstantBuffer.cpp" />
@@ -249,8 +256,10 @@ exit /b 0</Command>
     <ClCompile Include="UGCManager\UGCManager.cpp" />
     <ClCompile Include="UTILS\Console.cpp" />
     <ClCompile Include="UTILS\EnvVars.cpp" />
+    <ClCompile Include="UTILS\Hashing.cpp" />
     <ClCompile Include="UTILS\Strings.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="UTILS\Uuid.cpp" />
     <ClCompile Include="Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -515,10 +524,17 @@ exit /b 0</Command>
     <ClInclude Include="LuaManager\LuaScriptWatcher.hpp" />
     <ClInclude Include="LuaManager\LuaUtil.hpp" />
     <ClInclude Include="LuaManager\LuaVM.hpp" />
+    <ClInclude Include="LuaManager\UserdataManager.hpp" />
     <ClInclude Include="LuaManager\wrap_global.hpp" />
     <ClInclude Include="LuaManager\wrap_sm\wrap_sm.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_color.hpp" />
     <ClInclude Include="LuaManager\wrap_sm\wrap_sm_json.hpp" />
     <ClInclude Include="LuaManager\wrap_sm\wrap_sm_log.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_noise.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_quat.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_util.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_uuid.hpp" />
+    <ClInclude Include="LuaManager\wrap_sm\wrap_sm_vec3.hpp" />
     <ClInclude Include="rend\FullscreenPass.hpp" />
     <ClInclude Include="rend\Resources\Buffers\BufferResource.hpp" />
     <ClInclude Include="rend\Resources\Buffers\ConstantBuffer.hpp" />
@@ -562,6 +578,10 @@ exit /b 0</Command>
     <ClInclude Include="rend\Common\StencilOperand.hpp" />
     <ClInclude Include="rend\Common\Viewport.hpp" />
     <ClInclude Include="UGCManager\UGCManager.hpp" />
+    <ClInclude Include="UTILS\Hashing.hpp" />
+    <ClInclude Include="UTILS\Quaternion.hpp" />
+    <ClInclude Include="UTILS\Uuid.hpp" />
+    <ClInclude Include="UTILS\Vector3.hpp" />
     <ClInclude Include="Window\TitlebarHitTest.hpp" />
     <ClInclude Include="GUI\WindowDecoration.hpp" />
     <ClInclude Include="UTILS\ByteStreamReader.hpp" />

@@ -1,6 +1,7 @@
 #include "LuaManager.hpp"
 #include "LuaVM.hpp"
 
+#include "UserdataManager.hpp"
 #include "wrap_global.hpp"
 #include "wrap_sm/wrap_sm.hpp"
 
@@ -67,6 +68,8 @@ bool LuaManager::initialize() {
 	lua_atpanic(L, luaPanic);
 	luaL_openlibs(L);
 
+	this->userdataManager_ = UserdataManager::createInstance();
+
 	wrap_global(L);
 	wrap_sm(L);
 
@@ -76,6 +79,8 @@ bool LuaManager::initialize() {
 	lua_setfield(L, -2, "version");
 
 	lua_setglobal(L, "reguieditor");
+
+	this->userdataManager_->registerDefinitions(L);
 
 	if (!defineEnvironment(L)) {
 		lua_close(L);
@@ -115,6 +120,11 @@ void LuaManager::cleanup() {
 	if (this->state_) {
 		lua_close(this->state_);
 		this->state_ = nullptr;
+	}
+
+	if (this->userdataManager_) {
+		this->userdataManager_->destroyInstance();
+		this->userdataManager_ = nullptr;
 	}
 }
 

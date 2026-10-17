@@ -58,8 +58,7 @@ unsafe_env = {
     xpcall = xpcall,
     gcinfo = gcinfo,
     class = class,
-
-    -- TODO: Check if these are safe to use.
+    enumType = enumType,
 
     load = function(chunk, chunkname, mode, env)
         assert(type(chunk) == "string", "bad argument #1 to 'load' (string expected)")
@@ -79,24 +78,14 @@ unsafe_env = {
         return load(chunk, chunkname, "t")
     end,
 
-    setfenv = setfenv,
-    getfenv = getfenv,
-    
-    getmetatable = getmetatable,
-    setmetatable = setmetatable,
-
-    rawget = rawget,
-    rawset = rawset,
-    rawequal = rawequal,
-    rawlen = rawlen,
-
     sm = {
+        types = sm.types,
         version = sm.version,
         isHost = sm.isHost,
         isServerMode = sm.isServerMode,
         exists = sm.exists,
-        --color = sm.color,
-        --uuid = sm.uuid,
+        color = sm.color,
+        uuid = sm.uuid,
         --projectile = sm.projectile,
         --creation = sm.creation,
         --interactable = sm.interactable,
@@ -107,15 +96,15 @@ unsafe_env = {
         --cullSphereGroup = sm.cullSphereGroup,
         --particle = sm.particle,
         --debris = sm.debris,
-        --noise = sm.noise,
-        --quat = sm.quat,
+        noise = sm.noise,
+        quat = sm.quat,
         --physics = sm.physics,
-        --vec3 = sm.vec3,
+        vec3 = sm.vec3,
         --camera = sm.camera,
         --localPlayer = sm.localPlayer,
         --tool = sm.tool,
         --shape = sm.shape,
-        --util = sm.util,
+        util = sm.util,
         --storage = sm.storage,
         --network = sm.network,
         --raycastResult = sm.raycastResult,

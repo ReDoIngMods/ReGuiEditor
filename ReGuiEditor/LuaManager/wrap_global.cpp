@@ -7,14 +7,28 @@
 #include <LuaJIT/lua.h>
 
 #include <string>
+#include <utility>
 
 static int global_dofile(lua_State* L) {
 	LuaVM* luaVM = LuaVM::fromState(L);
 	if (!luaVM)
 		return luaL_error(L, "Failed to get LuaVM instance");
 
-	const char* path = luaL_checkstring(L, 1);
+	std::string path = luaL_checkstring(L, 1);
 	lua_settop(L, 1);
+
+	if (path.empty() || path.front() != '$') {
+		lua_Debug caller;
+		std::string callerPath;
+		if (!lua_getstack(L, 1, &caller) || !lua_getinfo(L, "S", &caller) || !luaVM->findChunkPath(caller.source, callerPath))
+			return luaL_error(L, "cannot resolve relative path '%s' outside of a script file", path.c_str());
+
+		std::string resolvedPath;
+		if (!LuaUtils::joinRelativePath(callerPath, path, resolvedPath))
+			return luaL_error(L, "cannot resolve relative path '%s' from '%s'", path.c_str(), callerPath.c_str());
+
+		path = std::move(resolvedPath);
+	}
 
 	if (luaVM->loadFile(path) != LUA_OK)
 		return lua_error(L);
@@ -72,6 +86,7 @@ void wrap_global(lua_State* L) {
 		{"enumType", global_enumType},
 		{"print", global_print},
 		{"type", global_type},
+
 		{nullptr, nullptr}
 	};
 

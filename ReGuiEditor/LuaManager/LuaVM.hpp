@@ -4,6 +4,7 @@
 #include <LuaJIT/lua.h>
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 struct LuaStackFrame {
@@ -34,6 +35,10 @@ class LuaVM {
 	bool initialized_ = false;
 
 	LuaScriptWatcher scriptWatcher_;
+
+	// Chunk names are shortened (and so not unique), this maps them back to the file they came from.
+	// A chunk name shared by two different files maps to an empty path.
+	std::unordered_map<std::string, std::string> chunkPaths_;
 	float pollTimer_ = 0.0f;
 	LuaError pendingError_;
 
@@ -63,6 +68,9 @@ public:
 	lua_State* getState() const { return this->state_; }
 	bool isInitialized() const { return this->initialized_; }
 	const std::string& getModLocalId() const { return this->modLocalId_; }
+
+	// Full "$KEY/..." path of the file a chunk name belongs to. False when unknown or ambiguous.
+	[[nodiscard]] bool findChunkPath(const std::string& chunkName, std::string& path) const;
 
 	int loadFile(const std::string& path);
 
