@@ -6,11 +6,12 @@
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
 
-
 #include "Window/Window.hpp"
 
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
+#include "GUI/ImageManager.hpp"
+
 #include "GUI/WindowDecoration.hpp"
 
 #include "GUI/Panels/ExplorerPanel.hpp"
@@ -45,6 +46,7 @@ public:
 	UGCManager* ugcManager = nullptr;
 	FontManager* fontManager = nullptr;
 	GuiSystemManager* guiSystemManager = nullptr;
+	ImageManager* imageManager = nullptr;
 	LuaManager* luaManager = nullptr;
 
 	ExplorerPanel explorerPanel;

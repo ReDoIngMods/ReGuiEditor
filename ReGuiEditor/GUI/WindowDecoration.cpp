@@ -4,56 +4,15 @@
 
 #include "../Application.hpp"
 
+#include "ImageManager.hpp"
 #include "WindowDecoration.hpp"
-
-#include "Lucide/IconsLucide.h"
 
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
 #include <algorithm>
 #include <cfloat>
-
-inline static void drawTitlebar(const char* titleBar) {
-	ImGuiStyle& style = ImGui::GetStyle();
-	ImFont* font = FontManager::getInstance().getFont("Futura");
-	if (!font) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Font 'Futura' not found. Using default font.");
-		font = ImGui::GetFont();
-	}
-
-	float fontSize = ImGui::GetFontSize();
-	ImFontBaked* baked = font->GetFontBaked(fontSize);
-
-	float minY = FLT_MAX;
-	float maxY = -FLT_MAX;
-
-	{
-		const char* glyphPointer = titleBar;
-		while (*glyphPointer) {
-			ImFontGlyph* glyph = baked->FindGlyph(*glyphPointer);
-			if (glyph) {
-				minY = std::min(minY, glyph->Y0);
-				maxY = std::max(maxY, glyph->Y1);
-			}
-
-			++glyphPointer;
-		}
-	}
-
-	float glyphHeight = maxY - minY;
-	float frameHeight = ImGui::GetFrameHeight();
-
-	ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.f, titleBar);
-	float fontOffset = (frameHeight - glyphHeight) / 2.f;
-
-	ImVec2 cursor = ImGui::GetCursorScreenPos();
-	ImVec2 textPos = { cursor.x, cursor.y + fontOffset };
-
-	ImGui::GetWindowDrawList()->AddText(font, fontSize, textPos, 0xFF00A0FF, titleBar);
-
-	ImGui::Dummy({ textSize.x, frameHeight });
-}
+#include <cmath>
 
 void WindowDecoration::buildDockspace(ImGuiID dockspaceID, ImVec2 size) {
 	ImGui::DockBuilderRemoveNode(dockspaceID);
@@ -76,6 +35,96 @@ void WindowDecoration::buildDockspace(ImGuiID dockspaceID, ImVec2 size) {
 	ImGui::DockBuilderFinish(dockspaceID);
 }
 
+void WindowDecoration::drawProgamName(const char* name) {
+	ImGuiStyle& style = ImGui::GetStyle();
+	ImFont* font = FontManager::getInstance().getFont("Futura");
+	if (!font) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Font 'Futura' not found. Using default font.");
+		font = ImGui::GetFont();
+	}
+
+	float fontSize = ImGui::GetFontSize();
+	ImFontBaked* baked = font->GetFontBaked(fontSize);
+
+	float minY = FLT_MAX;
+	float maxY = -FLT_MAX;
+
+	{
+		const char* glyphPointer = name;
+		while (*glyphPointer) {
+			ImFontGlyph* glyph = baked->FindGlyph(*glyphPointer);
+			if (glyph) {
+				minY = std::min(minY, glyph->Y0);
+				maxY = std::max(maxY, glyph->Y1);
+			}
+
+			++glyphPointer;
+		}
+	}
+
+	float glyphHeight = maxY - minY;
+	float frameHeight = ImGui::GetFrameHeight();
+
+	ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.f, name);
+	float fontOffset = (frameHeight - glyphHeight) / 2.f;
+
+	ImVec2 cursor = ImGui::GetCursorScreenPos();
+	ImVec2 textPos = { cursor.x, cursor.y + fontOffset };
+
+	ImGui::GetWindowDrawList()->AddText(font, fontSize, textPos, 0xFF00A0FF, name);
+
+	ImGui::Dummy({ textSize.x, frameHeight });
+}
+
+void WindowDecoration::drawWindowButtons() {
+	const float buttonSize = std::round(ImGui::GetFrameHeight() / 2.f) * 2.f;
+	const float iconSize = std::round(buttonSize * 0.6f);
+	const float pad = (buttonSize - iconSize) * 0.5f;
+	const float buttonSpacing = ImGui::GetStyle().ItemSpacing.x;
+	const float buttonArrayWidth = (buttonSize + buttonSpacing) * 3 - buttonSpacing;
+
+	ImGui::SetCursorPos({ ImGui::GetWindowWidth() - buttonArrayWidth, 0.f });
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(pad, pad));
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
+
+	Application& app = Application::getInstance();
+	ImageManager& imageManager = ImageManager::getInstance();
+
+	const ImTextureID minimizeIcon = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-minimize.svg", 64, 64, 0xFFAAAAAA);
+	const ImTextureID maximizeIcon = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-maximize.svg", 64, 64, 0xFFAAAAAA);
+	const ImTextureID restoreIcon  = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-restore.svg",  64, 64, 0xFFAAAAAA);
+	const ImTextureID closeIcon    = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-close.svg",    64, 64, 0xFFAAAAAA);
+
+	const ImVec2 iconExtent = { iconSize, iconSize };
+
+	if (ImGui::ImageButton("#minimizeButton", minimizeIcon, iconExtent))
+		app.window.minimize();
+	TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+
+	ImGui::SameLine();
+
+	if (app.window.isMaximized()) {
+		if (ImGui::ImageButton("#restoreButton", restoreIcon, iconExtent))
+			app.window.restore();
+	}
+	else {
+		if (ImGui::ImageButton("#maximizeButton", maximizeIcon, iconExtent))
+			app.window.maximize();
+	}
+	TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+
+	ImGui::SameLine();
+
+	if (ImGui::ImageButton("#closeButton", closeIcon, iconExtent))
+		app.isRunning = false;
+	TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+
+	ImGui::PopStyleVar(2);
+	ImGui::PopStyleColor();
+}
+
 void WindowDecoration::render() {
 	TitlebarHitTest::beginFrame();
 
@@ -96,7 +145,7 @@ void WindowDecoration::render() {
 	ImGui::PopStyleVar();
 
 	if (ImGui::BeginMenuBar()) {
-		drawTitlebar("ReGuiEditor");
+		this->drawProgamName("ReGuiEditor");
 
 		bool fileOpen = ImGui::BeginMenu("File");
 		TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
@@ -139,43 +188,7 @@ void WindowDecoration::render() {
 			ImGui::EndMenu();
 		}
 
-		// Maximize, Minimize, Close buttons
-		const float buttonSize = ImGui::GetFrameHeight();
-		const float buttonSpacing = ImGui::GetStyle().ItemSpacing.x;
-		const float buttonArrayWidth = (buttonSize + buttonSpacing) * 3 - buttonSpacing;
-
-		const ImVec2 buttonPos = { mainViewport->Size.x - buttonArrayWidth, 0.f };
-
-		ImGui::SetCursorPos(buttonPos);
-		
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
-
-		Application& app = Application::getInstance();
-
-		if (ImGui::Button(ICON_LC_MINUS, { buttonSize, buttonSize }))
-			app.window.minimize();
-		TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-
-		ImGui::SameLine();
-
-		if (app.window.isMaximized()) {
-			if (ImGui::Button(ICON_LC_COPY, { buttonSize, buttonSize }))
-				app.window.restore();
-		} else {
-			if (ImGui::Button(ICON_LC_SQUARE, { buttonSize, buttonSize }))
-				app.window.maximize();
-		}
-		TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-
-		ImGui::SameLine();
-
-		if (ImGui::Button(ICON_LC_X, { buttonSize, buttonSize }))
-			app.isRunning = false;
-		TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-
-		ImGui::PopStyleVar();
-		ImGui::PopStyleColor();
+		this->drawWindowButtons();
 
 		ImGui::EndMenuBar();
 	}

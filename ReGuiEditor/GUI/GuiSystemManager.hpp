@@ -18,12 +18,11 @@
 
 #include <rend/Common/RefCounter.hpp>
 #include <rend/Resources/RenderView.hpp>
+#include <rend/Resources/ShaderResourceView.hpp>
 
 #include <MyGui/MyGUI_Gui.h>
 #include <MyGui/MyGUI_LogManager.h>
 #include <MyGui/MyGUI_LogSource.h>
-
-#include <d3d11.h>
 
 #include <cstdint>
 
@@ -73,7 +72,7 @@ public:
 	uint32_t getRenderTargetWidth() const { return this->renderTargetWidth_; }
 	uint32_t getRenderTargetHeight() const { return this->renderTargetHeight_; }
 	GuiBlurManager* getGuiBlurManager() const { return this->guiBlurManager_; }
-	// Shader resource view of the GUI canvas, e.g. to display it in ImGui.
+
 	const rend::ShaderResourceView* getRenderShaderResourceView() const { return this->renderView_.get(); }
 	BackgroundImageHelper* getBackgroundImageHelper() const { return this->backgroundImageHelper_; }
 };

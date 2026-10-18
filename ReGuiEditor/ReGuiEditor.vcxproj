@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -201,6 +201,7 @@ exit /b 0</Command>
     <ClCompile Include="GUI\BlurrySubSkin\GuiBlurSkinTexture.cpp" />
     <ClCompile Include="GUI\FontManager.cpp" />
     <ClCompile Include="GUI\GuiSystemManager.cpp" />
+    <ClCompile Include="GUI\ImageManager.cpp" />
     <ClCompile Include="GUI\MyGuiDX11\MGRenderManager.cpp" />
     <ClCompile Include="GUI\MyGuiDX11\MGRTTexture.cpp" />
     <ClCompile Include="GUI\MyGuiDX11\MGTexture.cpp" />
@@ -505,6 +506,7 @@ exit /b 0</Command>
     <ClInclude Include="GUI\BlurrySubSkin\GuiBlurSkinTexture.hpp" />
     <ClInclude Include="GUI\FontManager.hpp" />
     <ClInclude Include="GUI\GuiSystemManager.hpp" />
+    <ClInclude Include="GUI\ImageManager.hpp" />
     <ClInclude Include="GUI\MyGuiDX11\MGRenderManager.hpp" />
     <ClInclude Include="GUI\MyGuiDX11\MGRTTexture.hpp" />
     <ClInclude Include="GUI\MyGuiDX11\MGTexture.hpp" />

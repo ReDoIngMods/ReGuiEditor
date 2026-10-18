@@ -15,6 +15,7 @@
 
 #include "GUI/FontManager.hpp"
 #include "GUI/GuiSystemManager.hpp"
+#include "GUI/ImageManager.hpp"
 #include "GUI/NotificationManager.hpp"
 
 #include <ImGui/imgui.h>
@@ -38,6 +39,11 @@ Application::~Application() {
 	if (this->guiSystemManager) {
 		this->guiSystemManager->destroyInstance();
 		this->guiSystemManager = nullptr;
+	}
+
+	if (this->imageManager) {
+		this->imageManager->destroyInstance();
+		this->imageManager = nullptr;
 	}
 
 	if (this->fontManager) {
@@ -143,6 +149,12 @@ bool Application::initialize() {
 	this->fontManager = FontManager::createInstance();
 	if (!this->fontManager->initialize()) {
 		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize FontManager");
+		return false;
+	}
+
+	this->imageManager = ImageManager::createInstance();
+	if (!this->imageManager->initialize()) {
+		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize ImageManager");
 		return false;
 	}
 
