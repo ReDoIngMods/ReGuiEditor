@@ -21,12 +21,12 @@ bool rend::FullscreenPass::init(const rend::FullscreenPassDesc& desc) {
 	const std::string name = desc.debugName.empty() ? "FullscreenPass" : desc.debugName;
 
 	if (desc.pixelShader.empty()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::init(%s): No pixel shader specified.", name.c_str());
+		CONSOLE_ERROR("FullscreenPass::init(%s): No pixel shader specified.", name.c_str());
 		return false;
 	}
 
 	if (desc.constantBufferSize % 16 != 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::init(%s): constantBufferSize (%u) must be a multiple of 16.", name.c_str(), desc.constantBufferSize);
+		CONSOLE_ERROR("FullscreenPass::init(%s): constantBufferSize (%u) must be a multiple of 16.", name.c_str(), desc.constantBufferSize);
 		return false;
 	}
 
@@ -34,7 +34,7 @@ bool rend::FullscreenPass::init(const rend::FullscreenPassDesc& desc) {
 
 	this->vertexShader_ = resourceManager.createShader<rend::VertexShader>(desc.vertexShader, desc.vertexEntrypoint);
 	if (!this->vertexShader_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::init(%s): Failed to create vertex shader '%s'.", name.c_str(), desc.vertexShader.c_str());
+		CONSOLE_ERROR("FullscreenPass::init(%s): Failed to create vertex shader '%s'.", name.c_str(), desc.vertexShader.c_str());
 
 		this->cleanup();
 		return false;
@@ -42,7 +42,7 @@ bool rend::FullscreenPass::init(const rend::FullscreenPassDesc& desc) {
 
 	this->pixelShader_ = resourceManager.createShader<rend::PixelShader>(desc.pixelShader, desc.pixelEntrypoint, desc.macros);
 	if (!this->pixelShader_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::init(%s): Failed to create pixel shader '%s'.", name.c_str(), desc.pixelShader.c_str());
+		CONSOLE_ERROR("FullscreenPass::init(%s): Failed to create pixel shader '%s'.", name.c_str(), desc.pixelShader.c_str());
 
 		this->cleanup();
 		return false;
@@ -51,7 +51,7 @@ bool rend::FullscreenPass::init(const rend::FullscreenPassDesc& desc) {
 	if (desc.constantBufferSize > 0) {
 		this->constantBuffer_ = resourceManager.createConstantBuffer(desc.constantBufferSize);
 		if (!this->constantBuffer_) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::init(%s): Failed to create constant buffer.", name.c_str());
+			CONSOLE_ERROR("FullscreenPass::init(%s): Failed to create constant buffer.", name.c_str());
 
 			this->cleanup();
 			return false;
@@ -62,7 +62,7 @@ bool rend::FullscreenPass::init(const rend::FullscreenPassDesc& desc) {
 
 	this->pipelineContext_ = resourceManager.createPipelineContext();
 	if (!this->pipelineContext_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::init(%s): Failed to create pipeline context.", name.c_str());
+		CONSOLE_ERROR("FullscreenPass::init(%s): Failed to create pipeline context.", name.c_str());
 
 		this->cleanup();
 		return false;
@@ -95,12 +95,12 @@ bool rend::FullscreenPass::draw(const rend::FullscreenDrawParams& params) {
 
 	if (params.constants) {
 		if (!this->constantBuffer_) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::draw: Constants were provided but the pass was created with constantBufferSize = 0.");
+			CONSOLE_ERROR("FullscreenPass::draw: Constants were provided but the pass was created with constantBufferSize = 0.");
 			return false;
 		}
 
 		if (!this->constantBuffer_->writeRawBuffer(params.constants, this->constantBufferSize_)) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::draw: Failed to update constant buffer.");
+			CONSOLE_ERROR("FullscreenPass::draw: Failed to update constant buffer.");
 			return false;
 		}
 	}
@@ -146,7 +146,7 @@ bool rend::FullscreenPass::draw(const rend::FullscreenDrawParams& params) {
 		this->pipelineContext_->clearShaderResourceViews<rend::ShaderStage::Pixel>();
 
 	if (!this->pipelineContext_->end()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "FullscreenPass::draw: Failed to end pipeline context.");
+		CONSOLE_ERROR("FullscreenPass::draw: Failed to end pipeline context.");
 		return false;
 	}
 

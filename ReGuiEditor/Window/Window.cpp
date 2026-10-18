@@ -80,13 +80,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		if (window->onCloseRequest_) {
 			if (window->onCloseRequest_()) {
 				CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, L"WM_CLOSE: Close request approved by application");
-			}
-			else {
+			} else {
 				CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, L"WM_CLOSE: Close request denied by application");
 				return 0;
 			}
-		}
-		else {
+		} else {
 			CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, L"WM_CLOSE");
 		}
 
@@ -101,7 +99,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 
 		return 0;
 	case WM_DPICHANGED: {
-		// The resulting WM_SIZE takes care of resizing the swap chain.
 		const RECT* suggested = reinterpret_cast<const RECT*>(lParam);
 		SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left, suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
 		break;
@@ -128,7 +125,7 @@ bool Window::create(const wchar_t* title, int width, int height) {
 	wc.hIcon = LoadIconW(wc.hInstance, IDI_APPLICATION);
 
 	if (!RegisterClassW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to register window class");
+		CONSOLE_ERROR(L"Failed to register window class");
 		return false;
 	}
 
@@ -142,7 +139,7 @@ bool Window::create(const wchar_t* title, int width, int height) {
 
 	this->hwnd_ = CreateWindowExW(0, wc.lpszClassName, title, WS_OVERLAPPEDWINDOW, windowX, windowY, width, height, NULL, NULL, wc.hInstance, this);
 	if (!this->hwnd_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to create window");
+		CONSOLE_ERROR(L"Failed to create window");
 		return false;
 	}
 

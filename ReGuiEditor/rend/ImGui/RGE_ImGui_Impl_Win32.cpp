@@ -250,7 +250,7 @@ inline static bool IsMainViewport(ImGuiViewport* viewport) { return viewport == 
 inline static ImVec2 GetViewportClientSize(HWND hwnd) {
 	RECT rect;
 	if (!GetClientRect(hwnd, &rect)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get client rect for ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get client rect for ImGui viewport window! Error: %lu", GetLastError());
 		return { 0.0f, 0.0f };
 	}
 
@@ -263,7 +263,7 @@ inline static ImVec2 GetViewportClientSize(HWND hwnd) {
 inline static ImVec2 GetViewportWindowPos(HWND hwnd) {
 	POINT point = { 0, 0 };
 	if (!ClientToScreen(hwnd, &point)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get window position for ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get window position for ImGui viewport window! Error: %lu", GetLastError());
 		return { 0.0f, 0.0f };
 	}
 
@@ -281,20 +281,20 @@ inline static void SetViewportWindowPos(HWND hwnd, ImVec2 pos) {
 
 	RECT rect;
 	if (!GetWindowRect(hwnd, &rect)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get window rect for ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get window rect for ImGui viewport window! Error: %lu", GetLastError());
 		return;
 	}
 
 	POINT clientPos = { 0, 0 };
 	if (!ClientToScreen(hwnd, &clientPos)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get client position for ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get client position for ImGui viewport window! Error: %lu", GetLastError());
 		return;
 	}
 
 	const int offsetX = clientPos.x - rect.left;
 	const int offsetY = clientPos.y - rect.top;
 	if (!SetWindowPos(hwnd, nullptr, point.x - offsetX, point.y - offsetY, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER))
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to set window position for ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to set window position for ImGui viewport window! Error: %lu", GetLastError());
 }
 
 inline static void SetViewportWindowSize(HWND hwnd, ImVec2 size) {
@@ -313,10 +313,10 @@ inline static void SetViewportWindowSize(HWND hwnd, ImVec2 size) {
 		dpi = 96;
 
 	if (!AdjustWindowRectExForDpi(&rect, style, FALSE, exStyle, dpi))
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to adjust window rect for ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to adjust window rect for ImGui viewport window! Error: %lu", GetLastError());
 
 	if (!SetWindowPos(hwnd, nullptr, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER))
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to set window size for ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to set window size for ImGui viewport window! Error: %lu", GetLastError());
 }
 
 inline static void UpdateViewportPosition(ImGuiViewport* viewport) {
@@ -360,7 +360,7 @@ inline static void RGE_ImGui_ImplWin32_CreateWindow(ImGuiViewport* viewport) {
 	RGE_ImGui_ImplWin32_Data* backendData = getBackendWin32Data();
 	HWND hwnd = CreateWindowExW(exStyle, RGE_ImGui_ImplWin32_ViewportClassName, L"RGE_ImGui_ImplWin32_Viewport", style, 0, 0, 1, 1, parent, nullptr, backendData->hInstance, viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui viewport window! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to create ImGui viewport window! Error: %lu", GetLastError());
 		return;
 	}
 
@@ -379,7 +379,7 @@ inline static void RGE_ImGui_ImplWin32_DestroyWindow(ImGuiViewport* viewport) {
 
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_DestroyWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_DestroyWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -392,7 +392,7 @@ inline static void RGE_ImGui_ImplWin32_DestroyWindow(ImGuiViewport* viewport) {
 inline static void RGE_ImGui_ImplWin32_ShowWindow(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_ShowWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_ShowWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -402,7 +402,7 @@ inline static void RGE_ImGui_ImplWin32_ShowWindow(ImGuiViewport* viewport) {
 inline static void RGE_ImGui_ImplWin32_SetWindowPos(ImGuiViewport* viewport, ImVec2 pos) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -412,7 +412,7 @@ inline static void RGE_ImGui_ImplWin32_SetWindowPos(ImGuiViewport* viewport, ImV
 inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowPos(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return { 0.0f, 0.0f };
 	}
 
@@ -422,7 +422,7 @@ inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowPos(ImGuiViewport* viewport) {
 inline static void RGE_ImGui_ImplWin32_SetWindowSize(ImGuiViewport* viewport, ImVec2 size) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -432,7 +432,7 @@ inline static void RGE_ImGui_ImplWin32_SetWindowSize(ImGuiViewport* viewport, Im
 inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowSize(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return { 0.0f, 0.0f };
 	}
 
@@ -442,7 +442,7 @@ inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowSize(ImGuiViewport* viewport) 
 inline static void RGE_ImGui_ImplWin32_SetWindowFocus(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowFocus: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowFocus: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -464,7 +464,7 @@ inline static bool RGE_ImGui_ImplWin32_GetWindowFocus(ImGuiViewport* viewport) {
 inline static bool RGE_ImGui_ImplWin32_GetWindowMinimized(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowMinimized: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowMinimized: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return false;
 	}
 
@@ -474,13 +474,13 @@ inline static bool RGE_ImGui_ImplWin32_GetWindowMinimized(ImGuiViewport* viewpor
 inline static void RGE_ImGui_ImplWin32_SetWindowTitle(ImGuiViewport* viewport, const char* title) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowTitle: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowTitle: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
 	int length = MultiByteToWideChar(CP_UTF8, 0, title ? title : "", -1, nullptr, 0);
 	if (length <= 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowTitle: Failed to convert title to wide string. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowTitle: Failed to convert title to wide string. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -488,13 +488,13 @@ inline static void RGE_ImGui_ImplWin32_SetWindowTitle(ImGuiViewport* viewport, c
 	MultiByteToWideChar(CP_UTF8, 0, title ? title : "", -1, wideTitle.data(), length);
 
 	if (!SetWindowTextW(hwnd, wideTitle.data()))
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowTitle: Failed to set window title. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowTitle: Failed to set window title. Error: %lu", GetLastError());
 }
 
 inline static void RGE_ImGui_ImplWin32_SetWindowAlpha(ImGuiViewport* viewport, float alpha) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -504,13 +504,13 @@ inline static void RGE_ImGui_ImplWin32_SetWindowAlpha(ImGuiViewport* viewport, f
 	SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
 
 	if (!SetLayeredWindowAttributes(hwnd, 0, static_cast<BYTE>(alpha * 255.0f), LWA_ALPHA))
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to set window alpha. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to set window alpha. Error: %lu", GetLastError());
 }
 
 inline static void RGE_ImGui_ImplWin32_UpdateWindow(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_UpdateWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_UpdateWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -526,7 +526,7 @@ inline static void RGE_ImGui_ImplWin32_UpdateWindow(ImGuiViewport* viewport) {
 inline static float RGE_ImGui_ImplWin32_GetWindowDpiScale(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "RGE_ImGui_ImplWin32_GetWindowDpiScale: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowDpiScale: Failed to get viewport window handle. Error: %lu", GetLastError());
 		return 1.0f;
 	}
 
@@ -613,7 +613,7 @@ inline static bool RGE_ImGui_ImplWin32_RegisterViewportClass() {
 	if (!RegisterClassExW(&windowClass)) {
 		DWORD error = GetLastError();
 		if (error != ERROR_CLASS_ALREADY_EXISTS) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to register ImGui viewport window class! Error: %lu", error);
+			CONSOLE_ERROR("Failed to register ImGui viewport window class! Error: %lu", error);
 			return false;
 		}
 	}
@@ -752,7 +752,7 @@ inline static LRESULT CALLBACK RGE_ImGui_ImplWin32_PlatformWndProc(HWND hWnd, UI
 			int newWidth = suggestedRect->right - suggestedRect->left;
 			int newHeight = suggestedRect->bottom - suggestedRect->top;
 			if (!SetWindowPos(hWnd, nullptr, suggestedRect->left, suggestedRect->top, newWidth, newHeight, SWP_NOZORDER | SWP_NOACTIVATE))
-				CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to set window position and size on WM_DPICHANGED! Error: %lu", GetLastError());
+				CONSOLE_ERROR("Failed to set window position and size on WM_DPICHANGED! Error: %lu", GetLastError());
 		}
 
 		return 0;
@@ -784,21 +784,21 @@ bool RGE_ImGui_ImplWin32_Init(HWND hWnd) {
 	io.BackendPlatformUserData = backendData;
 
 	if (!QueryPerformanceFrequency(&backendData->frequency)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to query performance frequency!");
+		CONSOLE_ERROR("Failed to query performance frequency!");
 
 		RGE_ImGui_ImplWin32_Shutdown();
 		return false;
 	}
 
 	if (!QueryPerformanceCounter(&backendData->lastTime)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to query performance counter!");
+		CONSOLE_ERROR("Failed to query performance counter!");
 
 		RGE_ImGui_ImplWin32_Shutdown();
 		return false;
 	}
 
 	if (!RGE_ImGui_ImplWin32_RegisterViewportClass()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to register ImGui viewport window class! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to register ImGui viewport window class! Error: %lu", GetLastError());
 
 		RGE_ImGui_ImplWin32_Shutdown();
 		return false;

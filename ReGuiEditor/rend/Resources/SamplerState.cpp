@@ -24,7 +24,7 @@ bool rend::SamplerState::init(const rend::SamplerDesc& desc) {
 	
 	HRESULT result = rend::D3D11Device::getInstance().getDevice1()->CreateSamplerState(&samplerDesc, &this->samplerState_);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create sampler state!");
+		CONSOLE_ERROR("Failed to create sampler state!");
 		return false;
 	}
 	

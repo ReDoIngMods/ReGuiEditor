@@ -51,7 +51,7 @@ bool rend::Renderer::init(HWND window) {
 	this->d3d11Device_->setShutdownCallback([this] { this->shutdownRenderObjects(); });
 
 	if (!this->d3d11Device_->init()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to initialize D3D11Device!");
+		CONSOLE_ERROR("Failed to initialize D3D11Device!");
 		return false;
 	}
 

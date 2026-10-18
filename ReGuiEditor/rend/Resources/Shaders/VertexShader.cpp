@@ -16,14 +16,14 @@
 
 bool rend::VertexShader::init(const std::string& shaderName, const std::string& entrypoint, std::vector<std::string> macros) {
 	if (!rend::ShaderManager::getInstance().loadBlob(shaderName, entrypoint, macros, rend::ShaderType::Vertex, &this->shaderBlob_)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to find or compile vertex shader: %s", shaderName.c_str());
+		CONSOLE_ERROR("Failed to find or compile vertex shader: %s", shaderName.c_str());
 		return false;
 	}
 
 	rend::RefCountPtr<ID3DBlob> rawBlob = this->shaderBlob_->getBlob();
 	HRESULT result = rend::D3D11Device::getInstance().getDevice1()->CreateVertexShader(rawBlob->GetBufferPointer(), rawBlob->GetBufferSize(), nullptr, &this->vertexShader_);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create vertex shader: %s", shaderName.c_str());
+		CONSOLE_ERROR("Failed to create vertex shader: %s", shaderName.c_str());
 		return false;
 	}
 

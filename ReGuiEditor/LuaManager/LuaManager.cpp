@@ -29,11 +29,8 @@ static int luaPanic(lua_State* L) {
 }
 
 static bool defineEnvironment(lua_State* L) {
-	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
-
-	std::string path = ENV_SCRIPT_PATH;
 	std::vector<char> content;
-	if (!filesystemManager.readFile(path, content)) {
+	if (!FilesystemManager::getInstance().readFile(ENV_SCRIPT_PATH, content)) {
 		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to read environment script %s.", ENV_SCRIPT_PATH);
 		return false;
 	}
@@ -61,7 +58,7 @@ bool LuaManager::initialize() {
 
 	lua_State* L = luaL_newstate();
 	if (!L) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create Lua state.");
+		CONSOLE_ERROR("Failed to create Lua state.");
 		return false;
 	}
 

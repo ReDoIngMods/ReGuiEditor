@@ -10,7 +10,12 @@ namespace UTILS {
 		size_t size_ = 0;
 		size_t position_ = 0;
 	public:
-		explicit ByteStreamReader(const char* data, size_t size) {
+		ByteStreamReader() = default;
+		
+		ByteStreamReader(const ByteStreamReader& other) = delete;
+		ByteStreamReader& operator=(const ByteStreamReader& other) = delete;
+
+		explicit ByteStreamReader(const void* data, size_t size) {
 			this->data_ = new char[size];
 			memcpy(this->data_, data, size);
 
@@ -21,6 +26,24 @@ namespace UTILS {
 			delete[] this->data_;
 		}
 		
+		void setData(const void* data, size_t size) {
+			delete[] this->data_;
+
+			if (data == nullptr || size == 0) {
+				this->data_ = nullptr;
+				this->size_ = 0;
+				this->position_ = 0;
+			
+				return;
+			}
+		
+			this->data_ = new char[size];
+			memcpy(this->data_, data, size);
+			
+			this->size_ = size;
+			this->position_ = 0;
+		}
+
 		uint8_t readByte() {
 			if (this->position_ + sizeof(uint8_t) > this->size_)
 				return 0;

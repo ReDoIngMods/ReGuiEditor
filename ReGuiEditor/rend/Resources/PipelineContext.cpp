@@ -40,7 +40,7 @@ bool rend::PipelineContext::init() {
 	D3D_FEATURE_LEVEL featureLevel = this->device1_->GetFeatureLevel();
 	HRESULT result = this->device1_->CreateDeviceContextState(0, &featureLevel, 1, D3D11_SDK_VERSION, __uuidof(ID3D11Device1), nullptr, &this->deviceContextState_);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create device context state! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create device context state! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -49,7 +49,7 @@ bool rend::PipelineContext::init() {
 
 bool rend::PipelineContext::begin() {
 	if (this->isActive_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Pipeline context already begun. Call end() before beginning again.");
+		CONSOLE_ERROR("Pipeline context already begun. Call end() before beginning again.");
 		return false;
 	}
 
@@ -61,7 +61,7 @@ bool rend::PipelineContext::begin() {
 
 bool rend::PipelineContext::end() {
 	if (!this->isActive_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Pipeline context not begun. Call begin() before ending.");
+		CONSOLE_ERROR("Pipeline context not begun. Call begin() before ending.");
 		return false;
 	}
 
@@ -150,7 +150,7 @@ void rend::PipelineContext::setConstantBuffers(rend::ShaderStage stage, uint32_t
 	case rend::ShaderStage::Vertex:	this->deviceContext1_->VSSetConstantBuffers(startSlot, count, d3dBuffers.data()); break;
 	case rend::ShaderStage::Pixel:  this->deviceContext1_->PSSetConstantBuffers(startSlot, count, d3dBuffers.data()); break;
 	default:
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unsupported shader stage for setting constant buffers");
+		CONSOLE_ERROR("Unsupported shader stage for setting constant buffers");
 		return;
 	}
 }
@@ -164,7 +164,7 @@ void rend::PipelineContext::setShaderResourceViews(rend::ShaderStage stage, uint
 	case rend::ShaderStage::Vertex:	this->deviceContext1_->VSSetShaderResources(startSlot, count, d3dSRVs.data()); break;
 	case rend::ShaderStage::Pixel:	this->deviceContext1_->PSSetShaderResources(startSlot, count, d3dSRVs.data()); break;
 	default:
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unsupported shader stage for setting shader resource views");
+		CONSOLE_ERROR("Unsupported shader stage for setting shader resource views");
 		return;
 	}
 }
@@ -178,7 +178,7 @@ void rend::PipelineContext::setSamplerStates(rend::ShaderStage stage, uint32_t s
 	case rend::ShaderStage::Vertex:	this->deviceContext1_->VSSetSamplers(startSlot, count, d3dSamplers.data()); break;
 	case rend::ShaderStage::Pixel:	this->deviceContext1_->PSSetSamplers(startSlot, count, d3dSamplers.data()); break;
 	default:
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unsupported shader stage for setting sampler states");
+		CONSOLE_ERROR("Unsupported shader stage for setting sampler states");
 		return;
 	}
 }

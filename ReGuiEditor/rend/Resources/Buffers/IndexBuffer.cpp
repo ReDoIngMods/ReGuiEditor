@@ -37,7 +37,7 @@ bool rend::IndexBuffer::init(rend::IndexBufferFormat format, uint32_t indexCount
 
 	uint32_t strideSize = rend::getIndexBufferFormatSize(format);
 	if (strideSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid index buffer format");
+		CONSOLE_ERROR("Invalid index buffer format");
 		return false;
 	}
 
@@ -60,7 +60,7 @@ bool rend::IndexBuffer::init(rend::IndexBufferFormat format, uint32_t indexCount
 	}
 
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create index buffer! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create index buffer! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -86,14 +86,14 @@ bool rend::IndexBuffer::resizeBuffer(uint32_t newCount, bool copyOldData, bool f
 		oldData.resize(this->bufferSize_);
 	
 		if (!this->readRawBuffer(oldData.data(), this->bufferSize_)) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read old data from index buffer for resizing");
+			CONSOLE_ERROR("Failed to read old data from index buffer for resizing");
 			return false;
 		}
 	}
 
 	uint32_t strideSize = rend::getIndexBufferFormatSize(this->format_);
 	if (strideSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid index buffer format during resize");
+		CONSOLE_ERROR("Invalid index buffer format during resize");
 		return false;
 	}
 
@@ -121,7 +121,7 @@ bool rend::IndexBuffer::resizeBuffer(uint32_t newCount, bool copyOldData, bool f
 	}
 
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create index buffer! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create index buffer! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -138,7 +138,7 @@ bool rend::IndexBuffer::changeFormat(rend::IndexBufferFormat newFormat, bool cop
 
 	uint32_t newStrideSize = rend::getIndexBufferFormatSize(newFormat);
 	if (newStrideSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid new index buffer format");
+		CONSOLE_ERROR("Invalid new index buffer format");
 		return false;
 	}
 	
@@ -147,7 +147,7 @@ bool rend::IndexBuffer::changeFormat(rend::IndexBufferFormat newFormat, bool cop
 		std::vector<BYTE> oldData(this->bufferSize_);
 
 		if (!this->readRawBuffer(oldData.data(), this->bufferSize_)) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read old data from index buffer for format change");
+			CONSOLE_ERROR("Failed to read old data from index buffer for format change");
 			return false;
 		}
 
@@ -171,7 +171,7 @@ bool rend::IndexBuffer::changeFormat(rend::IndexBufferFormat newFormat, bool cop
 
 			break;
 		default:
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unsupported index buffer format change");
+			CONSOLE_ERROR("Unsupported index buffer format change");
 			return false;
 		}
 	}
@@ -196,7 +196,7 @@ bool rend::IndexBuffer::changeFormat(rend::IndexBufferFormat newFormat, bool cop
 	}
 
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to recreate index buffer for format change! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to recreate index buffer for format change! HRESULT: 0x%08X", result);
 		return false;
 	}
 

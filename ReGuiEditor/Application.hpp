@@ -6,17 +6,12 @@
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
 
+#include "Window/Splashscreen.hpp"
 #include "Window/Window.hpp"
 
-#include "GUI/FontManager.hpp"
-#include "GUI/GuiSystemManager.hpp"
-#include "GUI/ImageManager.hpp"
+#include "MyGuiRenderer/GuiSystemManager.hpp"
 
-#include "GUI/WindowDecoration.hpp"
-
-#include "GUI/Panels/ExplorerPanel.hpp"
-#include "GUI/Panels/PropertiesPanel.hpp"
-#include "GUI/Panels/RenderPanel.hpp"
+#include "GUI/UIManager.hpp"
 
 #include <rend/Renderer.hpp>
 #include <rend/Resources/SwapChain.hpp>
@@ -35,8 +30,10 @@ public:
 
 	bool isRunning = true;
 	bool isInitialized = false;
+	bool isWindowShown = false;
 
 	Window window;
+	Splashscreen splashscreen;
 
 	rend::Renderer* renderer = nullptr;
 	rend::SwapChainHandle swapChain;
@@ -44,16 +41,9 @@ public:
 	ConfigManager* configManager = nullptr;
 	FilesystemManager* filesystemManager = nullptr;
 	UGCManager* ugcManager = nullptr;
-	FontManager* fontManager = nullptr;
 	GuiSystemManager* guiSystemManager = nullptr;
-	ImageManager* imageManager = nullptr;
 	LuaManager* luaManager = nullptr;
-
-	ExplorerPanel explorerPanel;
-	PropertiesPanel propertiesPanel;
-	RenderPanel renderPanel;
-
-	WindowDecoration windowDecoration;
+	UIManager* uiManager = nullptr;
 
 	LARGE_INTEGER frequency{};
 	LARGE_INTEGER counter{};

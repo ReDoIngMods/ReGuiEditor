@@ -34,7 +34,7 @@ inline static void UpdateBufferDescriptionVS(D3D11_BUFFER_DESC& desc, bool allow
 
 bool rend::VertexBuffer::init(uint32_t vertexSize, uint32_t vertexCount, const void* initialData, bool allowRead, bool allowWrite) {
 	if (vertexSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Vertex size must be greater than zero");
+		CONSOLE_ERROR("Vertex size must be greater than zero");
 		return false;
 	}
 
@@ -60,7 +60,7 @@ bool rend::VertexBuffer::init(uint32_t vertexSize, uint32_t vertexCount, const v
 	}
 
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create vertex buffer! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create vertex buffer! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -76,7 +76,7 @@ bool rend::VertexBuffer::init(uint32_t vertexSize, uint32_t vertexCount, const v
 
 bool rend::VertexBuffer::resizeBuffer(uint32_t newCount, bool copyOldData) {
 	if (newCount == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "New count must be greater than zero");
+		CONSOLE_ERROR("New count must be greater than zero");
 		return false;
 	}
 
@@ -88,7 +88,7 @@ bool rend::VertexBuffer::resizeBuffer(uint32_t newCount, bool copyOldData) {
 		oldData.resize(this->bufferSize_);
 	
 		if (!this->readRawBuffer(oldData.data(), this->bufferSize_)) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read old buffer data for resizing");
+			CONSOLE_ERROR("Failed to read old buffer data for resizing");
 			return false;
 		}
 	}
@@ -116,7 +116,7 @@ bool rend::VertexBuffer::resizeBuffer(uint32_t newCount, bool copyOldData) {
 	}
 
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to resize vertex buffer! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to resize vertex buffer! HRESULT: 0x%08X", result);
 		return false;
 	}
 

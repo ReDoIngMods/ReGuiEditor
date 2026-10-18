@@ -13,7 +13,7 @@ namespace rend {
 	public:
 		[[nodiscard]] rend::RefCountPtr<ID3D11ShaderResourceView> getShaderResourceView() const {
 			if (!this->isShaderResourceViewSupported_) {
-				CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Shader resource view is not supported for this resource");
+				CONSOLE_ERROR("Shader resource view is not supported for this resource");
 				return nullptr;
 			}
 

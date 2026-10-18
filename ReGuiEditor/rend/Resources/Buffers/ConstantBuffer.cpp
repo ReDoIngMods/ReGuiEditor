@@ -15,7 +15,7 @@
 
 bool rend::ConstantBuffer::init(uint32_t dataSize, const void* initialData) {
 	if (dataSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Data size must be greater than zero");
+		CONSOLE_ERROR("Data size must be greater than zero");
 		return false;
 	}
 
@@ -44,7 +44,7 @@ bool rend::ConstantBuffer::init(uint32_t dataSize, const void* initialData) {
 	}
 
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create constant buffer! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create constant buffer! HRESULT: 0x%08X", result);
 		return false;
 	}
 

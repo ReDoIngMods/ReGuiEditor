@@ -30,7 +30,7 @@ bool rend::DepthStencilState::init(const rend::DepthStencilDesc& desc) {
 	
 	HRESULT result = rend::D3D11Device::getInstance().getDevice1()->CreateDepthStencilState(&depthStencilDesc, &this->depthStencilState_);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create depth stencil state! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create depth stencil state! HRESULT: 0x%08X", result);
 		return false;
 	}
 

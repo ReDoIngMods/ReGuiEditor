@@ -27,7 +27,7 @@ bool rend::BlendState::init(const rend::BlendDesc& desc) {
 
 	HRESULT result = rend::D3D11Device::getInstance().getDevice1()->CreateBlendState(&blendDesc, &this->blendState_);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create blend state!");
+		CONSOLE_ERROR("Failed to create blend state!");
 		return false;
 	}
 	

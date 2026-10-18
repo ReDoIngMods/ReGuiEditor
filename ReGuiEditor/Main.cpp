@@ -21,7 +21,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	SteamErrMsg errMsg;
 	if (SteamAPI_InitEx(&errMsg) != k_ESteamAPIInitResult_OK) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to initialize Steam API. Error Message: %s", errMsg);
+		CONSOLE_ERROR("Failed to initialize Steam API. Error Message: %s", errMsg);
 		return false;
 	}
 
@@ -32,7 +32,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	Application* application = Application::createInstance();
 	if (!application->initialize()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, L"Failed to initialize application");
+		CONSOLE_ERROR(L"Failed to initialize application");
 
 		application->destroyInstance();
 		return 1;

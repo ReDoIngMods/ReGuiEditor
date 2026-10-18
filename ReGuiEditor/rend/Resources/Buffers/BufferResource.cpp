@@ -21,17 +21,17 @@ uint32_t rend::BufferResource::getBufferSize() const {
 
 bool rend::BufferResource::mapBuffer(void** data, rend::BufferMapType mapType) {
 	if (!this->buffer_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Cannot map an uninitialised buffer");
+		CONSOLE_ERROR("Cannot map an uninitialised buffer");
 		return false;
 	}
 
 	if (!data) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Data pointer is null");
+		CONSOLE_ERROR("Data pointer is null");
 		return false;
 	}
 
 	if (this->isMapped_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Buffer is already mapped");
+		CONSOLE_ERROR("Buffer is already mapped");
 		return false;
 	}
 
@@ -41,7 +41,7 @@ bool rend::BufferResource::mapBuffer(void** data, rend::BufferMapType mapType) {
 		d3dMapType = D3D11_MAP_READ;
 
 		if (!this->allowReadAccess_) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Buffer was not created with read access");
+			CONSOLE_ERROR("Buffer was not created with read access");
 			return false;
 		}
 
@@ -50,7 +50,7 @@ bool rend::BufferResource::mapBuffer(void** data, rend::BufferMapType mapType) {
 		d3dMapType = D3D11_MAP_WRITE;
 
 		if (!this->allowWriteAccess_) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Buffer was not created with write access");
+			CONSOLE_ERROR("Buffer was not created with write access");
 			return false;
 		}
 
@@ -59,7 +59,7 @@ bool rend::BufferResource::mapBuffer(void** data, rend::BufferMapType mapType) {
 		d3dMapType = D3D11_MAP_READ_WRITE;
 
 		if (!this->allowReadAccess_ || !this->allowWriteAccess_) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Buffer was not created with read/write access");
+			CONSOLE_ERROR("Buffer was not created with read/write access");
 			return false;
 		}
 
@@ -68,7 +68,7 @@ bool rend::BufferResource::mapBuffer(void** data, rend::BufferMapType mapType) {
 		d3dMapType = D3D11_MAP_WRITE_DISCARD;
 
 		if (!this->allowWriteAccess_) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Buffer was not created with write access");
+			CONSOLE_ERROR("Buffer was not created with write access");
 			return false;
 		}
 
@@ -77,20 +77,20 @@ bool rend::BufferResource::mapBuffer(void** data, rend::BufferMapType mapType) {
 		d3dMapType = D3D11_MAP_WRITE_NO_OVERWRITE;
 
 		if (!this->allowWriteAccess_) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Buffer was not created with write access");
+			CONSOLE_ERROR("Buffer was not created with write access");
 			return false;
 		}
 
 		break;
 	default:
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid BufferMapType specified");
+		CONSOLE_ERROR("Invalid BufferMapType specified");
 		return false;
 	}
 
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	HRESULT result = rend::D3D11Device::getInstance().getDeviceContext1()->Map(this->buffer_, 0, d3dMapType, 0, &mappedResource);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map buffer resource! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to map buffer resource! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -102,12 +102,12 @@ bool rend::BufferResource::mapBuffer(void** data, rend::BufferMapType mapType) {
 
 bool rend::BufferResource::unmapBuffer() {
 	if (!this->buffer_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Cannot unmap an uninitialised buffer");
+		CONSOLE_ERROR("Cannot unmap an uninitialised buffer");
 		return false;
 	}
 
 	if (!this->isMapped_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Buffer is not mapped");
+		CONSOLE_ERROR("Buffer is not mapped");
 		return false;
 	}
 
@@ -119,30 +119,30 @@ bool rend::BufferResource::unmapBuffer() {
 
 bool rend::BufferResource::readRawBuffer(void* destination, uint32_t size) {
 	if (!this->buffer_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Cannot read from an uninitialised buffer");
+		CONSOLE_ERROR("Cannot read from an uninitialised buffer");
 		return false;
 	}
 
 	if (!destination) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Destination pointer is null");
+		CONSOLE_ERROR("Destination pointer is null");
 		return false;
 	}
 
 	if (size > this->getBufferSize()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Read size exceeds buffer size");
+		CONSOLE_ERROR("Read size exceeds buffer size");
 		return false;
 	}
 
 	void* data = nullptr;
 	if (!this->mapBuffer(&data, rend::BufferMapType::Read)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map buffer for reading");
+		CONSOLE_ERROR("Failed to map buffer for reading");
 		return false;
 	}
 
 	memcpy(destination, data, size);
 
 	if (!this->unmapBuffer()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to unmap buffer after reading");
+		CONSOLE_ERROR("Failed to unmap buffer after reading");
 		return false;
 	}
 
@@ -151,30 +151,30 @@ bool rend::BufferResource::readRawBuffer(void* destination, uint32_t size) {
 
 bool rend::BufferResource::writeRawBuffer(const void* source, uint32_t size) {
 	if (!this->buffer_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Cannot write to an uninitialised buffer");
+		CONSOLE_ERROR("Cannot write to an uninitialised buffer");
 		return false;
 	}
 
 	if (!source) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Source pointer is null");
+		CONSOLE_ERROR("Source pointer is null");
 		return false;
 	}
 
 	if (size > this->getBufferSize()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Write size exceeds buffer size");
+		CONSOLE_ERROR("Write size exceeds buffer size");
 		return false;
 	}
 
 	void* data = nullptr;
 	if (!this->mapBuffer(&data, rend::BufferMapType::WriteDiscard)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map buffer for writing");
+		CONSOLE_ERROR("Failed to map buffer for writing");
 		return false;
 	}
 
 	memcpy(data, source, size);
 
 	if (!this->unmapBuffer()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to unmap buffer after writing");
+		CONSOLE_ERROR("Failed to unmap buffer after writing");
 		return false;
 	}
 

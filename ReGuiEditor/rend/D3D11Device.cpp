@@ -35,19 +35,19 @@ bool rend::D3D11Device::createDevice() {
 	}
 
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create D3D11 device! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create D3D11 device! HRESULT: 0x%08X", result);
 		return false;
 	}
 
 	result = device->QueryInterface(IID_PPV_ARGS(&this->device1_));
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to query ID3D11Device1 interface! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to query ID3D11Device1 interface! HRESULT: 0x%08X", result);
 		return false;
 	}
 
 	result = deviceContext->QueryInterface(IID_PPV_ARGS(&this->deviceContext1_));
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to query ID3D11DeviceContext1 interface! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to query ID3D11DeviceContext1 interface! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -85,7 +85,7 @@ bool rend::D3D11Device::init() {
 	this->isInitialized_ = true;
 
 	if (this->initCallback_ && !this->initCallback_()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Renderer initialization callback failed!");
+		CONSOLE_ERROR("Renderer initialization callback failed!");
 		return false;
 	}
 

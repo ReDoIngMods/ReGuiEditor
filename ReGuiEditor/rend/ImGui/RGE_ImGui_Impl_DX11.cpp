@@ -102,7 +102,7 @@ bool RGE_ImGui_ImplDX11_Init() {
 
 	ImGuiIO& io = ImGui::GetIO();
 	if (io.BackendRendererUserData != nullptr || io.BackendRendererName != nullptr) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "A existing renderer backend is already initialized! Please shutdown the current one first!");
+		CONSOLE_ERROR("A existing renderer backend is already initialized! Please shutdown the current one first!");
 		return false;
 	}
 
@@ -115,14 +115,14 @@ bool RGE_ImGui_ImplDX11_Init() {
 
 	backendData->pipelineContext = rend::ResourceManager::getInstance().createPipelineContext("RGE_ImGui_ImplDX11_PipelineContext");
 	if (!backendData->pipelineContext) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create rend::PipelineContext for ImGui DX11 backend!");
+		CONSOLE_ERROR("Failed to create rend::PipelineContext for ImGui DX11 backend!");
 
 		RGE_ImGui_ImplDX11_Shutdown();
 		return false;
 	}
 
 	if (!RGE_ImGui_ImplDX11_CreateDeviceObjects()) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create device objects for ImGui DX11 backend!");
+		CONSOLE_ERROR("Failed to create device objects for ImGui DX11 backend!");
 
 		RGE_ImGui_ImplDX11_Shutdown();
 		return false;
@@ -193,23 +193,23 @@ void RGE_ImGui_ImplDX11_RenderDrawData(ImDrawData* drawData, rend::RenderView* r
 	constantBufferData.resolution[0] = drawData->DisplaySize.x;
 	constantBufferData.resolution[1] = drawData->DisplaySize.y;
 	if (!backendData->constantBuffer->writeRawBuffer(&constantBufferData, sizeof(constantBufferData))) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to update ImGui constant buffer!");
+		CONSOLE_ERROR("Failed to update ImGui constant buffer!");
 		return;
 	}
 
 	if (!backendData->indexBuffer->resizeBuffer(drawData->TotalIdxCount)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to resize ImGui vertex or index buffer!");
+		CONSOLE_ERROR("Failed to resize ImGui vertex or index buffer!");
 		return;
 	}
 
 	if (!backendData->vertexBuffer->resizeBuffer(drawData->TotalVtxCount)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to resize ImGui vertex or index buffer!");
+		CONSOLE_ERROR("Failed to resize ImGui vertex or index buffer!");
 		return;
 	}
 
 	ImDrawVert* vertexDestination = nullptr;
 	if (!backendData->vertexBuffer->mapBuffer<ImDrawVert>(&vertexDestination, rend::BufferMapType::WriteDiscard)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map ImGui vertex buffer!");
+		CONSOLE_ERROR("Failed to map ImGui vertex buffer!");
 		return;
 	}
 
@@ -217,7 +217,7 @@ void RGE_ImGui_ImplDX11_RenderDrawData(ImDrawData* drawData, rend::RenderView* r
 	if (!backendData->indexBuffer->mapBuffer<ImDrawIdx>(&indexDestination, rend::BufferMapType::WriteDiscard)) {
 		(void)backendData->vertexBuffer->unmapBuffer();
 
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map ImGui index buffer!");
+		CONSOLE_ERROR("Failed to map ImGui index buffer!");
 		return;
 	}
 
@@ -317,14 +317,14 @@ bool RGE_ImGui_ImplDX11_CreateDeviceObjects() {
 	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
 	backendData->vertexShader = resourceManager.createVertexShader("$RGE_DATA/shaders/gui_imgui.hlsl", "vsMain");
 	if (!backendData->vertexShader) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui vertex shader!");
+		CONSOLE_ERROR("Failed to create ImGui vertex shader!");
 		return false;
 	}
 	backendData->vertexShader->setDebugName("RGE_ImGui_ImplDX11_VertexShader");
 
 	backendData->pixelShader = resourceManager.createPixelShader("$RGE_DATA/shaders/gui_imgui.hlsl", "psMain");
 	if (!backendData->pixelShader) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui pixel shader!");
+		CONSOLE_ERROR("Failed to create ImGui pixel shader!");
 		return false;
 	}
 	backendData->pixelShader->setDebugName("RGE_ImGui_ImplDX11_PixelShader");
@@ -336,28 +336,28 @@ bool RGE_ImGui_ImplDX11_CreateDeviceObjects() {
 
 	backendData->inputLayout = resourceManager.createInputLayout(inputLayoutDesc, backendData->vertexShader);
 	if (!backendData->inputLayout) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui input layout!");
+		CONSOLE_ERROR("Failed to create ImGui input layout!");
 		return false;
 	}
 	backendData->inputLayout->setDebugName("RGE_ImGui_ImplDX11_InputLayout");
 
 	backendData->constantBuffer = resourceManager.createConstantBuffer(sizeof(RGE_ImGui_ImplDX11_ConstantBuffer), nullptr);
 	if (!backendData->constantBuffer) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui constant buffer!");
+		CONSOLE_ERROR("Failed to create ImGui constant buffer!");
 		return false;
 	}
 	backendData->constantBuffer->setDebugName("RGE_ImGui_ImplDX11_ConstantBuffer");
 
 	backendData->vertexBuffer = resourceManager.createVertexBuffer(sizeof(ImDrawVert));
 	if (!backendData->vertexBuffer) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui vertex buffer!");
+		CONSOLE_ERROR("Failed to create ImGui vertex buffer!");
 		return false;
 	}
 	backendData->vertexBuffer->setDebugName("RGE_ImGui_ImplDX11_VertexBuffer");
 
 	backendData->indexBuffer = resourceManager.createIndexBuffer(sizeof(ImDrawIdx) == 2 ? rend::IndexBufferFormat::UInt16 : rend::IndexBufferFormat::UInt32);
 	if (!backendData->indexBuffer) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui index buffer!");
+		CONSOLE_ERROR("Failed to create ImGui index buffer!");
 		return false;
 	}
 	backendData->indexBuffer->setDebugName("RGE_ImGui_ImplDX11_IndexBuffer");
@@ -369,28 +369,28 @@ bool RGE_ImGui_ImplDX11_CreateDeviceObjects() {
 
 	backendData->rasterizerState = resourceManager.createRasterizerState(rasterizerDesc);
 	if (!backendData->rasterizerState) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui rasterizer state!");
+		CONSOLE_ERROR("Failed to create ImGui rasterizer state!");
 		return false;
 	}
 	backendData->rasterizerState->setDebugName("RGE_ImGui_ImplDX11_RasterizerState");
 
 	backendData->blendState = resourceManager.createDefaultBlendState();
 	if (!backendData->blendState) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui blend state!");
+		CONSOLE_ERROR("Failed to create ImGui blend state!");
 		return false;
 	}
 	backendData->blendState->setDebugName("RGE_ImGui_ImplDX11_BlendState");
 
 	backendData->samplerState = resourceManager.createLinearSamplerState(rend::SamplerAddressMode::Clamp);
 	if (!backendData->samplerState) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui sampler state!");
+		CONSOLE_ERROR("Failed to create ImGui sampler state!");
 		return false;
 	}
 	backendData->samplerState->setDebugName("RGE_ImGui_ImplDX11_SamplerState");
 
 	backendData->depthStencilState = resourceManager.createDefaultDepthStencilState();
 	if (!backendData->depthStencilState) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui depth stencil state!");
+		CONSOLE_ERROR("Failed to create ImGui depth stencil state!");
 		return false;
 	}
 	backendData->depthStencilState->setDebugName("RGE_ImGui_ImplDX11_DepthStencilState");
@@ -430,7 +430,7 @@ void RGE_ImGui_ImplDX11_UpdateTexture(ImTextureData* textureData) {
 		rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
 		rend::Texture2DHandle texture = resourceManager.createTexture2D(textureData->Width, textureData->Height, rend::Format::R8G8B8A8_UNORM, rend::Texture2DFlags::ShaderResource);
 		if (!texture) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui texture!");
+			CONSOLE_ERROR("Failed to create ImGui texture!");
 
 			textureData->SetTexID(ImTextureID_Invalid);
 			textureData->SetStatus(ImTextureStatus_Destroyed);
@@ -438,7 +438,7 @@ void RGE_ImGui_ImplDX11_UpdateTexture(ImTextureData* textureData) {
 		}
 
 		if (!texture->writeData(pixels, textureData->Width * textureData->Height * textureData->BytesPerPixel)) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to write data to ImGui texture!");
+			CONSOLE_ERROR("Failed to write data to ImGui texture!");
 
 			textureData->SetTexID(ImTextureID_Invalid);
 			textureData->SetStatus(ImTextureStatus_Destroyed);
@@ -456,7 +456,7 @@ void RGE_ImGui_ImplDX11_UpdateTexture(ImTextureData* textureData) {
 	else if (textureData->Status == ImTextureStatus_WantUpdates) {
 		rend::Texture2D* texture = static_cast<rend::Texture2D*>(textureData->BackendUserData);
 		if (!texture) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "ImGui texture update requested but no backend texture found!");
+			CONSOLE_ERROR("ImGui texture update requested but no backend texture found!");
 
 			textureData->SetTexID(ImTextureID_Invalid);
 			textureData->SetStatus(ImTextureStatus_Destroyed);
@@ -469,7 +469,7 @@ void RGE_ImGui_ImplDX11_UpdateTexture(ImTextureData* textureData) {
 			size_t srcPitch = static_cast<size_t>(textureData->Width) * textureData->BytesPerPixel;
 
 			if (!texture->writeDataRegion(pixels, updateSize, updateRect.x, updateRect.y, updateRect.w, updateRect.h, static_cast<uint32_t>(srcPitch)))
-				CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to update ImGui texture region (%d, %d, %d, %d)!", updateRect.x, updateRect.y, updateRect.w, updateRect.h);
+				CONSOLE_ERROR("Failed to update ImGui texture region (%d, %d, %d, %d)!", updateRect.x, updateRect.y, updateRect.w, updateRect.h);
 		}
 
 		textureData->SetStatus(ImTextureStatus_OK);
@@ -518,14 +518,14 @@ static void RGE_ImGui_ImplDX11_CreateWindow(ImGuiViewport* viewport) {
 
 	void* hwnd = viewport->PlatformHandleRaw ? viewport->PlatformHandleRaw : viewport->PlatformHandle;
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ImGui viewport window: Invalid HWND!");
+		CONSOLE_ERROR("Failed to create ImGui viewport window: Invalid HWND!");
 		return;
 	}
 
 	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
 	viewportData->swapChain = resourceManager.createSwapChain(hwnd);
 	if (!viewportData->swapChain) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create rend::SwapChain for ImGui viewport window!");
+		CONSOLE_ERROR("Failed to create rend::SwapChain for ImGui viewport window!");
 		return;
 	}
 }

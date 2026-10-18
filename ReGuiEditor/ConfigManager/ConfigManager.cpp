@@ -29,7 +29,7 @@ ConfigManager::ConfigManager() {
 	this->createConfig("mygui.canvas.height", 1080);
 
 	if (!this->saveConfig())
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to save config.");
+		CONSOLE_ERROR("Failed to save config.");
 }
 
 ConfigManager::~ConfigManager() {
@@ -38,12 +38,12 @@ ConfigManager::~ConfigManager() {
 
 bool ConfigManager::loadConfig() {
 	FilesystemManager& fsManager = FilesystemManager::getInstance();
-	if (!fsManager.fileExists(CONFIG_FILE_PATH))
+	if (!fsManager.exists(CONFIG_FILE_PATH))
 		return false;
 
 	std::string configContent;
 	if (!fsManager.readFile(CONFIG_FILE_PATH, configContent)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read config file.");
+		CONSOLE_ERROR("Failed to read config file.");
 		return false;
 	}
 
@@ -52,12 +52,12 @@ bool ConfigManager::loadConfig() {
 	{ // Identifier check
 		char identifier[4];
 		if (!reader.readBytes(identifier, sizeof(identifier))) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to read config identifier.");
+			CONSOLE_ERROR("Failed to read config identifier.");
 			return false;
 		}
 
 		if (strncmp(identifier, "RGEC", 4) != 0) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid config identifier.");
+			CONSOLE_ERROR("Invalid config identifier.");
 			return false;
 		}
 	}
@@ -65,7 +65,7 @@ bool ConfigManager::loadConfig() {
 	{ // Version check
 		uint8_t version = reader.readByte();
 		if (version != 1) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unsupported config version: %d", version);
+			CONSOLE_ERROR("Unsupported config version: %d", version);
 			return false;
 		}
 	}
@@ -76,24 +76,20 @@ bool ConfigManager::loadConfig() {
 		ConfigValueType valueType = static_cast<ConfigValueType>(reader.readByte());
 
 		switch (valueType) {
-		case CONFIG_VALUE_BOOL: {
+		case CONFIG_VALUE_BOOL:
 			this->data_[key] = reader.read<bool>();
 			break;
-		}
-		case CONFIG_VALUE_INT: {
+		case CONFIG_VALUE_INT:
 			this->data_[key] = reader.read<int>();
 			break;
-		}
-		case CONFIG_VALUE_FLOAT: {
+		case CONFIG_VALUE_FLOAT:
 			this->data_[key] = reader.read<float>();
 			break;
-		}
-		case CONFIG_VALUE_STRING: {
+		case CONFIG_VALUE_STRING:
 			this->data_[key] = reader.readString();
 			break;
-		}
 		default:
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unknown config value type for entry %d.", index);
+			CONSOLE_ERROR("Unknown config value type for entry %d.", index);
 			return false;
 		}
 	}
@@ -128,13 +124,13 @@ bool ConfigManager::saveConfig() {
 			writer.write(CONFIG_VALUE_STRING);
 			writer.writeString(std::get<std::string>(value));
 		} else {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unknown config value type for key: %s", key.c_str());
+			CONSOLE_ERROR("Unknown config value type for key: %s", key.c_str());
 			return false;
 		}
 	}
 
 	if (!FilesystemManager::getInstance().writeFile(CONFIG_FILE_PATH, writer.toString())) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to write config file.");
+		CONSOLE_ERROR("Failed to write config file.");
 		return false;
 	}
 

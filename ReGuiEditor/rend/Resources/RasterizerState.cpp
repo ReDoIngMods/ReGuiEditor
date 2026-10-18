@@ -21,7 +21,7 @@ bool rend::RasterizerState::init(const rend::RasterizerDesc& desc) {
 	
 	HRESULT result = rend::D3D11Device::getInstance().getDevice1()->CreateRasterizerState(&rasterizerDesc, &this->rasterizerState_);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create rasterizer state!");
+		CONSOLE_ERROR("Failed to create rasterizer state!");
 		return false;
 	}
 	

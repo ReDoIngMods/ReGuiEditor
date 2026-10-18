@@ -1,19 +1,20 @@
+
 #include "wrap_sm_json.hpp" // VCIC-Excluded
 
 #include "../LuaVM.hpp"
 
 #include <FilesystemManager/FilesystemManager.hpp>
 
+#include <JSON/JSONObject.hpp>
+#include <JSON/JSONParser.hpp>
+#include <JSON/JSONWriter.hpp>
+
 #include <UTILS/Strings.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
-#include <nlohmann/detail/output/serializer.hpp>
-#include <nlohmann/detail/value_t.hpp>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
-
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,20 +37,22 @@ inline static int raiseError(lua_State* L, std::string& error) {
 
 	const std::string& modLocalId = luaVM->getModLocalId();
 	if (!FilesystemManager::getInstance().resolveContentData(path, modLocalId)) {
-		error = UTILS::formatString("Failed to resolve path '%s.", path);
+		error = UTILS::formatString("Failed to resolve path '%s'.", path);
 		return false;
 	}
 
 	return true;
 }
 
-inline static void pushJson(lua_State* L, const nlohmann::json& value, int depth) {
-	switch (value.type()) {
-	case nlohmann::json::value_t::object:
-		lua_createtable(L, 0, static_cast<int>(value.size()));
+inline static void pushJson(lua_State* L, const JSONValue& value, int depth) {
+	switch (value.getType()) {
+	case JSONType::Object: {
+		const JSONObject& object = value.get<JSONObject>();
 
-		for (const auto& [key, child] : value.items()) {
-			if (child.is_null())
+		lua_createtable(L, 0, static_cast<int>(object.size()));
+
+		for (const auto& [key, child] : object) {
+			if (child.isNull())
 				continue;
 
 			lua_pushlstring(L, key.data(), key.size());
@@ -58,54 +61,38 @@ inline static void pushJson(lua_State* L, const nlohmann::json& value, int depth
 		}
 
 		break;
-	case nlohmann::json::value_t::array: {
-		lua_createtable(L, static_cast<int>(value.size()), 0);
+	}
+	case JSONType::Array: {
+		const JSONArray& array = value.get<JSONArray>();
 
-		int index = 1;
-		for (const auto& child : value) {
-			pushJson(L, child, depth + 1);
-			lua_rawseti(L, -2, index++);
+		lua_createtable(L, static_cast<int>(array.size()), 0);
+		for (size_t index = 0; index < array.size(); ++index) {
+			pushJson(L, array[index], depth + 1);
+			lua_rawseti(L, -2, static_cast<int>(index + 1));
 		}
 
 		break;
 	}
-	case nlohmann::json::value_t::string: {
-		const auto& str = value.get_ref<const std::string&>();
-		lua_pushlstring(L, str.data(), str.size());
-
+	case JSONType::String:
+		lua_pushstring(L, value.get<std::string>().c_str());
 		break;
-	}
-	case nlohmann::json::value_t::boolean:
+	case JSONType::Boolean:
 		lua_pushboolean(L, value.get<bool>());
 		break;
-	case nlohmann::json::value_t::number_integer:
-	case nlohmann::json::value_t::number_unsigned:
-	case nlohmann::json::value_t::number_float:
-		lua_pushnumber(L, value.get<lua_Number>());
+	case JSONType::Number:
+		lua_pushnumber(L, value.get<double>());
 		break;
+	case JSONType::Null:
 	default:
 		lua_pushnil(L);
 		break;
 	}
 }
 
-inline static bool parseJson(lua_State* L, const char* data, size_t length, std::string& error) {
-	nlohmann::json document;
+inline static void toJson(lua_State* L, int index, int depth, JSONValue& output) {
+	if (index < 0 && index > LUA_REGISTRYINDEX)
+		index = lua_gettop(L) + index + 1;
 
-	try {
-		document = nlohmann::json::parse(data, data + length);
-	} catch (const nlohmann::json::parse_error& e) {
-		// TODO: Make this accurate to the actual error message from SM
-
-		error = e.what();
-		return false;
-	}
-
-	pushJson(L, document, 0);
-	return true;
-}
-
-inline static void toJson(lua_State* L, int index, int depth, nlohmann::json& output) {
 	switch (lua_type(L, index)) {
 	case LUA_TNIL:
 		output = nullptr;
@@ -127,56 +114,69 @@ inline static void toJson(lua_State* L, int index, int depth, nlohmann::json& ou
 	}
 
 	size_t entries = 0;
+
 	lua_pushnil(L);
-	while (lua_next(L, index)) {
+	while (lua_next(L, index) != 0) {
 		++entries;
 		lua_pop(L, 1);
 	}
 
-	const int length = static_cast<int>(lua_objlen(L, index));
-	bool isArray = entries == static_cast<size_t>(length);
+	const size_t length = lua_objlen(L, index);
 
-	for (int objectIndex = 1; isArray && objectIndex <= length; ++objectIndex) {
-		lua_rawgeti(L, index, objectIndex);
-		isArray = !lua_isnil(L, -1);
+	bool isArray = entries == length;
+	for (size_t objectIndex = 1; isArray && objectIndex <= length; ++objectIndex) {
+		lua_rawgeti(L, index, static_cast<int>(objectIndex));
+
+		if (lua_isnil(L, -1))
+			isArray = false;
 
 		lua_pop(L, 1);
 	}
 
 	if (isArray) {
-		output = nlohmann::json::array();
+		JSONArray array;
+		array.reserve(length);
 
-		for (int objectIndex = 1; objectIndex <= length; ++objectIndex) {
-			lua_rawgeti(L, index, objectIndex);
-			toJson(L, lua_gettop(L), depth + 1, output.emplace_back());
+		for (size_t objectIndex = 1; objectIndex <= length; ++objectIndex) {
+			lua_rawgeti(L, index, static_cast<int>(objectIndex));
+
+			array.emplace_back();
+			toJson(L, -1, depth + 1, array.back());
+
 			lua_pop(L, 1);
 		}
 
+		output = std::move(array);
 		return;
 	}
 
-	output = nlohmann::json::object();
+	JSONObject object;
 
 	lua_pushnil(L);
+	while (lua_next(L, index) != 0) {
+		if (lua_type(L, -2) == LUA_TSTRING) {
+			size_t keyLength = 0;
+			const char* key = lua_tolstring(L, -2, &keyLength);
 
-	while (lua_next(L, index)) {
-		if (lua_type(L, -2) != LUA_TSTRING) {
-			lua_pop(L, 1);
-			continue;
+			std::string keyString(key, keyLength);
+
+			JSONValue child;
+			toJson(L, -1, depth + 1, child);
+
+			object[keyString] = std::move(child);
 		}
-
-		std::string key = lua_tostring(L, -2);
-		toJson(L, lua_gettop(L), depth + 1, output[std::move(key)]);
 
 		lua_pop(L, 1);
 	}
+
+	output = std::move(object);
 }
 
 inline static bool stringifyJson(lua_State* L, int index, bool pretty, std::string& output, std::string& error) {
-	nlohmann::json document;
+	JSONValue document;
 	toJson(L, index, 0, document);
 
-	output = document.dump(pretty ? 4 : -1, ' ', false, nlohmann::json::error_handler_t::replace);
+	output = JSONWriter::stringify(document, pretty);
 	return true;
 }
 
@@ -185,13 +185,18 @@ inline static bool openJson(lua_State* L, const char* path, std::string& error) 
 	if (!resolveModPath(L, resolvedPath, error))
 		return false;
 
-	std::vector<char> content;
+	std::string content;
 	if (!FilesystemManager::getInstance().readFile(resolvedPath, content)) {
 		error = "Failed to read file '" + resolvedPath + "'.";
 		return false;
 	}
 
-	return parseJson(L, content.data(), content.size(), error);
+	JSONValue document;
+	if (!JSONParser::parseJson(content, document))
+		return false;
+	
+	pushJson(L, document, 0);
+	return true;
 }
 
 [[nodiscard]] inline static bool saveJson(lua_State* L, int index, const char* path, std::string& error) {
@@ -213,20 +218,20 @@ inline static bool openJson(lua_State* L, const char* path, std::string& error) 
 
 static int sm_json_fileExists(lua_State* L) {
 	std::string path = luaL_checkstring(L, 1);
-	
+
 	std::string error;
 	if (!resolveModPath(L, path, error)) {
 		lua_pushboolean(L, false);
 		return 1;
 	}
 
-	std::vector<char> content;
-	if (!FilesystemManager::getInstance().readFile(path, content)) {
+	std::filesystem::path resolvedPath;
+	if (!FilesystemManager::getInstance().resolveDirectory(path, resolvedPath)) {
 		lua_pushboolean(L, false);
 		return 1;
 	}
 
-	lua_pushboolean(L, true);
+	lua_pushboolean(L, std::filesystem::exists(resolvedPath));
 	return 1;
 }
 
@@ -244,19 +249,23 @@ static int sm_json_parseJsonString(lua_State* L) {
 	size_t length = 0;
 	const char* str = luaL_checklstring(L, 1, &length);
 
-	std::string error;
-	if (!parseJson(L, str, length, error))
+	JSONValue document;
+	if (!JSONParser::parseJson(str, length, document)) {
+		std::string error = "Failed to parse JSON string.";
 		return raiseError(L, error);
+	}
 
+	pushJson(L, document, 0);
 	return 1;
 }
 
 static int sm_json_writeJsonString(lua_State* L) {
 	luaL_checktype(L, 1, LUA_TTABLE);
 
-	const bool pretty = lua_toboolean(L, 2) != 0;
+	bool pretty = lua_toboolean(L, 2) != 0;
 
-	std::string output, error;
+	std::string output;
+	std::string error;
 	if (!stringifyJson(L, 1, pretty, output, error))
 		return raiseError(L, error);
 

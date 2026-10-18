@@ -16,17 +16,17 @@
 
 bool rend::Texture2D::init(uint32_t width, uint32_t height, rend::Format format, rend::Texture2DFlags flags) {
 	if (width == 0 || height == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid texture dimensions: %ux%u", width, height);
+		CONSOLE_ERROR("Invalid texture dimensions: %ux%u", width, height);
 		return false;
 	}
 
 	if (!(flags & rend::Texture2DFlags::ShaderResource) && !(flags & rend::Texture2DFlags::RenderTarget) && !(flags & rend::Texture2DFlags::StagingRead)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid texture flags: must specify at least one of ShaderResource, RenderTarget, or StagingRead");
+		CONSOLE_ERROR("Invalid texture flags: must specify at least one of ShaderResource, RenderTarget, or StagingRead");
 		return false;
 	}
 
 	if ((flags & rend::Texture2DFlags::DynamicWrite) && (flags & rend::Texture2DFlags::StagingRead)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid texture flags: cannot specify both DynamicWrite and StagingRead");
+		CONSOLE_ERROR("Invalid texture flags: cannot specify both DynamicWrite and StagingRead");
 		return false;
 	}
 
@@ -63,7 +63,7 @@ bool rend::Texture2D::init(uint32_t width, uint32_t height, rend::Format format,
 	rend::RefCountPtr<ID3D11Device1> device = rend::D3D11Device::getInstance().getDevice1();
 	HRESULT result = device->CreateTexture2D(&desc, nullptr, this->texture_.getAddressOf());
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create texture! HRESULT: 0x%X", result);
+		CONSOLE_ERROR("Failed to create texture! HRESULT: 0x%X", result);
 		return false;
 	}
 
@@ -76,7 +76,7 @@ bool rend::Texture2D::init(uint32_t width, uint32_t height, rend::Format format,
 
 		result = device->CreateShaderResourceView(this->texture_, &srvDesc, this->shaderResourceView_.getAddressOf());
 		if (FAILED(result)) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ShaderResourceView for Texture2D! HRESULT: 0x%X", result);
+			CONSOLE_ERROR("Failed to create ShaderResourceView for Texture2D! HRESULT: 0x%X", result);
 			
 			this->texture_.reset();
 			return false;
@@ -93,7 +93,7 @@ bool rend::Texture2D::init(uint32_t width, uint32_t height, rend::Format format,
 
 bool rend::Texture2D::initFromNative(ID3D11Texture2D* nativeTexture) {
 	if (!nativeTexture) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to initialize Texture2D from native texture: native texture is null");
+		CONSOLE_ERROR("Failed to initialize Texture2D from native texture: native texture is null");
 		return false;
 	}
 
@@ -114,7 +114,7 @@ bool rend::Texture2D::initFromNative(ID3D11Texture2D* nativeTexture) {
 		srvDesc.Texture2D.MipLevels = 1;
 		
 		if (FAILED(rend::D3D11Device::getInstance().getDevice1()->CreateShaderResourceView(this->texture_, &srvDesc, &this->shaderResourceView_))) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create ShaderResourceView for back buffer Texture2D");
+			CONSOLE_ERROR("Failed to create ShaderResourceView for back buffer Texture2D");
 			
 			this->texture_.reset();
 			return false;
@@ -132,7 +132,7 @@ bool rend::Texture2D::initFromNative(ID3D11Texture2D* nativeTexture) {
 
 bool rend::Texture2D::copyResource(rend::Texture2D* destination) const {
 	if (!this->texture_ || !destination || !destination->texture_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Cannot copy texture resource: source or destination texture is null");
+		CONSOLE_ERROR("Cannot copy texture resource: source or destination texture is null");
 		return false;
 	}
 
@@ -146,13 +146,13 @@ bool rend::Texture2D::readData(uint8_t* destinationBuffer, uint32_t destinationB
 
 	size_t dataSize = this->getTotalSize();
 	if (destinationBufferSize < dataSize) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unable to read data from texture \"%s\": buffer size is too small", this->getDebugName());
+		CONSOLE_ERROR("Unable to read data from texture \"%s\": buffer size is too small", this->getDebugName());
 		return false;
 	}
 
 	uint8_t pixelSize = this->getBytesPerPixel();
 	if (pixelSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Texture format has a unknown pixel size", this->getDebugName());
+		CONSOLE_ERROR("Texture format has a unknown pixel size", this->getDebugName());
 		return false;
 	}
 
@@ -160,7 +160,7 @@ bool rend::Texture2D::readData(uint8_t* destinationBuffer, uint32_t destinationB
 	ID3D11DeviceContext* deviceContext = rend::D3D11Device::getInstance().getDeviceContext1();
 	HRESULT result = deviceContext->Map(this->texture_, 0, D3D11_MAP_READ, 0, &mappedResource);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map texture \"%s\" for reading. HRESULT: 0x%08X", this->getDebugName(), result);
+		CONSOLE_ERROR("Failed to map texture \"%s\" for reading. HRESULT: 0x%08X", this->getDebugName(), result);
 		return false;
 	}
 
@@ -182,13 +182,13 @@ bool rend::Texture2D::writeData(const uint8_t* sourceBuffer, uint32_t sourceBuff
 
 	size_t dataSize = this->getTotalSize();
 	if (sourceBufferSize < dataSize) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unable to write data to texture \"%s\": buffer size is too small", this->getDebugName());
+		CONSOLE_ERROR("Unable to write data to texture \"%s\": buffer size is too small", this->getDebugName());
 		return false;
 	}
 
 	uint8_t pixelSize = this->getBytesPerPixel();
 	if (pixelSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unable to write data to texture \"%s\": invalid pixel size", this->getDebugName());
+		CONSOLE_ERROR("Unable to write data to texture \"%s\": invalid pixel size", this->getDebugName());
 		return false;
 	}
 
@@ -205,13 +205,13 @@ bool rend::Texture2D::readDataRegion(uint8_t* destinationBuffer, size_t destinat
 
 	size_t pixelSize = this->getBytesPerPixel();
 	if (pixelSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Texture format has a unknown pixel size", this->getDebugName());
+		CONSOLE_ERROR("Texture format has a unknown pixel size", this->getDebugName());
 		return false;
 	}
 
 	size_t regionSize = static_cast<size_t>(height) * destinationPitch;
 	if (destinationBufferSize < regionSize) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Cannot read data region from texture \"%s\" if the destination buffer is too small", this->getDebugName());
+		CONSOLE_ERROR("Cannot read data region from texture \"%s\" if the destination buffer is too small", this->getDebugName());
 		return false;
 	}
 
@@ -219,7 +219,7 @@ bool rend::Texture2D::readDataRegion(uint8_t* destinationBuffer, size_t destinat
 	rend::RefCountPtr<ID3D11DeviceContext> deviceContext = rend::D3D11Device::getInstance().getDeviceContext1();
 	HRESULT result = deviceContext->Map(this->texture_, 0, D3D11_MAP_READ, 0, &mappedResource);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map texture \"%s\" for reading. HRESULT: 0x%08X", this->getDebugName(), result);
+		CONSOLE_ERROR("Failed to map texture \"%s\" for reading. HRESULT: 0x%08X", this->getDebugName(), result);
 		return false;
 	}
 
@@ -243,13 +243,13 @@ bool rend::Texture2D::writeDataRegion(const uint8_t* sourceBuffer, size_t source
 
 	uint8_t pixelSize = this->getBytesPerPixel();
 	if (pixelSize == 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Texture format has a unknown pixel size", this->getDebugName());
+		CONSOLE_ERROR("Texture format has a unknown pixel size", this->getDebugName());
 		return false;
 	}
 
 	size_t regionSize = static_cast<size_t>(width) * height * pixelSize;
 	if (sourceBufferSize < regionSize) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Unable to write data region to texture \"%s\": buffer size is too small", this->getDebugName());
+		CONSOLE_ERROR("Unable to write data region to texture \"%s\": buffer size is too small", this->getDebugName());
 		return false;
 	}
 	D3D11_TEXTURE2D_DESC desc;
@@ -259,7 +259,7 @@ bool rend::Texture2D::writeDataRegion(const uint8_t* sourceBuffer, size_t source
 	if (desc.Usage == D3D11_USAGE_DYNAMIC) {
 		D3D11_MAPPED_SUBRESOURCE mapped;
 		if (FAILED(deviceContext->Map(this->texture_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to map texture \"%s\" for writing", this->getDebugName());
+			CONSOLE_ERROR("Failed to map texture \"%s\" for writing", this->getDebugName());
 			return false;
 		}
 

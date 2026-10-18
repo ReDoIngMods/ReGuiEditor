@@ -67,13 +67,13 @@ struct RGE_ImGui_FreeType_FontSourceData {
 	bool initFont(FT_Library ftLibrary, const ImFontConfig* sourceConfig, RGE_ImGui_FreeType_LoaderFlags extraLoaderFlags) {
 		FT_Error error = FT_New_Memory_Face(ftLibrary, static_cast<const FT_Byte*>(sourceConfig->FontData), static_cast<FT_Long>(sourceConfig->FontDataSize), static_cast<FT_Long>(sourceConfig->FontNo), &this->ftFace);
 		if (error != 0) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create FreeType font face (Error: 0x%08X)", error);
+			CONSOLE_ERROR("Failed to create FreeType font face (Error: 0x%08X)", error);
 			return false;
 		}
 
 		error = FT_Select_Charmap(this->ftFace, FT_ENCODING_UNICODE);
 		if (error != 0) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to select Unicode charmap for FreeType font face (Error: 0x%08X)", error);
+			CONSOLE_ERROR("Failed to select Unicode charmap for FreeType font face (Error: 0x%08X)", error);
 			
 			FT_Done_Face(this->ftFace);
 			this->ftFace = nullptr;
@@ -90,9 +90,8 @@ struct RGE_ImGui_FreeType_FontSourceData {
 		if (this->userFlags & RGE_ImGui_FreeType_LoaderFlags_ForceAutoHint) this->loadFlags |= FT_LOAD_FORCE_AUTOHINT;
 		if (this->userFlags & RGE_ImGui_FreeType_LoaderFlags_LoadColor) this->loadFlags |= FT_LOAD_COLOR;
 
-		if (this->userFlags & RGE_ImGui_FreeType_LoaderFlags_LightHinting) this->loadFlags |= FT_LOAD_TARGET_LIGHT;
-		else if (this->userFlags & RGE_ImGui_FreeType_LoaderFlags_MonoHinting) this->loadFlags |= FT_LOAD_TARGET_MONO;
-		else this->loadFlags |= FT_LOAD_TARGET_NORMAL;
+		if (this->userFlags & RGE_ImGui_FreeType_LoaderFlags_MonoHinting) this->loadFlags |= FT_LOAD_TARGET_MONO;
+		else this->loadFlags |= FT_LOAD_TARGET_LIGHT; // Vertical-only hinting keeps glyph shapes true to the font and spacing even.
 
 		return true;
 	}
@@ -180,7 +179,7 @@ static bool loaderInit(ImFontAtlas* fontAtlas) {
 
 	FT_Error error = FT_New_Library(&loaderData->ftMemory, &loaderData->ftLibrary);
 	if (error != 0) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to initialize FreeType library (Error: 0x%08X)", error);
+		CONSOLE_ERROR("Failed to initialize FreeType library (Error: 0x%08X)", error);
 
 		IM_DELETE(loaderData);
 		return false;
@@ -270,13 +269,13 @@ static bool bakedInit(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImFont
 
 	FT_Error error = FT_New_Size(fontData->ftFace, &bakedData->ftSize);
 	if (error) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create FreeType size object (Error: 0x%08X)", error);
+		CONSOLE_ERROR("Failed to create FreeType size object (Error: 0x%08X)", error);
 		return false;
 	}
 
 	error = FT_Activate_Size(bakedData->ftSize);
 	if (error) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to activate FreeType size object (Error: 0x%08X)", error);
+		CONSOLE_ERROR("Failed to activate FreeType size object (Error: 0x%08X)", error);
 		FT_Done_Size(bakedData->ftSize);
 		return false;
 	}
@@ -295,7 +294,7 @@ static bool bakedInit(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImFont
 
 	error = FT_Request_Size(fontData->ftFace, &sizeRequest);
 	if (error) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to request FreeType size object (Error: 0x%08X)", error);
+		CONSOLE_ERROR("Failed to request FreeType size object (Error: 0x%08X)", error);
 		FT_Done_Size(bakedData->ftSize);
 		return false;
 	}
@@ -351,7 +350,7 @@ static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, I
 	if (fontData->ftSizeLastActivated != bakedData->ftSize) {
 		FT_Error error = FT_Activate_Size(bakedData->ftSize);
 		if (error) {
-			CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to activate FreeType size object (Error: 0x%08X)", error);
+			CONSOLE_ERROR("Failed to activate FreeType size object (Error: 0x%08X)", error);
 			return false;
 		}
 
@@ -360,7 +359,7 @@ static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, I
 
 	FT_Error error = FT_Load_Glyph(fontData->ftFace, glyphIndex, fontData->loadFlags);
 	if (error) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to load FreeType glyph (Error: 0x%08X)", error);
+		CONSOLE_ERROR("Failed to load FreeType glyph (Error: 0x%08X)", error);
 		return false;
 	}
 
@@ -383,13 +382,13 @@ static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, I
 
 	error = FT_Render_Glyph(glyphSlot, (fontData->userFlags & RGE_ImGui_FreeType_LoaderFlags_Monochrome) ? FT_RENDER_MODE_MONO : FT_RENDER_MODE_NORMAL);
 	if (error) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to render FreeType glyph (Error: 0x%08X)", error);
+		CONSOLE_ERROR("Failed to render FreeType glyph (Error: 0x%08X)", error);
 		return false;
 	}
 
 	const FT_Bitmap* ftBitmap = &glyphSlot->bitmap;
 	if (!ftBitmap) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get FreeType glyph bitmap");
+		CONSOLE_ERROR("Failed to get FreeType glyph bitmap");
 		return false;
 	}
 
@@ -405,7 +404,7 @@ static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, I
 
 	ImFontAtlasRectId packId = ImFontAtlasPackAddRect(fontAtlas, glyphWidth, glyphHeight);
 	if (packId == ImFontAtlasRectId_Invalid) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to pack FreeType glyph into font atlas. (Out of texture memory)");
+		CONSOLE_ERROR("Failed to pack FreeType glyph into font atlas. (Out of texture memory)");
 		return false;
 	}
 

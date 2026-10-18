@@ -21,21 +21,21 @@
 
 bool rend::SwapChain::createRenderTarget() {
 	if (!this->swapChain_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "SwapChain is null when creating render target view!");
+		CONSOLE_ERROR("SwapChain is null when creating render target view!");
 		return false;
 	}
 
 	rend::RefCountPtr<ID3D11Texture2D> backBuffer = nullptr;
 	HRESULT result = this->swapChain_->GetBuffer(0, IID_PPV_ARGS(backBuffer.getAddressOf()));
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get back buffer from swap chain! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to get back buffer from swap chain! HRESULT: 0x%08X", result);
 		return false;
 	}
 
 	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
 	this->backBuffer_ = resourceManager.createTexture2DNative(backBuffer);
 	if (!this->backBuffer_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create Texture2D from back buffer!");
+		CONSOLE_ERROR("Failed to create Texture2D from back buffer!");
 		return false;
 	}
 
@@ -45,7 +45,7 @@ bool rend::SwapChain::createRenderTarget() {
 
 	this->renderTargetView_ = resourceManager.createRenderView(this->backBuffer_);
 	if (!this->renderTargetView_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create RenderView from back buffer!");
+		CONSOLE_ERROR("Failed to create RenderView from back buffer!");
 		return false;
 	}
 
@@ -63,7 +63,7 @@ void rend::SwapChain::cleanupRenderTarget() {
 bool rend::SwapChain::init(void* window) {
 	HWND hwnd = reinterpret_cast<HWND>(window);
 	if (!hwnd || !IsWindow(hwnd)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Invalid window handle provided to SwapChain::init!");
+		CONSOLE_ERROR("Invalid window handle provided to SwapChain::init!");
 		return false;
 	}
 
@@ -71,7 +71,7 @@ bool rend::SwapChain::init(void* window) {
 
 	RECT clientRect;
 	if (!GetClientRect(hwnd, &clientRect)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get client rect! Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get client rect! Error: %lu", GetLastError());
 		return false;
 	}
 
@@ -83,21 +83,21 @@ bool rend::SwapChain::init(void* window) {
 	rend::RefCountPtr<IDXGIDevice> dxgiDevice = nullptr;
 	HRESULT result = device->QueryInterface(IID_PPV_ARGS(&dxgiDevice));
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to query IDXGIDevice interface! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to query IDXGIDevice interface! HRESULT: 0x%08X", result);
 		return false;
 	}
 
 	rend::RefCountPtr<IDXGIAdapter> dxgiAdapter = nullptr;
 	result = dxgiDevice->GetAdapter(&dxgiAdapter);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get IDXGIAdapter! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to get IDXGIAdapter! HRESULT: 0x%08X", result);
 		return false;
 	}
 
 	rend::RefCountPtr<IDXGIFactory2> dxgiFactory2 = nullptr;
 	result = dxgiAdapter->GetParent(IID_PPV_ARGS(&dxgiFactory2));
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get IDXGIFactory! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to get IDXGIFactory! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -131,7 +131,7 @@ bool rend::SwapChain::init(void* window) {
 
 	result = dxgiFactory2->CreateSwapChainForHwnd(device, hwnd, &desc, nullptr, nullptr, &this->swapChain_);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to create swap chain! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to create swap chain! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -149,13 +149,13 @@ bool rend::SwapChain::resize(UINT width, UINT height) {
 	DXGI_SWAP_CHAIN_DESC1 desc;
 	HRESULT result = this->swapChain_->GetDesc1(&desc);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to get swap chain description! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to get swap chain description! HRESULT: 0x%08X", result);
 		return false;
 	}
 
 	result = this->swapChain_->ResizeBuffers(0, width, height, desc.Format, desc.Flags);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Failed to resize swap chain buffers! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Failed to resize swap chain buffers! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -171,7 +171,7 @@ bool rend::SwapChain::present(bool vsyncEnabled) {
 
 	HRESULT result = this->swapChain_->Present(syncInterval, presentFlags);
 	if (result == DXGI_ERROR_DEVICE_REMOVED || result == DXGI_ERROR_DEVICE_RESET) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Device lost or reset! HRESULT: 0x%08X", result);
+		CONSOLE_ERROR("Device lost or reset! HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -184,7 +184,7 @@ bool rend::SwapChain::isOccluded() const {
 
 bool rend::SwapChain::clearRenderTarget(rend::Color color) const {
 	if (!this->renderTargetView_) {
-		CONSOLE_LOG(LEVEL_ERROR, COLOR_RED, "Render target view is null when clearing render target!");
+		CONSOLE_ERROR("Render target view is null when clearing render target!");
 		return false;
 	}
 
