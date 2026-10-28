@@ -176,6 +176,9 @@ void UIRenderView::render() {
 }
 
 void UIRenderView::renderMenu() {
+	if (!ImGui::BeginMenu("View"))
+		return;
+
 	if (ImGui::BeginMenu("Render")) {
 		// Zooming
 		if (ImGui::MenuItem("Zoom In", "Ctrl + +")) this->camera_.zoomBy(ZOOM_MENU_STEP);
@@ -190,6 +193,8 @@ void UIRenderView::renderMenu() {
 
 		ImGui::EndMenu();
 	}
+
+	ImGui::EndMenu();
 }
 
 void UIRenderView::update(double deltaTime) {

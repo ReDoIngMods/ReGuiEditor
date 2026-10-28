@@ -2,7 +2,7 @@
 
 #include "RPRTTexture.hpp"
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <rend/Common/Alignment.hpp>
 #include <rend/Common/Format.hpp>

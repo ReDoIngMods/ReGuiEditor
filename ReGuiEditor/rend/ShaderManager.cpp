@@ -4,7 +4,7 @@
 #include "Resources/Shaders/ShaderBlob.hpp"
 #include "Resources/Shaders/ShaderResource.hpp"
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <UTILS/ByteStreamWriter.hpp>
 

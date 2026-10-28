@@ -1,15 +1,14 @@
 
 #include "wrap_sm_json.hpp" // VCIC-Excluded
 
-#include "../LuaVM.hpp"
+#include "../LuaUtil.hpp"
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/DirectoryManager.hpp>
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <JSON/JSONObject.hpp>
 #include <JSON/JSONParser.hpp>
 #include <JSON/JSONWriter.hpp>
-
-#include <UTILS/Strings.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
@@ -26,22 +25,6 @@ inline static int raiseError(lua_State* L, std::string& error) {
 
 	std::string().swap(error);
 	return lua_error(L);
-}
-
-[[nodiscard]] inline static bool resolveModPath(lua_State* L, std::string& path, std::string& error) {
-	const LuaVM* luaVM = LuaVM::fromState(L);
-	if (!luaVM) {
-		error = "LuaVM not found in registry.";
-		return false;
-	}
-
-	const std::string& modLocalId = luaVM->getModLocalId();
-	if (!FilesystemManager::getInstance().resolveContentData(path, modLocalId)) {
-		error = UTILS::formatString("Failed to resolve path '%s'.", path);
-		return false;
-	}
-
-	return true;
 }
 
 inline static void pushJson(lua_State* L, const JSONValue& value, int depth) {
@@ -182,8 +165,10 @@ inline static bool stringifyJson(lua_State* L, int index, bool pretty, std::stri
 
 inline static bool openJson(lua_State* L, const char* path, std::string& error) {
 	std::string resolvedPath = path;
-	if (!resolveModPath(L, resolvedPath, error))
+	if (!LuaUtils::resolveContentDataPath(L, resolvedPath)) {
+		error = "Failed to resolve content data path.";
 		return false;
+	}
 
 	std::string content;
 	if (!FilesystemManager::getInstance().readFile(resolvedPath, content)) {
@@ -201,8 +186,10 @@ inline static bool openJson(lua_State* L, const char* path, std::string& error) 
 
 [[nodiscard]] inline static bool saveJson(lua_State* L, int index, const char* path, std::string& error) {
 	std::string resolvedPath = path;
-	if (!resolveModPath(L, resolvedPath, error))
+	if (!LuaUtils::resolveContentDataPath(L, resolvedPath)) {
+		error = "Failed to resolve content data path.";
 		return false;
+	}
 
 	std::string output;
 	if (!stringifyJson(L, index, false, output, error))
@@ -220,13 +207,13 @@ static int sm_json_fileExists(lua_State* L) {
 	std::string path = luaL_checkstring(L, 1);
 
 	std::string error;
-	if (!resolveModPath(L, path, error)) {
-		lua_pushboolean(L, false);
-		return 1;
+	if (!LuaUtils::resolveContentDataPath(L, path)) {
+		error = "Failed to resolve content data path.";
+		return raiseError(L, error);
 	}
 
 	std::filesystem::path resolvedPath;
-	if (!FilesystemManager::getInstance().resolveDirectory(path, resolvedPath)) {
+	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
 		lua_pushboolean(L, false);
 		return 1;
 	}

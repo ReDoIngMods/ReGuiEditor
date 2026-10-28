@@ -1,6 +1,6 @@
 #include "ConfigManager.hpp"
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
@@ -10,14 +10,14 @@
 #include <string>
 #include <variant>
 
+constexpr const char* CONFIG_FILE_PATH = "$RGE_USER_DATA/ReGuiEditor/config.bin";
+
 enum ConfigValueType : uint8_t {
 	CONFIG_VALUE_BOOL = 0,
 	CONFIG_VALUE_INT = 1,
 	CONFIG_VALUE_FLOAT = 2,
 	CONFIG_VALUE_STRING = 3
 };
-
-constexpr const char* CONFIG_FILE_PATH = "$RGE_USER_DATA/ReGuiEditor/config.bin";
 
 ConfigManager::ConfigManager() {
 	CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Initializing ConfigManager...");

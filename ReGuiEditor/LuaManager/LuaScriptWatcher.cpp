@@ -1,6 +1,6 @@
 #include "LuaScriptWatcher.hpp"
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <string>
 #include <vector>

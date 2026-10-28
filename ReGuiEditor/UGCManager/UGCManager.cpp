@@ -1,27 +1,25 @@
 #include "UGCManager.hpp"
 
+#include "UGCMod.hpp"
+
 #include <Application.hpp>
 
-#include <FilesystemManager/FilesystemManager.hpp>
-
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
+#include <Filesystem/DirectoryManager.hpp>
 
 #include <UTILS/Strings.hpp>
-
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <optional>
-#include <string>
-#include <system_error>
-#include <vector>
 
 #include <steam/isteamremotestorage.h>
 #include <steam/isteamugc.h>
 #include <steam/isteamutils.h>
 #include <steam/steamtypes.h>
+
+#include <algorithm>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <system_error>
+#include <vector>
 
 inline static bool getItemInstallPath(PublishedFileId_t fileId, std::filesystem::path& itemPath) {
 	char buffer[1024];
@@ -36,67 +34,48 @@ inline static bool isOwnApp(AppId_t appId) {
 	return appId == SteamUtils()->GetAppID();
 }
 
-bool UGCManager::getLocalIdFromMod(const std::filesystem::path& modPath, std::string& localId) const {
-	std::ifstream file(modPath / "description.json", std::ios::binary);
-	if (!file) {
-		CONSOLE_ERROR("Failed to read description.json from %s", modPath.string().c_str());
+bool UGCManager::registerMod(const std::filesystem::path& modPath, bool isLocal) {
+	const std::shared_ptr<UGCMod> mod = UGCMod::fromPath(modPath, isLocal);
+	if (!mod) {
+		CONSOLE_ERROR("Failed to create UGCMod from path: %s", modPath.string().c_str());
 		return false;
 	}
 
-	std::vector<char> data;
-	data.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-
-	JSONValue json;
-	if (!JSONParser::parseJson(data.data(), data.size(), json)) {
-		CONSOLE_ERROR("Failed to parse description.json from %s", modPath.string().c_str());
+	if (!DirectoryManager::getInstance().addDirectory(mod->contentPath, modPath)) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Mod: %s was already loaded with localId: %s", modPath.string().c_str(), mod->localId.c_str());
 		return false;
 	}
 
-	const std::string* localIdPtr = json["localId"].tryGet<std::string>();
-	if (!localIdPtr || localIdPtr->empty()) {
-		CONSOLE_ERROR("description.json from %s does not contain a valid localId.", modPath.string().c_str());
-		return false;
-	}
+	Application::getInstance().splashscreen.setStatus(UTILS::formatString(L"Loading mod: %hs (%hs)", mod->localId.c_str(), modPath.string().c_str()));
 
-	localId = *localIdPtr;
-	return true;
-}
+	this->mods_.push_back(mod);
+	if (mod->fileId != 0)
+		this->fileIdToLocalId_[mod->fileId] = mod->localId;
 
-bool UGCManager::registerMod(const std::filesystem::path& modPath, PublishedFileId_t fileId) {
-	std::string localId;
-	if (!this->getLocalIdFromMod(modPath, localId))
-		return false;
+	if (isLocal)
+		this->localMods_.push_back(mod);
+	else
+		this->workshopMods_.push_back(mod);
 
-	if (!FilesystemManager::getInstance().addDirectory("$CONTENT_" + localId, modPath)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Mod: %s was already loaded with localId: %s", modPath.string().c_str(), localId.c_str());
-		return false;
-	}
-
-	Application::getInstance().splashscreen.setStatus(UTILS::formatString(L"Loading mod: %hs (%s)", localId.c_str(), modPath.string().c_str()));
-
-	if (fileId != 0)
-		this->fileIdToLocalId_[fileId] = localId;
-
-	this->mods_.emplace(localId, UGCMod{ localId, modPath, fileId });
 	return true;
 }
 
 void UGCManager::registerWorkshopItem(PublishedFileId_t fileId) {
 	if (this->fileIdToLocalId_.contains(fileId))
 		return;
-	
+
 	std::filesystem::path itemPath;
 	if (!getItemInstallPath(fileId, itemPath)) {
 		CONSOLE_ERROR("Failed to get the installation path for Steam Workshop item: %llu", static_cast<unsigned long long>(fileId));
 		return;
 	}
 
-	this->registerMod(itemPath, fileId);
+	this->registerMod(itemPath, false);
 }
 
 bool UGCManager::loadLocalMods() {
 	std::filesystem::path modsRoot;
-	if (!FilesystemManager::getInstance().resolveDirectory("$RGE_USER_DATA/Mods", modsRoot)) {
+	if (!DirectoryManager::getInstance().resolveDirectory("$RGE_USER_DATA/Mods", modsRoot)) {
 		CONSOLE_ERROR("Failed to resolve the local mods folder.");
 		return false;
 	}
@@ -107,7 +86,7 @@ bool UGCManager::loadLocalMods() {
 
 	for (std::filesystem::directory_iterator iterator(modsRoot, error), end; !error && iterator != end; iterator.increment(error)) {
 		if (iterator->is_directory(error))
-			this->registerMod(iterator->path());
+			this->registerMod(iterator->path(), true);
 	}
 
 	if (error) {
@@ -148,10 +127,21 @@ void UGCManager::onItemUnsubscribed(RemoteStoragePublishedFileUnsubscribed_t* pC
 	}
 
 	const std::string& localId = fileIdIterator->second;
-	if (!FilesystemManager::getInstance().removeDirectory("$CONTENT_" + localId))
+	const auto iterator = std::find_if(this->mods_.begin(), this->mods_.end(), [&localId](const std::shared_ptr<UGCMod>& mod) {
+		return mod->localId == localId;
+	});
+
+	if (iterator == this->mods_.end()) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu with localId: %s is not in the mods list.", fileId, localId.c_str());
+		return;
+	}
+
+	const std::shared_ptr<UGCMod> mod = *iterator;
+	if (!DirectoryManager::getInstance().removeDirectory(mod->contentPath))
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu with localId: %s is not in the directories map.", fileId, localId.c_str());
 
-	this->mods_.erase(localId);
+	std::erase(this->workshopMods_, mod);
+	this->mods_.erase(iterator);
 	this->fileIdToLocalId_.erase(fileIdIterator);
 }
 
@@ -180,26 +170,28 @@ void UGCManager::cleanup() {
 		this->callbacksRegistered_ = false;
 	}
 
-	FilesystemManager& filesystem = FilesystemManager::getInstance();
-	for (const auto& [localId, mod] : this->mods_)
-		filesystem.removeDirectory("$CONTENT_" + localId);
+	DirectoryManager& directoryManager = DirectoryManager::getInstance();
+	for (const auto& mod : this->mods_)
+		directoryManager.removeDirectory(mod->contentPath);
 
 	this->fileIdToLocalId_.clear();
+	this->workshopMods_.clear();
+	this->localMods_.clear();
 	this->mods_.clear();
 }
 
-std::optional<UGCMod> UGCManager::getModByLocalId(const std::string& localId) const {
-	const auto iterator = this->mods_.find(localId);
-	if (iterator == this->mods_.end())
-		return std::nullopt;
+[[nodiscard]] std::shared_ptr<UGCMod> UGCManager::getModByLocalId(const std::string& localId) const {
+	const auto iterator = std::find_if(this->mods_.begin(), this->mods_.end(), [&localId](const std::shared_ptr<UGCMod>& mod) {
+		return mod->localId == localId;
+		});
 
-	return iterator->second;
+	return iterator != this->mods_.end() ? *iterator : nullptr;
 }
 
-std::optional<UGCMod> UGCManager::getModByFileId(PublishedFileId_t fileId) const {
+[[nodiscard]] std::shared_ptr<UGCMod> UGCManager::getModByFileId(PublishedFileId_t fileId) const {
 	const auto iterator = this->fileIdToLocalId_.find(fileId);
 	if (iterator == this->fileIdToLocalId_.end())
-		return std::nullopt;
+		return nullptr;
 
 	return this->getModByLocalId(iterator->second);
 }

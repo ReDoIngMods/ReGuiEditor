@@ -1,24 +1,12 @@
 #pragma once
+#include "View.hpp"
+
 #include <UTILS/Profiler.hpp>
 #include <UTILS/Singleton.hpp>
 #include <UTILS/Strings.hpp>
 
 #include <type_traits>
 #include <vector>
-
-class View {
-public:
-	virtual ~View() = default;
-
-	virtual bool initialize() { return true; }
-	virtual void deinitialize() {}
-
-	virtual void render() {}
-	virtual void renderMenu() {}
-
-	virtual void update(double deltaTime) {}
-	virtual void tick() {}
-};
 
 class ViewsManager : public UTILS::Singleton<ViewsManager> {
 	struct ViewInstance {
@@ -56,6 +44,18 @@ public:
 		}
 
 		this->views_.emplace_back(view, name);
+	}
+
+	template<typename T>
+	T* getView() {
+		static_assert(std::is_base_of_v<View, T>, "T must be derived from View");
+		
+		for (auto& viewInstance : this->views_) {
+			if (T* castedView = dynamic_cast<T*>(viewInstance.view))
+				return castedView;
+		}
+	
+		return nullptr;
 	}
 
 	void render() {

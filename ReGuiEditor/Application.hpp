@@ -2,9 +2,13 @@
 #include <UTILS/Singleton.hpp>
 
 #include "ConfigManager/ConfigManager.hpp"
-#include "FilesystemManager/FilesystemManager.hpp"
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
+
+#include "Filesystem/DirectoryManager.hpp"
+#include "Filesystem/FilesystemManager.hpp"
+
+#include "LayoutManager/LayoutManager.hpp"
 
 #include "Window/Splashscreen.hpp"
 #include "Window/Window.hpp"
@@ -39,11 +43,15 @@ public:
 	rend::SwapChainHandle swapChain;
 
 	ConfigManager* configManager = nullptr;
+	DirectoryManager* directoryManager = nullptr;
 	FilesystemManager* filesystemManager = nullptr;
 	UGCManager* ugcManager = nullptr;
+	
 	GuiSystemManager* guiSystemManager = nullptr;
-	LuaManager* luaManager = nullptr;
+	LayoutManager* layoutManager = nullptr;
 	UIManager* uiManager = nullptr;
+
+	LuaManager* luaManager = nullptr;
 
 	LARGE_INTEGER frequency{};
 	LARGE_INTEGER counter{};

@@ -1,8 +1,10 @@
 #include "LuaVM.hpp"
 
 #include "LuaError.hpp"
+#include "LuaUtil.hpp"
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/DirectoryManager.hpp> // VCIC-Excluded
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <string>
 #include <utility>
@@ -22,33 +24,16 @@ constexpr float SCRIPT_POLL_INTERVAL = 0.5f;
 #endif
 
 inline static std::string popString(lua_State* L, const char* fallback = "") {
-	const char* value = lua_tostring(L, -1);
-	std::string result = value ? value : fallback;
+	if (lua_isstring(L, -1)) {
+		const std::string result = lua_tostring(L, -1);
+		lua_pop(L, 1);
+
+		return result;
+	}
 
 	lua_pop(L, 1);
-
-	return result;
+	return fallback ? fallback : "";
 }
-
-inline static std::string getChunkName(const std::string& path) {
-	return "@" + path;
-}
-
-class ActiveVmScope {
-	lua_State* state_ = nullptr;
-	LuaVM* previous_ = nullptr;
-
-	void setLuaVM(LuaVM* vm) const {
-		lua_pushlightuserdata(this->state_, vm);
-		lua_setfield(this->state_, LUA_REGISTRYINDEX, VM_REGISTRY_KEY);
-	}
-public:
-	ActiveVmScope(lua_State* state, LuaVM* vm) : state_(state), previous_(LuaVM::fromState(state)) { this->setLuaVM(vm); }
-	~ActiveVmScope() { this->setLuaVM(this->previous_); }
-
-	ActiveVmScope(const ActiveVmScope&) = delete;
-	ActiveVmScope& operator=(const ActiveVmScope&) = delete;
-};
 
 void LuaVM::reportLoadError() {
 	LuaError error;
@@ -65,7 +50,7 @@ void LuaVM::reportError(const LuaError& error) {
 }
 
 int LuaVM::errorHandler(lua_State* L) {
-	LuaVM* self = LuaVM::fromState(L);
+	LuaVM* self = LuaUtils::getLuaVM(L);
 	if (!self)
 		return luaL_error(L, "LuaVM::errorHandler called without a valid LuaVM instance");
 
@@ -88,34 +73,6 @@ int LuaVM::errorHandler(lua_State* L) {
 	return 1;
 }
 
-LuaVM* LuaVM::fromState(lua_State* L) {
-	lua_getfield(L, LUA_REGISTRYINDEX, VM_REGISTRY_KEY);
-	LuaVM* vm = static_cast<LuaVM*>(lua_touserdata(L, -1));
-	lua_pop(L, 1);
-
-	return vm;
-}
-
-void LuaVM::dumpStack(lua_State* L) {
-	CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "--- LUA STACK DUMP ---");
-
-	for (int index = 1, top = lua_gettop(L); index <= top; ++index) {
-		switch (lua_type(L, index)) {
-		case LUA_TSTRING:
-			CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "[%d]: %s", index, lua_tostring(L, index));
-			break;
-		case LUA_TNUMBER:
-			CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "[%d]: %g", index, lua_tonumber(L, index));
-			break;
-		case LUA_TBOOLEAN:
-			CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "[%d]: %s", index, lua_toboolean(L, index) ? "true" : "false");
-			break;
-		default:
-			CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "[%d]: %s", index, luaL_typename(L, index));
-			break;
-		}
-	}
-}
 
 void LuaVM::createEnvironment() {
 	lua_State* L = this->state_;
@@ -150,7 +107,6 @@ void LuaVM::destroyEnvironment() {
 
 	this->initialized_ = false;
 	this->scriptWatcher_.clearFiles();
-	this->chunkPaths_.clear();
 	this->pollTimer_ = 0.0f;
 }
 
@@ -161,7 +117,16 @@ bool LuaVM::initialize(const std::string& entryScript) {
 	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Initializing Lua VM for mod %s...", this->modLocalId_.c_str());
 
 	this->createEnvironment();
-	if (this->doFile(entryScript) || KEEP_ALIVE_ON_ENTRY_FAILURE)
+	
+	std::string resolvedPath = entryScript;
+	if (!DirectoryManager::getInstance().resolveContentData(resolvedPath, this->modLocalId_)) {
+		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to resolve entry script path '%s' for mod %s.", entryScript.c_str(), this->modLocalId_.c_str());
+	
+		this->cleanup();
+		return false;
+	}
+
+	if (this->doFile(resolvedPath) || KEEP_ALIVE_ON_ENTRY_FAILURE)
 		return true;
 
 	this->cleanup();
@@ -185,20 +150,22 @@ void LuaVM::update(float deltaTime) {
 
 	if (this->pushHook("OnUpdate")) {
 		lua_pushnumber(this->state_, deltaTime);
-		this->protectedCall(1, 0);
+		(void)this->protectedCall(1, 0);
 	}
 }
 
 void LuaVM::tick() {
 	if (this->pushHook("OnTick"))
-		this->protectedCall(0, 0);
+		(void)this->protectedCall(0, 0);
 }
 
 bool LuaVM::pushHook(const char* name) {
 	if (!this->isInitialized())
 		return false;
 
-	this->getField(name);
+	if(!this->getField(name))
+		return false;
+
 	if (lua_isfunction(this->state_, -1))
 		return true;
 
@@ -213,49 +180,34 @@ void LuaVM::updateScriptWatcher(float deltaTime) {
 
 	this->pollTimer_ = 0.0f;
 
-	for (const std::string& path : this->scriptWatcher_.collectChangedFiles())
-		this->doFile(path);
-}
-
-bool LuaVM::findChunkPath(const std::string& chunkName, std::string& path) const {
-	const auto iterator = this->chunkPaths_.find(chunkName);
-	if (iterator == this->chunkPaths_.end() || iterator->second.empty())
-		return false;
-
-	path = iterator->second;
-	return true;
+	for (const std::string& path : this->scriptWatcher_.collectChangedFiles()) {
+		if (!this->doFile(path))
+			CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to reload changed script '%s'.", path.c_str());
+	}
 }
 
 int LuaVM::loadFile(const std::string& path) {
-	lua_State* L = this->state_;
-	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
-
 	std::string resolvedPath = path;
-	if (!filesystemManager.resolveContentData(resolvedPath, this->modLocalId_.c_str())) {
-		lua_pushfstring(L, "cannot resolve path '%s'", path.c_str());
+	if (!LuaUtils::resolveContentDataPath(this->state_, resolvedPath)) {
+		lua_pushfstring(this->state_, "cannot resolve path '%s'", path.c_str());
 		return LUA_ERRFILE;
 	}
 
 	this->scriptWatcher_.watchFile(resolvedPath);
 
 	std::vector<char> content;
-	if (!filesystemManager.readFile(resolvedPath, content)) {
-		lua_pushfstring(L, "cannot read file '%s'", path.c_str());
+	if (!FilesystemManager::getInstance().readFile(resolvedPath, content)) {
+		lua_pushfstring(this->state_, "cannot read file '%s'", path.c_str());
 		return LUA_ERRFILE;
 	}
 
-	const std::string chunkName = getChunkName(resolvedPath);
-
-	auto [chunkPath, inserted] = this->chunkPaths_.try_emplace(chunkName, resolvedPath);
-	if (!inserted && chunkPath->second != resolvedPath)
-		chunkPath->second.clear();
-
-	const int status = luaL_loadbufferx(L, content.data(), content.size(), chunkName.c_str(), "t");
+	const std::string chunkName = "@" + resolvedPath;
+	const int status = luaL_loadbufferx(this->state_, content.data(), content.size(), chunkName.c_str(), "t");
 	if (status != LUA_OK)
 		return status;
 
-	lua_getfield(L, LUA_REGISTRYINDEX, this->envKey_.c_str());
-	lua_setfenv(L, -2);
+	lua_getfield(this->state_, LUA_REGISTRYINDEX, this->envKey_.c_str());
+	lua_setfenv(this->state_, -2);
 
 	return LUA_OK;
 }
@@ -274,24 +226,24 @@ bool LuaVM::doFile(const std::string& path) {
 	return this->protectedCall(0, 0);
 }
 
-void LuaVM::getField(const std::string& fieldName) {
+[[nodiscard]] bool LuaVM::getField(const std::string& fieldName) {
 	lua_State* L = this->state_;
-
 	if (!this->isInitialized()) {
 		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Lua state is not initialized. Cannot get field %s", fieldName.c_str());
 
 		lua_pushnil(L);
-		return;
+		return false;
 	}
 
 	lua_getfield(L, LUA_REGISTRYINDEX, this->envKey_.c_str());
 	lua_getfield(L, -1, fieldName.c_str());
 	lua_remove(L, -2);
+
+	return !lua_isnil(L, -1);
 }
 
 bool LuaVM::protectedCall(int argCount, int resultCount) {
 	lua_State* L = this->state_;
-
 	if (!this->isInitialized()) {
 		lua_pop(L, argCount + 1);
 
@@ -305,11 +257,12 @@ bool LuaVM::protectedCall(int argCount, int resultCount) {
 
 	this->pendingError_.reset();
 
-	int status;
-	{
-		const ActiveVmScope scope(L, this);
-		status = lua_pcall(L, argCount, resultCount, handlerIndex);
-	}
+	LuaVM* previousVM = LuaUtils::getLuaVM(L);
+	LuaUtils::setLuaVM(L, this);
+
+	int status = lua_pcall(L, argCount, resultCount, handlerIndex);
+
+	LuaUtils::setLuaVM(L, previousVM);
 
 	lua_remove(L, handlerIndex);
 	if (status == LUA_OK)
@@ -333,11 +286,17 @@ bool LuaVM::callFunction(const std::string& functionName, int argCount, int resu
 		return false;
 	}
 
-	this->getField(functionName);
+	if(!this->getField(functionName)) {
+		lua_pop(L, argCount);
+
+		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Function %s does not exist in the LuaVM.", functionName.c_str());
+		return false;
+	}
+
 	if (!lua_isfunction(L, -1)) {
 		lua_pop(L, argCount + 1);
+		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Field %s is not a function in the LuaVM.", functionName.c_str());
 
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Function %s does not exist or is not a function in the LuaVM.", functionName.c_str());
 		return false;
 	}
 

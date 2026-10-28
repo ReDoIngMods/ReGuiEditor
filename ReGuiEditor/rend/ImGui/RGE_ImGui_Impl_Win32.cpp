@@ -1,7 +1,6 @@
 #include "RGE_ImGui_Impl_Win32.hpp" // VCIC-Excluded
 
 #include <ImGui/imgui.h>
-#include <ImGui/imgui_internal.h>
 
 #include <ShellScalingApi.h>
 #include <Windows.h>
@@ -923,10 +922,6 @@ LRESULT RGE_ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, L
 	case WM_MBUTTONDOWN:
 	case WM_MBUTTONUP:
 		io.AddMouseButtonEvent(ImGuiMouseButton_Middle, msg == WM_MBUTTONDOWN);
-		return FALSE;
-	case WM_XBUTTONDOWN:
-	case WM_XBUTTONUP:
-		io.AddMouseButtonEvent((GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 4 : 5, msg == WM_XBUTTONDOWN);
 		return FALSE;
 	case WM_MOUSEWHEEL:
 		io.AddMouseWheelEvent(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / static_cast<float>(WHEEL_DELTA));

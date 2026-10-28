@@ -1,0 +1,31 @@
+{
+    "defaultFileIcon": "$RGE_DATA/Icons/file.svg",
+    "defaultFolderIcon": "$RGE_DATA/Icons/folder.svg",
+
+    "entries": [
+        {
+            "icon": "$RGE_DATA/Icons/file-binary.svg",
+            "extensions": ["bin", "exe", "dll", "so", "dylib", "deb", "rpm", "msi", "apk", "jar", "class", "o", "obj", "lib", "a", "pdb", "iso", "img", "vhd", "vmdk", "qcow2", "vdi", "ova", "vbox", "vagrantfile"]
+        },
+        {
+            "icon": "$RGE_DATA/Icons/file-code.svg",
+            "extensions": ["js", "ts", "jsx", "tsx", "html", "css", "scss", "less", "json", "xml", "yml", "yaml", "lua", "py", "rb", "php", "java", "c", "cpp", "cxx", "h", "hpp", "hxx", "cs", "go", "rs"]
+        },
+        {
+            "icon": "$RGE_DATA/Icons/file-media.svg",
+            "extensions": ["mp3", "wav", "flac", "ogg", "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "jpg", "jpeg", "png", "gif", "bmp", "svg", "tiff"]
+        },
+        {
+            "icon": "$RGE_DATA/Icons/file-pdf.svg",
+            "extensions": ["pdf", "epub", "mobi", "azw", "djvu"]
+        },
+        {
+            "icon": "$RGE_DATA/Icons/file-submodule.svg",
+            "extensions": ["gitmodules", "gitignore", "gitattributes", "gitkeep"]
+        },
+        {
+            "icon": "$RGE_DATA/Icons/file-zip.svg",
+            "extensions": ["zip", "tar", "gz", "bz2", "xz", "7z", "rar", "iso", "jar", "war", "ear", "apk", "dmg"]
+        }
+    ]
+}

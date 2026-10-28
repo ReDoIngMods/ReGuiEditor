@@ -381,7 +381,7 @@ bool RGE_ImGui_ImplDX11_CreateDeviceObjects() {
 	}
 	backendData->blendState->setDebugName("RGE_ImGui_ImplDX11_BlendState");
 
-	backendData->samplerState = resourceManager.createLinearSamplerState(rend::SamplerAddressMode::Clamp);
+	backendData->samplerState = resourceManager.createAnisotropicSamplerState(rend::SamplerAddressMode::Clamp);
 	if (!backendData->samplerState) {
 		CONSOLE_ERROR("Failed to create ImGui sampler state!");
 		return false;

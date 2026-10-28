@@ -1,13 +1,17 @@
 #include "Application.hpp"
 
 #include "ConfigManager/ConfigManager.hpp"
-#include "FilesystemManager/FilesystemManager.hpp"
 #include "LuaManager/LuaManager.hpp"
 #include "UGCManager/UGCManager.hpp"
+
+#include "Filesystem/DirectoryManager.hpp"
+#include "Filesystem/FilesystemManager.hpp"
 
 #include "MyGuiRenderer/GuiSystemManager.hpp"
 
 #include "GUI/UIManager.hpp"
+
+#include "LayoutManager/LayoutManager.hpp"
 
 #include <rend/Renderer.hpp>
 
@@ -29,6 +33,11 @@ Application::~Application() {
 	if (this->luaManager) {
 		this->luaManager->destroyInstance();
 		this->luaManager = nullptr;
+	}
+
+	if (this->layoutManager) {
+		this->layoutManager->destroyInstance();
+		this->layoutManager = nullptr;
 	}
 
 	if (this->guiSystemManager) {
@@ -63,6 +72,11 @@ Application::~Application() {
 		this->filesystemManager = nullptr;
 	}
 
+	if (this->directoryManager) {
+		this->directoryManager->destroyInstance();
+		this->directoryManager = nullptr;
+	}
+
 	this->window.cleanup();
 }
 
@@ -79,12 +93,14 @@ bool Application::initialize() {
 	if (!this->window.create(L"ReGui Layout Editor", 1920, 1080))
 		return false;
 
-	this->filesystemManager = FilesystemManager::createInstance();
-	if (!this->filesystemManager->initialize())
+	this->directoryManager = DirectoryManager::createInstance();
+	if (!this->directoryManager->initialize())
 		return false;
 
+	this->filesystemManager = FilesystemManager::createInstance();
+
 	std::filesystem::path splashImagePath;
-	if (this->filesystemManager->resolveDirectory("$RGE_DATA/Images/splash.png", splashImagePath))
+	if (this->directoryManager->resolveDirectory("$RGE_DATA/Images/splash.png", splashImagePath))
 		this->splashscreen.show(splashImagePath);
 
 	this->splashscreen.setStatus(L"Initializing renderer...");
@@ -112,6 +128,10 @@ bool Application::initialize() {
 	this->guiSystemManager = GuiSystemManager::createInstance();
 	if (!this->guiSystemManager->initialize())
 		return false;
+
+	this->splashscreen.setStatus(L"Loading Layout manager...");
+	this->layoutManager = LayoutManager::createInstance();
+	this->layoutManager->initialize();
 
 	this->splashscreen.setStatus(L"Starting Lua Engine...");
 	this->luaManager = LuaManager::createInstance();

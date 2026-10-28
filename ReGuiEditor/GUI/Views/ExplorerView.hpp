@@ -1,5 +1,5 @@
 #pragma once
-#include "../ViewsManager.hpp"
+#include "../View.hpp"
 
 class ExplorerView : public View {
 public:

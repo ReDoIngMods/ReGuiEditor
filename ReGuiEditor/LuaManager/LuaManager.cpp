@@ -1,4 +1,6 @@
 #include "LuaManager.hpp"
+
+#include "LuaUtil.hpp"
 #include "LuaVM.hpp"
 
 #include "UserdataManager.hpp"
@@ -9,7 +11,7 @@
 #include <LuaJIT/lua.h>
 #include <LuaJIT/lualib.h>
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -24,7 +26,7 @@ static int luaPanic(lua_State* L) {
 	const char* message = lua_tostring(L, 1);
 	CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "PANIC: %s", message ? message : "unknown error");
 
-	LuaVM::dumpStack(L);
+	LuaUtils::dumpStack(L);
 	return 0;
 }
 

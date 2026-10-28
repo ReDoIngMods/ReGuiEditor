@@ -1,5 +1,5 @@
 #pragma once
-#include "../ViewsManager.hpp"
+#include "../View.hpp"
 
 #include <ImGui/imgui.h>
 

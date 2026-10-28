@@ -1,17 +1,25 @@
 #include "DecorationView.hpp"
 
-#include <GUI/ImGuiFontManager.hpp>
 #include <GUI/ImageManager.hpp>
 #include <GUI/ViewsManager.hpp>
 
 #include <Window/TitlebarHitTest.hpp>
 
 #include <Application.hpp>
-
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
 #include <cmath>
+#include <cstdint>
+#include <string>
+
+inline static ImTextureID findOrLoadImageSVGImTextureId(const std::string& path, uint32_t width, uint32_t height, ImU32 color) {
+	auto image = ImageManager::getInstance().findOrLoadImageSVG(path, width, height, color);
+	if (!image)
+		return 0;
+
+	return image->getTextureId();
+}
 
 void DecorationView::buildDockspace(ImGuiID dockspaceId, ImVec2 size) {
 	ImGui::DockBuilderRemoveNode(dockspaceId);
@@ -34,18 +42,31 @@ void DecorationView::buildDockspace(ImGuiID dockspaceId, ImVec2 size) {
 	ImGui::DockBuilderFinish(dockspaceId);
 }
 
-void DecorationView::drawProgamName(const char* name) {
-	ImFont* font = ImGuiFontManager::getInstance().getFont("Futura");
-	if (!font) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Font 'Futura' not found. Using default font.");
-		font = ImGui::GetFont();
-	}
+void DecorationView::drawProgamName(const char*) {
+	ImagePtr logoImage = ImageManager::getInstance().findOrLoadImageSVG("$RGE_DATA/Images/logo.svg");
+	if (!logoImage)
+		return;
 
-	static const ImColor textColor = ImColor(0xFF, 0xA0, 0x00);
+	const float frameHeight = ImGui::GetFrameHeight();
+	const float logoHeight = frameHeight * 0.5f;
+	const float logoWidth = logoImage->getAspectRatio() * logoHeight;
 
-	ImGui::PushFont(font, 0.f);
-	ImGui::TextColored(textColor, name);
-	ImGui::PopFont();
+	const float logoY = (frameHeight - logoHeight) * 0.5f;
+
+	const ImVec2 windowPos = ImGui::GetWindowPos();
+	const ImVec2 logoMin = {
+		windowPos.x + ImGui::GetCursorPosX(),
+		windowPos.y + ImGui::GetCursorPosY() + logoY
+	};
+
+	const ImVec2 logoMax = {
+		logoMin.x + logoWidth,
+		logoMin.y + logoHeight
+	};
+
+	ImGui::GetWindowDrawList()->AddImage(logoImage->getTextureId(), logoMin, logoMax);
+
+	ImGui::Dummy({ logoWidth, logoHeight });
 }
 
 bool DecorationView::drawWindowButton(const char* id, ImTextureID icon, ImVec2 size) {
@@ -67,10 +88,10 @@ void DecorationView::drawWindowButtons() {
 	const ImVec2 iconExtent = { iconSize, iconSize };
 
 	ImageManager& imageManager = ImageManager::getInstance();
-	const ImTextureID minimizeIcon = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-minimize.svg", 64, 64, 0xFFAAAAAA);
-	const ImTextureID maximizeIcon = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-maximize.svg", 64, 64, 0xFFAAAAAA);
-	const ImTextureID restoreIcon = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-restore.svg", 64, 64, 0xFFAAAAAA);
-	const ImTextureID closeIcon = imageManager.findOrLoadImGuiTextureSVG("$RGE_DATA/Icons/chrome-close.svg", 64, 64, 0xFFAAAAAA);
+	const ImTextureID minimizeIcon = findOrLoadImageSVGImTextureId("$RGE_DATA/Icons/chrome-minimize.svg", 64, 64, 0xFFAAAAAA);
+	const ImTextureID maximizeIcon = findOrLoadImageSVGImTextureId("$RGE_DATA/Icons/chrome-maximize.svg", 64, 64, 0xFFAAAAAA);
+	const ImTextureID restoreIcon  = findOrLoadImageSVGImTextureId("$RGE_DATA/Icons/chrome-restore.svg",  64, 64, 0xFFAAAAAA);
+	const ImTextureID closeIcon    = findOrLoadImageSVGImTextureId("$RGE_DATA/Icons/chrome-close.svg",    64, 64, 0xFFAAAAAA);
 
 	ImGui::SetCursorPos({ ImGui::GetWindowWidth() - buttonArrayWidth, 0.f });
 
@@ -111,34 +132,14 @@ void DecorationView::renderMenubar() {
 	this->drawProgamName("ReGuiEditor");
 
 	if (this->beginMenu("File")) {
-		ImGui::MenuItem("New", "Ctrl+N");
-		ImGui::MenuItem("Open", "Ctrl+O");
-		ImGui::MenuItem("Save", "Ctrl+S");
-		ImGui::MenuItem("Save As", "Ctrl+Shift+S");
-		ImGui::Separator();
-		ImGui::MenuItem("Exit", "Alt+F4");
-		ImGui::EndMenu();
-	}
-
-	if (this->beginMenu("Edit")) {
-		ImGui::MenuItem("Undo", "Ctrl+Z");
-		ImGui::MenuItem("Redo", "Ctrl+Y");
-		ImGui::Separator();
-		ImGui::MenuItem("Cut", "Ctrl+X");
-		ImGui::MenuItem("Copy", "Ctrl+C");
-		ImGui::MenuItem("Paste", "Ctrl+V");
 		ImGui::EndMenu();
 	}
 
 	if (this->beginMenu("View")) {
-		ViewsManager::getInstance().renderMenu();
 		ImGui::EndMenu();
 	}
 
-	if (this->beginMenu("Help")) {
-		ImGui::MenuItem("About");
-		ImGui::EndMenu();
-	}
+	ViewsManager::getInstance().renderMenu();
 
 	this->drawWindowButtons();
 

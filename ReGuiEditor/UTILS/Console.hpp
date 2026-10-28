@@ -4,7 +4,10 @@
 
 #include <Windows.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -77,22 +80,18 @@ namespace UTILS {
 
 		void log(ConsoleLogLevel level, ConsoleLogColor color, const std::string& message) {
 			std::wstring wideMessage = UTILS::toWideString(message);
-
 			this->log(level, color, wideMessage);
 		}
 
 		template<typename ...Arguments>
 		void log(ConsoleLogLevel level, ConsoleLogColor color, const std::wstring& format, Arguments... args) {
 			std::wstring message = UTILS::formatString(format, args...);
-
 			this->log(level, color, message);
 		}
 
 		template<typename ...Arguments>
 		void log(ConsoleLogLevel level, ConsoleLogColor color, const std::string& format, Arguments... args) {
-			std::string message = UTILS::formatString(format, args...);
-			std::wstring wideMessage = UTILS::toWideString(message);
-
+			std::wstring wideMessage = UTILS::toWideString(UTILS::formatString(format, args...));
 			this->log(level, color, wideMessage);
 		}
 

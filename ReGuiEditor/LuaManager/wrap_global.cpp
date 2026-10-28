@@ -10,17 +10,19 @@
 #include <utility>
 
 static int global_dofile(lua_State* L) {
-	LuaVM* luaVM = LuaVM::fromState(L);
+	LuaVM* luaVM = LuaUtils::getLuaVM(L);
 	if (!luaVM)
 		return luaL_error(L, "Failed to get LuaVM instance");
 
 	std::string path = luaL_checkstring(L, 1);
+	if (path.empty())
+		return luaL_error(L, "dofile expects a non-empty path");
+
 	lua_settop(L, 1);
 
-	if (path.empty() || path.front() != '$') {
-		lua_Debug caller;
+	if (path.front() != '$') {
 		std::string callerPath;
-		if (!lua_getstack(L, 1, &caller) || !lua_getinfo(L, "S", &caller) || !luaVM->findChunkPath(caller.source, callerPath))
+		if (!LuaUtils::getCallerPath(L, callerPath))
 			return luaL_error(L, "cannot resolve relative path '%s' outside of a script file", path.c_str());
 
 		std::string resolvedPath;

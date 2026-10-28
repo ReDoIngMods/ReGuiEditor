@@ -3,14 +3,19 @@
 
 #include <string>
 
-namespace LuaUtils {
-	// Joins every argument on the stack into one space-separated string, honouring
-	// string-valued and function-valued __tostring.
-	// 
-	// Returns nullptr on success, otherwise an error message for luaL_error.
-	[[nodiscard]] const char* argsToString(lua_State* L, std::string& output);
+// These are utility functions that are used across the LuaVM & wrappers. Its a lot neater like this... i think i don't know
+// i need to figure out how to be better at structuring code.
 
-	// Resolves `relativePath` against the directory of `baseFile` ("$KEY/dir/file.lua"),
-	// collapsing "." and ".." segments. Fails when ".." would climb out of the "$KEY" root.
+class LuaVM;
+
+namespace LuaUtils {
+	[[nodiscard]] const char* argsToString(lua_State* L, std::string& output);
 	[[nodiscard]] bool joinRelativePath(const std::string& baseFile, const std::string& relativePath, std::string& output);
+	[[nodiscard]] bool getCallerPath(lua_State* L, std::string& output);
+	[[nodiscard]] bool resolveContentDataPath(lua_State* L, std::string& path);
+
+	[[nodiscard]] LuaVM* getLuaVM(lua_State* L);
+	void setLuaVM(lua_State* L, LuaVM* vm);
+
+	void dumpStack(lua_State* L);
 }

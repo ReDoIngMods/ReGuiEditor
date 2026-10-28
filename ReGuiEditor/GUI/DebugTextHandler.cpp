@@ -72,14 +72,14 @@ void DebugTextHandler::initialize() {
 		for (const auto& [name, time] : UTILS::gProfilerResults) {
 			const double averageTime = time.getAverage();
 			const size_t sampleCount = time.getSampleCount();
-			
+
 			const char* timeUnit = (averageTime > 1000.0) ? "s" : (averageTime > 1.0) ? "ms" : "us";
 			const double displayTime = (averageTime > 1000.0) ? averageTime / 1000.0 : (averageTime > 1.0) ? averageTime : averageTime * 1000.0;
 
 			if (sampleCount == UTILS::VALUE_AVERAGER_SAMPLE_COUNT)
-				stream.print("%-32s = [MAX S] %.3f %s", name.c_str(), displayTime, timeUnit);
+				stream.print("%-32s = [MAX S] %10.3f %s", name.c_str(), displayTime, timeUnit);
 			else
-				stream.print("%-32s = [%3d S] %.3f %s", name.c_str(), sampleCount, displayTime, timeUnit);
+				stream.print("%-32s = [%3d S] %10.3f %s", name.c_str(), static_cast<int>(sampleCount), displayTime, timeUnit);
 		}
 	});
 }

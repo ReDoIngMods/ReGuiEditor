@@ -4,7 +4,8 @@
 
 #include <Application.hpp>
 
-#include <FilesystemManager/FilesystemManager.hpp>
+#include <Filesystem/DirectoryManager.hpp>
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
@@ -323,7 +324,7 @@ bool FontManager::generateCacheFile(const std::string& filePath, const std::stri
 
 bool FontManager::loadFontXML(const std::string& xmlFilePath) {
 	std::filesystem::path resolvedPath;
-	if (!FilesystemManager::getInstance().resolveDirectory(xmlFilePath, resolvedPath)) {
+	if (!DirectoryManager::getInstance().resolveDirectory(xmlFilePath, resolvedPath)) {
 		CONSOLE_ERROR("FontManager::loadFontXML: Failed to resolve font XML file path: %s", xmlFilePath.c_str());
 		return false;
 	}

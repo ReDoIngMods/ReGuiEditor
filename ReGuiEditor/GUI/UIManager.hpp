@@ -6,7 +6,10 @@
 #include "NotificationManager.hpp"
 #include "ViewsManager.hpp"
 
+#include "FilePickerManager.hpp"
+
 #include "DebugTextHandler.hpp"
+#include "FileIconHandler.hpp"
 
 class UIManager : public UTILS::Singleton<UIManager> {
 	void applyImGuiTheme();
@@ -22,5 +25,8 @@ public:
 	NotificationManager* notificationManager = nullptr;
 	ViewsManager* viewsManager = nullptr;
 
+	FilePickerManager* filePickerManager = nullptr;
+
 	DebugTextHandler debugTextHandler;
+	FileIconHandler fileIconHandler;
 };

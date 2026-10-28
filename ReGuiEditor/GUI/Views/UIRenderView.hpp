@@ -2,7 +2,7 @@
 #include "RenderCamera.hpp"
 
 #include "../DebugTextHandler.hpp"
-#include "../ViewsManager.hpp"
+#include "../View.hpp"
 
 #include <rend/FullscreenPass.hpp>
 

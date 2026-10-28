@@ -5,6 +5,8 @@
 #include "NotificationManager.hpp"
 #include "ViewsManager.hpp"
 
+#include "FilePickerManager.hpp"
+
 #include "Views/DecorationView.hpp"
 #include "Views/ExplorerView.hpp"
 #include "Views/PropertiesView.hpp"
@@ -24,93 +26,129 @@ void UIManager::applyImGuiTheme() {
 	ImGuiStyle& style = ImGui::GetStyle();
 	ImVec4* colors = style.Colors;
 
-	const ImVec4 background = { 0.039f, 0.039f, 0.043f, 1.00f }; // hsl(240 10% 3.9%)
-	const ImVec4 foreground = { 0.980f, 0.980f, 0.980f, 1.00f }; // hsl(0 0% 98%)
-	const ImVec4 card = { 0.055f, 0.055f, 0.060f, 1.00f };
-	const ImVec4 secondary = { 0.159f, 0.159f, 0.176f, 1.00f }; // hsl(240 3.7% 15.9%)
-	const ImVec4 mutedFg = { 0.639f, 0.639f, 0.659f, 1.00f }; // hsl(240 5% 64.9%)
-	const ImVec4 accent = { 0.200f, 0.200f, 0.220f, 1.00f };
-	const ImVec4 border = { 0.159f, 0.159f, 0.176f, 1.00f };
-	const ImVec4 destructive = { 0.450f, 0.100f, 0.100f, 1.00f }; // hsl(0 62.8% 30.6%)
-	const ImVec4 ring = foreground;
+	// Pure neutral gray: r == g == b, so no tint is possible
+	constexpr auto gray = [](unsigned v, float a = 1.0f) {
+		const float f = v / 255.0f;
+		return ImVec4{ f, f, f, a };
+		};
+	constexpr auto orange = [](float a = 1.0f) { return ImVec4{ 0.961f, 0.647f, 0.141f, a }; }; // #F5A524
 
-	colors[ImGuiCol_Text] = foreground;
-	colors[ImGuiCol_TextDisabled] = mutedFg;
-	colors[ImGuiCol_WindowBg] = background;
-	colors[ImGuiCol_ChildBg] = background;
-	colors[ImGuiCol_PopupBg] = card;
-	colors[ImGuiCol_Border] = border;
-	colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
-	colors[ImGuiCol_FrameBg] = secondary;
-	colors[ImGuiCol_FrameBgHovered] = accent;
-	colors[ImGuiCol_FrameBgActive] = accent;
-	colors[ImGuiCol_TitleBg] = background;
-	colors[ImGuiCol_TitleBgActive] = background;
-	colors[ImGuiCol_TitleBgCollapsed] = background;
-	colors[ImGuiCol_MenuBarBg] = card;
-	colors[ImGuiCol_ScrollbarBg] = background;
-	colors[ImGuiCol_ScrollbarGrab] = secondary;
-	colors[ImGuiCol_ScrollbarGrabHovered] = accent;
-	colors[ImGuiCol_ScrollbarGrabActive] = ring;
-	colors[ImGuiCol_CheckMark] = foreground;
-	colors[ImGuiCol_CheckboxSelectedBg] = secondary;
-	colors[ImGuiCol_SliderGrab] = mutedFg;
-	colors[ImGuiCol_SliderGrabActive] = foreground;
-	colors[ImGuiCol_Button] = secondary;
-	colors[ImGuiCol_ButtonHovered] = accent;
-	colors[ImGuiCol_ButtonActive] = ring;
-	colors[ImGuiCol_Header] = secondary;
-	colors[ImGuiCol_HeaderHovered] = accent;
-	colors[ImGuiCol_HeaderActive] = accent;
-	colors[ImGuiCol_Separator] = border;
-	colors[ImGuiCol_SeparatorHovered] = mutedFg;
-	colors[ImGuiCol_SeparatorActive] = foreground;
-	colors[ImGuiCol_ResizeGrip] = secondary;
+	const ImVec4 clear = gray(0, 0.0f);
+	const ImVec4 inset = gray(0x0F);
+	const ImVec4 bgDeep = gray(0x14);
+	const ImVec4 panel = gray(0x1A);
+	const ImVec4 popup = gray(0x22);
+	const ImVec4 line = gray(0x2B);
+
+	const ImVec4 button = gray(0x26);
+	const ImVec4 buttonHover = gray(0x30);
+	const ImVec4 buttonActive = gray(0x3A);
+
+	const ImVec4 text = gray(0xED);
+	const ImVec4 textDisabled = gray(0x6B);
+	const ImVec4 accent = orange();
+	const ImVec4 accentSoft = orange(0.30f);
+
+	colors[ImGuiCol_Text] = text;
+	colors[ImGuiCol_TextDisabled] = textDisabled;
+	colors[ImGuiCol_WindowBg] = panel;
+	colors[ImGuiCol_ChildBg] = clear;
+	colors[ImGuiCol_PopupBg] = popup;
+	colors[ImGuiCol_Border] = line;
+	colors[ImGuiCol_BorderShadow] = clear;
+
+	colors[ImGuiCol_FrameBg] = inset;
+	colors[ImGuiCol_FrameBgHovered] = gray(0x16);
+	colors[ImGuiCol_FrameBgActive] = gray(0x16);
+
+	colors[ImGuiCol_TitleBg] = bgDeep;
+	colors[ImGuiCol_TitleBgActive] = bgDeep;
+	colors[ImGuiCol_TitleBgCollapsed] = bgDeep;
+	colors[ImGuiCol_MenuBarBg] = bgDeep;
+
+	colors[ImGuiCol_ScrollbarBg] = clear;
+	colors[ImGuiCol_ScrollbarGrab] = gray(0x3A);
+	colors[ImGuiCol_ScrollbarGrabHovered] = gray(0x4C);
+	colors[ImGuiCol_ScrollbarGrabActive] = gray(0x5E);
+
+	colors[ImGuiCol_CheckMark] = accent;
+	colors[ImGuiCol_CheckboxSelectedBg] = inset;
+	colors[ImGuiCol_SliderGrab] = gray(0x70);
+	colors[ImGuiCol_SliderGrabActive] = accent;
+
+	colors[ImGuiCol_Button] = button;
+	colors[ImGuiCol_ButtonHovered] = buttonHover;
+	colors[ImGuiCol_ButtonActive] = buttonActive;
+
+	// White overlays on neutral gray stay neutral
+	colors[ImGuiCol_Header] = gray(0xFF, 0.10f);
+	colors[ImGuiCol_HeaderHovered] = gray(0xFF, 0.06f);
+	colors[ImGuiCol_HeaderActive] = gray(0xFF, 0.14f);
+
+	colors[ImGuiCol_Separator] = line;
+	colors[ImGuiCol_SeparatorHovered] = accent;
+	colors[ImGuiCol_SeparatorActive] = accent;
+	colors[ImGuiCol_ResizeGrip] = clear;
 	colors[ImGuiCol_ResizeGripHovered] = accent;
-	colors[ImGuiCol_ResizeGripActive] = ring;
-	colors[ImGuiCol_InputTextCursor] = foreground;
-	colors[ImGuiCol_TabHovered] = accent;
-	colors[ImGuiCol_Tab] = background;
-	colors[ImGuiCol_TabSelected] = secondary;
-	colors[ImGuiCol_TabSelectedOverline] = ring;
-	colors[ImGuiCol_TabDimmed] = background;
-	colors[ImGuiCol_TabDimmedSelected] = secondary;
-	colors[ImGuiCol_TabDimmedSelectedOverline] = border;
-	colors[ImGuiCol_DockingPreview] = { ring.x, ring.y, ring.z, 0.35f };
-	colors[ImGuiCol_DockingEmptyBg] = background;
-	colors[ImGuiCol_PlotLines] = mutedFg;
-	colors[ImGuiCol_PlotLinesHovered] = foreground;
-	colors[ImGuiCol_PlotHistogram] = mutedFg;
-	colors[ImGuiCol_PlotHistogramHovered] = foreground;
-	colors[ImGuiCol_TableHeaderBg] = card;
-	colors[ImGuiCol_TableBorderStrong] = border;
-	colors[ImGuiCol_TableBorderLight] = border;
-	colors[ImGuiCol_TableRowBg] = background;
-	colors[ImGuiCol_TableRowBgAlt] = card;
-	colors[ImGuiCol_TextLink] = foreground;
-	colors[ImGuiCol_TextSelectedBg] = { foreground.x, foreground.y, foreground.z, 0.25f };
-	colors[ImGuiCol_TreeLines] = border;
-	colors[ImGuiCol_DragDropTarget] = destructive;
-	colors[ImGuiCol_DragDropTargetBg] = { destructive.x, destructive.y, destructive.z, 0.20f };
-	colors[ImGuiCol_UnsavedMarker] = mutedFg;
-	colors[ImGuiCol_NavCursor] = ring;
-	colors[ImGuiCol_NavWindowingHighlight] = { foreground.x, foreground.y, foreground.z, 0.70f };
-	colors[ImGuiCol_NavWindowingDimBg] = { background.x, background.y, background.z, 0.60f };
-	colors[ImGuiCol_ModalWindowDimBg] = { background.x, background.y, background.z, 0.60f };
+	colors[ImGuiCol_ResizeGripActive] = accent;
+	colors[ImGuiCol_InputTextCursor] = text;
+
+	colors[ImGuiCol_Tab] = bgDeep;
+	colors[ImGuiCol_TabHovered] = gray(0x22);
+	colors[ImGuiCol_TabSelected] = panel;
+	colors[ImGuiCol_TabSelectedOverline] = accent;
+	colors[ImGuiCol_TabDimmed] = bgDeep;
+	colors[ImGuiCol_TabDimmedSelected] = panel;
+	colors[ImGuiCol_TabDimmedSelectedOverline] = gray(0x48);
+
+	colors[ImGuiCol_DockingPreview] = accentSoft;
+	colors[ImGuiCol_DockingEmptyBg] = bgDeep;
+
+	colors[ImGuiCol_PlotLines] = gray(0x92);
+	colors[ImGuiCol_PlotLinesHovered] = accent;
+	colors[ImGuiCol_PlotHistogram] = gray(0x92);
+	colors[ImGuiCol_PlotHistogramHovered] = accent;
+
+	colors[ImGuiCol_TableHeaderBg] = bgDeep;
+	colors[ImGuiCol_TableBorderStrong] = line;
+	colors[ImGuiCol_TableBorderLight] = gray(0x24);
+	colors[ImGuiCol_TableRowBg] = clear;
+	colors[ImGuiCol_TableRowBgAlt] = gray(0xFF, 0.025f);
+
+	colors[ImGuiCol_TextLink] = accent;
+	colors[ImGuiCol_TextSelectedBg] = accentSoft;
+	colors[ImGuiCol_TreeLines] = gray(0x3A);
+	colors[ImGuiCol_DragDropTarget] = accent;
+	colors[ImGuiCol_DragDropTargetBg] = orange(0.15f);
+	colors[ImGuiCol_UnsavedMarker] = accent;
+	colors[ImGuiCol_NavCursor] = accent;
+	colors[ImGuiCol_NavWindowingHighlight] = gray(0xFF, 0.60f);
+	colors[ImGuiCol_NavWindowingDimBg] = gray(0, 0.50f);
+	colors[ImGuiCol_ModalWindowDimBg] = gray(0, 0.55f);
 
 	style.WindowRounding = 0.0f;
 	style.ChildRounding = 0.0f;
-	style.FrameRounding = 0.0f;
-	style.PopupRounding = 0.0f;
-	style.ScrollbarRounding = 0.0f;
-	style.GrabRounding = 0.0f;
+	style.PopupRounding = 3.0f;
+	style.FrameRounding = 3.0f;
+	style.GrabRounding = 3.0f;
 	style.TabRounding = 0.0f;
+	style.ScrollbarRounding = 0.0f;
+
 	style.WindowBorderSize = 1.0f;
-	style.FrameBorderSize = 1.0f;
 	style.PopupBorderSize = 1.0f;
+	style.FrameBorderSize = 0.0f;
+	style.TabBarBorderSize = 1.0f;
+	style.TabBarOverlineSize = 2.0f;
+
+	// Looser than before
 	style.WindowPadding = { 10, 10 };
-	style.FramePadding = { 8, 5 };
-	style.ItemSpacing = { 8, 6 };
+	style.FramePadding = { 8, 6 };
+	style.ItemSpacing = { 8, 7 };
+	style.ItemInnerSpacing = { 6, 6 };
+	style.IndentSpacing = 16.0f;
+	style.ScrollbarSize = 12.0f;
+	style.GrabMinSize = 10.0f;
+	style.WindowMenuButtonPosition = ImGuiDir_None;
 }
 
 bool UIManager::initialize() {
@@ -161,7 +199,6 @@ bool UIManager::initialize() {
 		return false;
 	}
 
-
 	this->viewsManager = ViewsManager::createInstance();
 	if (!this->viewsManager) {
 		CONSOLE_ERROR("Failed to create ViewsManager.");
@@ -171,12 +208,25 @@ bool UIManager::initialize() {
 	this->viewsManager->registerView<DecorationView>("Decoration");
 	this->viewsManager->registerView<ExplorerView>("Explorer");
 	this->viewsManager->registerView<PropertiesView>("Properties");
-	this->viewsManager->registerView<UIRenderView>("Render View");
+	this->viewsManager->registerView<UIRenderView>("Render");
+
+	this->filePickerManager = FilePickerManager::createInstance();
+	this->filePickerManager->initialize();
+
+	if(!this->fileIconHandler.initialize()) {
+		CONSOLE_ERROR("Failed to initialize FileIconHandler.");
+		return false;
+	}
 
 	return true;
 }
 
 void UIManager::cleanup() {
+	if (this->filePickerManager) {
+		this->filePickerManager->destroyInstance();
+		this->filePickerManager = nullptr;
+	}
+
 	if (this->viewsManager) {
 		this->viewsManager->destroyInstance();
 		this->viewsManager = nullptr;
