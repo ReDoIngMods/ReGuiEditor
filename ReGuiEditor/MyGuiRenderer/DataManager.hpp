@@ -31,13 +31,17 @@ private:
 		SearchDirectory{"$SURVIVAL_DATA/Gui" , false}
 	};
 public:
-	MyGUI::IDataStream* getData(const std::string& _name) override;
+	MyGUI::IDataStream* getData(const std::string& _name) const override;
 
-	bool isDataExist(const std::string& _name) override;
+	void freeData(MyGUI::IDataStream* _data) override {
+		delete _data;
+	}
 
-	const MyGUI::VectorString& getDataListNames(const std::string& _pattern) override;
+	bool isDataExist(const std::string& _name) const override;
 
-	const std::string& getDataPath(const std::string& _name) override;
+	const MyGUI::VectorString& getDataListNames(const std::string& _pattern) const override;
+
+	const std::string& getDataPath(const std::string& _name) const override;
 
 	void addSearchDirectory(const std::string& path, bool recursive) {
 		this->searchDirectories_.push_back({ path, recursive });

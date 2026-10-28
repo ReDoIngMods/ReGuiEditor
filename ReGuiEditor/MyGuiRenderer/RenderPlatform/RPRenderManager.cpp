@@ -32,10 +32,22 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <utility>
 
 struct alignas(16) ConstantBuffer {
 	float uvScale[2] = { 1.0f, 1.0f };
 };
+
+static rend::RefCountPtr<rend::InputLayout> createGuiInputLayout(rend::ResourceManager& resourceManager, const rend::RefCountPtr<rend::VertexShader>& vertexShader, bool textured) {
+	rend::InputLayoutDesc desc;
+	desc.addElement("POSITION", 0, rend::Format::R32G32B32_FLOAT);
+	desc.addElement("COLOR", 0, rend::Format::R8G8B8A8_UNORM);
+
+	if (textured)
+		desc.addElement("TEXCOORD", 0, rend::Format::R32G32_FLOAT);
+
+	return resourceManager.createInputLayout(desc, vertexShader);
+}
 
 bool RPRenderManager::initialise() {
 	this->vertexFormat = MyGUI::VertexColourType::ColourABGR;
@@ -98,11 +110,7 @@ bool RPRenderManager::initialise() {
 	this->shaderPlain.vertexShader = resourceManager.createShader<rend::VertexShader>("$RGE_DATA/Shaders/gui_mygui.hlsl", "vsMain");
 	this->shaderPlain.pixelShader = resourceManager.createShader<rend::PixelShader>("$RGE_DATA/Shaders/gui_mygui.hlsl", "psMain");
 
-	rend::InputLayoutDesc inputLayoutDescPlain;
-	inputLayoutDescPlain.addElement("POSITION", 0, rend::Format::R32G32B32_FLOAT);
-	inputLayoutDescPlain.addElement("COLOR", 0, rend::Format::R8G8B8A8_UNORM);
-
-	this->shaderPlain.inputLayout = resourceManager.createInputLayout(inputLayoutDescPlain, this->shaderPlain.vertexShader);
+	this->shaderPlain.inputLayout = createGuiInputLayout(resourceManager, this->shaderPlain.vertexShader, false);
 	if (!this->shaderPlain.isValid()) {
 		CONSOLE_ERROR("RPRenderManager::initialise: Failed to create shader for untextured geometry.");
 		return false;
@@ -114,12 +122,7 @@ bool RPRenderManager::initialise() {
 	this->shaderTextured.vertexShader = resourceManager.createShader<rend::VertexShader>("$RGE_DATA/Shaders/gui_mygui.hlsl", "vsMain", { "TEXTURED" });
 	this->shaderTextured.pixelShader = resourceManager.createShader<rend::PixelShader>("$RGE_DATA/Shaders/gui_mygui.hlsl", "psMain", { "TEXTURED" });
 
-	rend::InputLayoutDesc inputLayoutDescTextured;
-	inputLayoutDescTextured.addElement("POSITION", 0, rend::Format::R32G32B32_FLOAT);
-	inputLayoutDescTextured.addElement("COLOR", 0, rend::Format::R8G8B8A8_UNORM);
-	inputLayoutDescTextured.addElement("TEXCOORD", 0, rend::Format::R32G32_FLOAT);
-
-	this->shaderTextured.inputLayout = resourceManager.createInputLayout(inputLayoutDescTextured, this->shaderTextured.vertexShader);
+	this->shaderTextured.inputLayout = createGuiInputLayout(resourceManager, this->shaderTextured.vertexShader, true);
 	if (!this->shaderTextured.isValid()) {
 		CONSOLE_ERROR("RPRenderManager::initialise: Failed to create shader for textured geometry.");
 		return false;
@@ -134,6 +137,7 @@ bool RPRenderManager::initialise() {
 void RPRenderManager::shutdown() {
 	this->destroyAllResources();
 
+	this->registeredShaders_.clear();
 	this->shaderTextured.reset();
 	this->shaderPlain.reset();
 
@@ -182,6 +186,38 @@ MyGUI::ITexture* RPRenderManager::getTexture(const std::string& _name) {
 		return iterator->second;
 
 	return nullptr;
+}
+
+void RPRenderManager::registerShader(const std::string& _shaderName, const std::string& _vertexProgramFile, const std::string& _fragmentProgramFile) {
+	rend::ResourceManager& resourceManager = rend::ResourceManager::getInstance();
+
+	Shader shader;
+	shader.vertexShader = resourceManager.createShader<rend::VertexShader>(_vertexProgramFile, "vsMain");
+	shader.pixelShader = resourceManager.createShader<rend::PixelShader>(_fragmentProgramFile, "psMain");
+	shader.inputLayout = createGuiInputLayout(resourceManager, shader.vertexShader, true);
+
+	if (!shader.isValid()) {
+		CONSOLE_ERROR("RPRenderManager::registerShader: Failed to create shader '%s' (%s, %s).", _shaderName.c_str(), _vertexProgramFile.c_str(), _fragmentProgramFile.c_str());
+		return;
+	}
+
+	shader.vertexShader->setDebugName("MyGUI::VertexShader (" + _shaderName + ")");
+	shader.pixelShader->setDebugName("MyGUI::PixelShader (" + _shaderName + ")");
+	shader.inputLayout->setDebugName("MyGUI::InputLayout (" + _shaderName + ")");
+
+	if (_shaderName == "Default")
+		this->shaderTextured = std::move(shader);
+	else
+		this->registeredShaders_[_shaderName] = std::move(shader);
+}
+
+auto RPRenderManager::getTexturedShader(const RPTexture& texture) const -> const Shader& {
+	const std::string& shaderName = texture.getShaderName();
+	if (shaderName.empty())
+		return this->shaderTextured;
+
+	const auto iterator = this->registeredShaders_.find(shaderName);
+	return iterator != this->registeredShaders_.end() ? iterator->second : this->shaderTextured;
 }
 
 void RPRenderManager::begin() {
@@ -238,7 +274,7 @@ void RPRenderManager::drawBatch(rend::PipelineContext& context, MyGUI::IVertexBu
 	RPTexture* texture = static_cast<RPTexture*>(_texture);
 	const bool isTextured = texture && texture->getTexture();
 
-	const Shader& shader = isTextured ? this->shaderTextured : this->shaderPlain;
+	const Shader& shader = isTextured ? this->getTexturedShader(*texture) : this->shaderPlain;
 	context.setInputLayout(shader.inputLayout);
 	context.setVertexShader(shader.vertexShader);
 	context.setPixelShader(shader.pixelShader);

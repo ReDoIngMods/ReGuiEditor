@@ -75,7 +75,7 @@ inline static void scanFolder(std::vector<std::string>& result, const std::strin
 	}
 }
 
-MyGUI::IDataStream* DataManager::getData(const std::string& _name) {
+MyGUI::IDataStream* DataManager::getData(const std::string& _name) const {
 	std::string filepath = this->getDataPath(_name);
 	if (filepath.empty())
 		return nullptr;
@@ -87,11 +87,11 @@ MyGUI::IDataStream* DataManager::getData(const std::string& _name) {
 	return new DataStream(resolvedPath.string());
 }
 
-bool DataManager::isDataExist(const std::string& _name) {
+bool DataManager::isDataExist(const std::string& _name) const {
 	return !this->getDataPath(_name).empty();
 }
 
-const std::vector<std::string>& DataManager::getDataListNames(const std::string& _pattern) {
+const std::vector<std::string>& DataManager::getDataListNames(const std::string& _pattern) const {
 	static std::vector<std::string> result;
 	result.clear();
 
@@ -107,7 +107,7 @@ const std::vector<std::string>& DataManager::getDataListNames(const std::string&
 	return result;
 }
 
-const std::string& DataManager::getDataPath(const std::string& _name) {
+const std::string& DataManager::getDataPath(const std::string& _name) const {
 	static std::string path;
 	path.clear();
 

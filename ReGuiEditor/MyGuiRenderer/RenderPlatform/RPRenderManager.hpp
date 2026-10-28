@@ -30,6 +30,8 @@
 #include <map>
 #include <string>
 
+class RPTexture;
+
 class RPRenderManager : public MyGUI::RenderManager, public MyGUI::IRenderTarget {
 	rend::RefCountPtr<rend::SamplerState> samplerState_;
 	rend::RefCountPtr<rend::BlendState> blendState_;
@@ -57,6 +59,11 @@ class RPRenderManager : public MyGUI::RenderManager, public MyGUI::IRenderTarget
 		}
 	} shaderPlain, shaderTextured;
 
+	// Shaders added through registerShader(), selected per texture via ITexture::setShader().
+	std::map<std::string, Shader> registeredShaders_;
+
+	const Shader& getTexturedShader(const RPTexture& texture) const;
+
 	MyGUI::IntSize viewSize = MyGUI::IntSize(0, 0);
 	MyGUI::VertexColourType vertexFormat = MyGUI::VertexColourType::ColourABGR;
 	MyGUI::RenderTargetInfo info{};
@@ -83,29 +90,25 @@ public:
 		return static_cast<RPRenderManager*>(MyGUI::RenderManager::getInstancePtr());
 	}
 
-	virtual const MyGUI::IntSize& getViewSize() const override { return this->viewSize; }
-
-	virtual MyGUI::VertexColourType getVertexFormat() override { return this->vertexFormat; }
 	virtual MyGUI::IVertexBuffer* createVertexBuffer() override { return new RPVertexBuffer; }
-
 	virtual void destroyVertexBuffer(MyGUI::IVertexBuffer* _buffer) override { delete _buffer; }
 
 	virtual MyGUI::ITexture* createTexture(const std::string& _name) override;
 	virtual void destroyTexture(MyGUI::ITexture* _texture) override;
 	virtual MyGUI::ITexture* getTexture(const std::string& _name) override;
 
-	virtual bool isFormatSupported(MyGUI::PixelFormat _format, MyGUI::TextureUsage _usage) override {
-		return _format == MyGUI::PixelFormat::R8G8B8A8;
-	}
+	virtual const MyGUI::IntSize& getViewSize() const override { return this->viewSize; }
+	virtual MyGUI::VertexColourType getVertexFormat() const override { return this->vertexFormat; }
+	virtual bool isFormatSupported(MyGUI::PixelFormat _format, MyGUI::TextureUsage _usage) override { return _format == MyGUI::PixelFormat::R8G8B8A8; }
 
 	virtual void begin() override;
 	virtual void end() override;
 
 	virtual void doRender(MyGUI::IVertexBuffer* _buffer, MyGUI::ITexture* _texture, size_t _count) override;
 
-	virtual const MyGUI::RenderTargetInfo& getInfo() override {
-		return this->info;
-	}
+	// Entry points are vsMain / psMain. Registering "Default" replaces the shader used for textures without one.
+	virtual void registerShader(const std::string& _shaderName, const std::string& _vertexProgramFile, const std::string& _fragmentProgramFile) override;
+	virtual const MyGUI::RenderTargetInfo& getInfo() const override { return this->info; }
 
 	// Binds the pipeline state shared by every MyGUI target (shaders are chosen per batch).
 	void setupContext(rend::PipelineContext& context, rend::RenderView* renderView, float width, float height);
@@ -115,7 +118,7 @@ public:
 	void setRenderView(rend::RenderView* renderView) { this->renderView_ = renderView; }
 
 	void drawOneFrame();
-	void setViewSize(int _width, int _height);
+	void setViewSize(int _width, int _height) override;
 
 	void destroyAllResources();
 };

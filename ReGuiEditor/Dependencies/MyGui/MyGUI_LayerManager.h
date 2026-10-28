@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		02/2008
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_LAYER_MANAGER_H__
-#define __MYGUI_LAYER_MANAGER_H__
+#ifndef MYGUI_LAYER_MANAGER_H_
+#define MYGUI_LAYER_MANAGER_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_Singleton.h"
@@ -35,10 +20,10 @@ namespace MyGUI
 {
 
 	class MYGUI_EXPORT LayerManager :
-		public Singleton<LayerManager>,
 		public IUnlinkWidget,
 		public MemberObsolete<LayerManager>
 	{
+		MYGUI_SINGLETON_DECLARATION(LayerManager);
 	public:
 		typedef std::vector<ILayer*> VectorLayer;
 		typedef Enumerator<VectorLayer> EnumeratorLayer;
@@ -69,20 +54,35 @@ namespace MyGUI
 		/** Get layer nodes Enumerator */
 		EnumeratorLayer getEnumerator() const;
 
+		/** Create new layer;
+			@param _name Layer name
+			@param _type Could be OverlappedLayer, SharedLayer or any custom registered layer type.
+			@param _index New layer will be placed before old layer with given index.
+		*/
+		ILayer* createLayerAt(const std::string& _name, const std::string& _type, size_t _index);
+
 		/** Get layer by name */
 		ILayer* getByName(const std::string& _name, bool _throw = true) const;
 
+		size_t getLayerCount() const;
+
+		ILayer* getLayer(size_t _index) const;
+
 		/** Get top visible and enabled widget at specified position */
-		Widget* getWidgetFromPoint(int _left, int _top);
+		Widget* getWidgetFromPoint(int _left, int _top) const;
 
 		/** Render all layers to specified target */
 		void renderToTarget(IRenderTarget* _target, bool _update);
 
 		void resizeView(const IntSize& _viewSize);
 
+		const std::string& getCategoryName() const;
+
 	private:
 		void _load(xml::ElementPtr _node, const std::string& _file, Version _version);
-		void _unlinkWidget(Widget* _widget);
+		void _unlinkWidget(Widget* _widget) override;
+
+		ILayer* _createLayerObject(const std::string& _type);
 
 		void clear();
 
@@ -93,8 +93,9 @@ namespace MyGUI
 		VectorLayer mLayerNodes;
 
 		bool mIsInitialise;
+		std::string mCategoryName;
 	};
 
 } // namespace MyGUI
 
-#endif // __MYGUI_LAYER_MANAGER_H__
+#endif // MYGUI_LAYER_MANAGER_H_

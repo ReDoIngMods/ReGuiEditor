@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		12/2007
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_TEXT_ITERATOR_H__
-#define __MYGUI_TEXT_ITERATOR_H__
+#ifndef MYGUI_TEXT_ITERATOR_H_
+#define MYGUI_TEXT_ITERATOR_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_Colour.h"
@@ -48,13 +33,13 @@ namespace MyGUI
 
 		bool setTagColour(const Colour& _colour);
 
-		bool setTagColour(UString _colour);
+		bool setTagColour(const UString& _colour);
 
 		// сохраняет текущий итератор
 		bool saveStartPoint();
 
 		// возвращает строку от сохраненного итератора до текущего
-		UString getFromStart();
+		UString getFromStart() const;
 
 		// удаляет от запомненной точки до текущей
 		bool eraseFromStart();
@@ -62,7 +47,7 @@ namespace MyGUI
 		// возвращает текущую псевдо позицию
 		size_t getPosition() const;
 
-		const UString& getText() const;
+		UString getText() const;
 
 		void insertText(const UString& _insert, bool _multiLine);
 
@@ -93,18 +78,21 @@ namespace MyGUI
 		static UString toTagsString(const UString& _text);
 
 	private:
-		// возвращает цвет
-		bool getTagColour(UString& _colour, UString::iterator& _iter) const;
+		bool getTagColour(UString& _colour, UString::utf32string::iterator& _iter) const;
 
-		void insert(UString::iterator& _start, UString& _insert);
+		bool setTagColour(const UString::utf32string& _colour);
 
-		UString::iterator erase(UString::iterator _start, UString::iterator _end);
+		void insert(UString::utf32string::iterator& _start, const UString::utf32string& _insert);
+
+		UString::utf32string::iterator erase(UString::utf32string::iterator _start, UString::utf32string::iterator _end);
 
 		void clear();
 
+		void normaliseNewLine(UString& _text);
+
 	private:
-		UString mText;
-		UString::iterator mCurrent, mEnd, mSave;
+		UString::utf32string mText;
+		UString::utf32string::iterator mCurrent, mEnd, mSave;
 
 		// позиция и размер
 		size_t mPosition;
@@ -116,4 +104,4 @@ namespace MyGUI
 
 } // namespace MyGUI
 
-#endif // __MYGUI_TEXT_ITERATOR_H__
+#endif // MYGUI_TEXT_ITERATOR_H_

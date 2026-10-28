@@ -29,6 +29,7 @@ class RPTexture : public MyGUI::ITexture {
 
 	MyGUI::TextureUsage usage_ = MyGUI::TextureUsage::Default;
 	std::string name_;
+	std::string shaderName_;
 
 	static std::string getCacheFilepath(const std::string& _filename);
 	bool loadCache(const std::string& _filename);
@@ -47,22 +48,26 @@ public:
 	void loadFromFile(const std::string& _filename) override;
 	void saveToFile(const std::string& _filename) override;
 	void destroy() override;
+	void setShader(const std::string& _shaderName) override { this->shaderName_ = _shaderName; }
 
 	void* lock(MyGUI::TextureUsage _access) override;
 	void unlock() override;
-	bool isLocked() override { return this->isLocked_; }
+	bool isLocked() const override { return this->isLocked_; }
 
-	int getWidth() override { return this->width_; }
-	int getHeight() override { return this->height_; }
+	int getWidth() const override { return this->width_; }
+	int getHeight() const override { return this->height_; }
 
 	int getTextureWidth() const { return this->textureWidth_; }
 	int getTextureHeight() const { return this->textureHeight_; }
 
-	MyGUI::PixelFormat getFormat() override { return MyGUI::PixelFormat::R8G8B8A8; }
-	MyGUI::TextureUsage getUsage() override { return this->usage_; }
-	size_t getNumElemBytes() override { return 4; }
+	MyGUI::PixelFormat getFormat() const override { return MyGUI::PixelFormat::R8G8B8A8; }
+	MyGUI::TextureUsage getUsage() const override { return this->usage_; }
+	size_t getNumElemBytes() const override { return 4; }
 
 	MyGUI::IRenderTarget* getRenderTarget() override;
 
 	rend::Texture2DHandle getTexture() const { return this->texture_; }
+
+	// Empty means the default shader.
+	const std::string& getShaderName() const { return this->shaderName_; }
 };

@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		11/2007
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_TEXT_CHANGE_HISTORY_H__
-#define __MYGUI_TEXT_CHANGE_HISTORY_H__
+#ifndef MYGUI_TEXT_CHANGE_HISTORY_H_
+#define MYGUI_TEXT_CHANGE_HISTORY_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_Macros.h"
@@ -30,10 +15,9 @@
 namespace MyGUI
 {
 
-	// инфо об одной операции
+	// information about single text change operation
 	struct TextCommandInfo
 	{
-		// типы операций
 		enum CommandType
 		{
 			COMMAND_POSITION,
@@ -41,8 +25,8 @@ namespace MyGUI
 			COMMAND_ERASE
 		};
 
-		// для удаления и вставки текста
-		TextCommandInfo(const UString& _text, size_t _start, CommandType _type) :
+		// for COMMAND_INSERT and COMMAND_ERASE
+		TextCommandInfo(const UString::utf32string& _text, size_t _start, CommandType _type) :
 			text(_text),
 			type(_type),
 			start(_start),
@@ -52,7 +36,7 @@ namespace MyGUI
 		{
 		}
 
-		// для указания позиции
+		// for COMMAND_POSITION
 		TextCommandInfo(size_t _undo, size_t _redo, size_t _length) :
 			type(COMMAND_POSITION),
 			start(ITEM_NONE),
@@ -62,19 +46,18 @@ namespace MyGUI
 		{
 		}
 
-		// строка харрактиризуещая изменения
-		UString text;
-		// тип операции
+		// inserted/erased string
+		UString::utf32string text;
 		CommandType type;
-		// инфа о начале позиции
+		// text start position
 		size_t start;
-		// инфа о псевдо позиции
+		// pseudo position
 		size_t undo, redo, length;
 	};
 
-	typedef std::vector<TextCommandInfo> VectorChangeInfo;
-	typedef std::deque<VectorChangeInfo> DequeUndoRedoInfo;
+	using VectorChangeInfo = std::vector<TextCommandInfo>;
+	using DequeUndoRedoInfo = std::deque<VectorChangeInfo>;
 
 } // namespace MyGUI
 
-#endif // __MYGUI_TEXT_CHANGE_HISTORY_H__
+#endif // MYGUI_TEXT_CHANGE_HISTORY_H_

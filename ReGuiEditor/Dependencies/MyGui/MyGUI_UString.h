@@ -24,8 +24,8 @@
 //
 // - Eric Shorkey (zero/zeroskill) <opengui@rightbracket.com> [January 20th, 2007]
 
-#ifndef __MYGUI_U_STRING_H__
-#define __MYGUI_U_STRING_H__
+#ifndef MYGUI_U_STRING_H_
+#define MYGUI_U_STRING_H_
 
 
 #include "MyGUI_Prerequest.h"
@@ -34,37 +34,10 @@
 // these are explained later
 #include <iterator>
 #include <string>
-#include <stdexcept>
-
-#if MYGUI_COMPILER == MYGUI_COMPILER_MSVC
-// disable: warning C4275: non dll-interface class '***' used as base for dll-interface clas '***'
-#	pragma warning (disable : 4275)
+#if __cplusplus >= 201703L
+#include <string_view>
 #endif
-
-// Workaround for VC7:
-//      when build with /MD or /MDd, VC7 have both std::basic_string<unsigned short> and
-// basic_string<__wchar_t> instantiated in msvcprt[d].lib/MSVCP71[D].dll, but the header
-// files tells compiler that only one of them is over there (based on /Zc:wchar_t compile
-// option). And since this file used both of them, causing compiler instantiating another
-// one in user object code, which lead to duplicate symbols with msvcprt.lib/MSVCP71[D].dll.
-//
-#if MYGUI_COMPILER == MYGUI_COMPILER_MSVC && (1300 <= MYGUI_COMP_VER && MYGUI_COMP_VER <= 1310)
-
-# if defined(_DLL_CPPLIB)
-
-namespace std
-{
-    template class _CRTIMP2 basic_string<unsigned short, char_traits<unsigned short>,
-	    allocator<unsigned short> >;
-
-    template class _CRTIMP2 basic_string<__wchar_t, char_traits<__wchar_t>,
-	    allocator<__wchar_t> >;
-}
-
-# endif // defined(_DLL_CPPLIB)
-
-#endif  // MYGUI_COMPILER == MYGUI_COMPILER_MSVC && MYGUI_COMP_VER == 1300
-
+#include <stdexcept>
 
 namespace MyGUI
 {
@@ -109,11 +82,9 @@ namespace MyGUI
 #if defined( __WIN32__ ) || defined( _WIN32 )
 #define WCHAR_UTF16 // All currently known Windows platforms utilize UTF-16 encoding in wchar_t
 #else // #if defined( __WIN32__ ) || defined( _WIN32 )
-#if MYGUI_COMPILER != MYGUI_COMPILER_GCCE
 #if WCHAR_MAX <= 0xFFFF // this is a last resort fall back test; WCHAR_MAX is defined in <wchar.h>
 #define WCHAR_UTF16 // best we can tell, wchar_t is not larger than 16-bit
 #endif // #if WCHAR_MAX <= 0xFFFF
-#endif
 #endif // #if defined( __WIN32__ ) || defined( _WIN32 )
 #endif // #ifdef __STDC_ISO_10646__
 
@@ -131,14 +102,19 @@ namespace MyGUI
 # else
 #   define MYGUI_IS_NATIVE_WCHAR_T      0
 # endif
-#elif MYGUI_PLATFORM == MYGUI_PLATFORM_SYMBIAN
-#   define MYGUI_IS_NATIVE_WCHAR_T      0
 #else   // MYGUI_COMPILER != MYGUI_COMPILER_MSVC
 
 // Assumed wchar_t is natively for other compilers
 #   define MYGUI_IS_NATIVE_WCHAR_T     1
 
 #endif  // MYGUI_COMPILER == MYGUI_COMPILER_MSVC
+
+
+#if MYGUI_COMPILER == MYGUI_COMPILER_MSVC
+ // disable: warning C4275: non dll-interface class '***' used as base for dll-interface clas '***'
+#	pragma warning (push)
+#	pragma warning (disable : 4275)
+#endif
 
 	//! A UTF-16 string with implicit conversion to/from std::string and std::wstring
 	/*! This class provides a complete 1 to 1 map of most std::string functions (at least to my
@@ -183,23 +159,23 @@ namespace MyGUI
 
 	public:
 		//! size type used to indicate string size and character positions within the string
-		typedef size_t size_type;
+		using size_type = size_t;
 		//! the usual constant representing: not found, no limit, etc
 		static const size_type npos = static_cast<size_type>(~0);
 
 		//! a single 32-bit Unicode character
-		typedef uint32 unicode_char;
+		using unicode_char = uint32;
 
 		//! a single UTF-16 code point
-		typedef uint16 code_point;
+		using code_point = uint16;
 
 		//! value type typedef for use in iterators
-		typedef code_point value_type;
+		using value_type = code_point;
 
-		typedef std::basic_string<code_point> dstring; // data string
+		using dstring = std::basic_string<code_point>; // data string
 
 		//! string type used for returning UTF-32 formatted data
-		typedef std::basic_string<unicode_char> utf32string;
+		using utf32string = std::basic_string<unicode_char>;
 
 		//! This exception is used when invalid data streams are encountered
 	class MYGUI_EXPORT invalid_data: public std::runtime_error { /* i don't know why the beautifier is freaking out on this line */
@@ -212,9 +188,12 @@ namespace MyGUI
 
 		//#########################################################################
 		//! base iterator class for UString
-	class MYGUI_EXPORT _base_iterator: public std::iterator<std::random_access_iterator_tag, value_type> { /* i don't know why the beautifier is freaking out on this line */
+	class MYGUI_EXPORT _base_iterator
+	{
 			friend class UString;
 		protected:
+			typedef ptrdiff_t difference_type;
+
 			_base_iterator();
 
 			void _seekFwd( size_type c );
@@ -241,11 +220,13 @@ namespace MyGUI
 		class _const_fwd_iterator; // forward declaration
 
 		//! forward iterator for UString
-	class MYGUI_EXPORT _fwd_iterator: public _base_iterator { /* i don't know why the beautifier is freaking out on this line */
+	class MYGUI_EXPORT _fwd_iterator: public _base_iterator
+	{
 			friend class _const_fwd_iterator;
 		public:
 			_fwd_iterator();
 			_fwd_iterator( const _fwd_iterator& i );
+			_fwd_iterator& operator=( const _fwd_iterator& i );
 
 			//! pre-increment
 			_fwd_iterator& operator++();
@@ -291,6 +272,7 @@ namespace MyGUI
 		public:
 			_const_fwd_iterator();
 			_const_fwd_iterator( const _const_fwd_iterator& i );
+			_const_fwd_iterator& operator=( const _const_fwd_iterator& i );
 			_const_fwd_iterator( const _fwd_iterator& i );
 
 			//! pre-increment
@@ -430,10 +412,10 @@ namespace MyGUI
 		};
 		//#########################################################################
 
-		typedef _fwd_iterator iterator;                     //!< iterator
-		typedef _rev_iterator reverse_iterator;             //!< reverse iterator
-		typedef _const_fwd_iterator const_iterator;         //!< const iterator
-		typedef _const_rev_iterator const_reverse_iterator; //!< const reverse iterator
+		using iterator = _fwd_iterator;                     //!< iterator
+		using reverse_iterator = _rev_iterator;             //!< reverse iterator
+		using const_iterator = _const_fwd_iterator;         //!< const iterator
+		using const_reverse_iterator = _const_rev_iterator; //!< const reverse iterator
 
 
 		//!\name Constructors/Destructor
@@ -465,6 +447,14 @@ namespace MyGUI
 		//! duplicate of \a str (UTF-8 encoding)
 		UString( const std::string& str );
 
+		explicit UString( const utf32string & str );
+
+		template <size_type num>
+		UString( const char(& str)[num] ) : UString( str, num ) {}
+
+#if __cplusplus >= 201703L
+		UString( std::string_view str ) : UString( str.data(), str.size() ) {}
+#endif
 		//! destructor
 		~UString();
 		//@}
@@ -610,6 +600,8 @@ namespace MyGUI
 #endif
 		//! assign \a str to the current string (\a str is treated as a UTF-8 stream)
 		UString& assign( const std::string& str );
+
+		UString& assign( const utf32string & str );
 		//! assign \a c_str to the current string (\a c_str is treated as a UTF-8 stream)
 		UString& assign( const char* c_str );
 		//! assign the first \a num characters of \a c_str to the current string (\a c_str is treated as a UTF-8 stream)
@@ -952,6 +944,8 @@ namespace MyGUI
 		static size_type _verifyUTF8( const unsigned char* c_str );
 		//! verifies a UTF-8 stream, returning the total number of Unicode characters found
 		static size_type _verifyUTF8( const std::string& str );
+		//! verifies a UTF-8 stream, returning the total number of Unicode characters found
+		static size_type _verifyUTF8( const char* c_str, size_type num );
 		//@}
 
 	private:
@@ -1096,10 +1090,10 @@ namespace MyGUI
 		return os << s.asWStr();
 	}
 
-} // namespace MyGUI
-
 #if MYGUI_COMPILER == MYGUI_COMPILER_MSVC
-#	pragma warning (default : 4275)
+#	pragma warning (pop)
 #endif
+
+} // namespace MyGUI
 
 #endif  // __MYGUI_U_STRING_H__

@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		11/2007
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_INPUT_MANAGER_H__
-#define __MYGUI_INPUT_MANAGER_H__
+#ifndef MYGUI_INPUT_MANAGER_H_
+#define MYGUI_INPUT_MANAGER_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_Macros.h"
@@ -40,10 +25,10 @@ namespace MyGUI
 {
 
 	class MYGUI_EXPORT InputManager :
-		public Singleton<InputManager>,
 		public IUnlinkWidget,
 		public MemberObsolete<InputManager>
 	{
+		MYGUI_SINGLETON_DECLARATION(InputManager);
 	public:
 		InputManager();
 
@@ -102,7 +87,7 @@ namespace MyGUI
 		/** Get mouse position on current layer.
 			This position might different from getMousePosition() if mouse is over non-2d layer.
 		*/
-		IntPoint getMousePositionByLayer();
+		IntPoint getMousePositionByLayer() const;
 
 		// работа с модальными окнами
 		/** Add modal widget - all other widgets inaccessible while modal widget exist */
@@ -117,6 +102,10 @@ namespace MyGUI
 		bool isControlPressed() const;
 		/** Is shift button pressed */
 		bool isShiftPressed() const;
+		/** Is alt button pressed */
+		bool isAltPressed() const;
+		/** Is meta ("Windows key" or macOS "Command" key) button pressed */
+		bool isMetaPressed() const;
 
 		/** Reset mouse capture.
 			For example when we dragging and application
@@ -131,22 +120,20 @@ namespace MyGUI
 			signature : void method(MyGUI::Widget* _widget)\n
 			@param _widget
 		*/
-		delegates::CMultiDelegate1<Widget*>
-			eventChangeMouseFocus;
+		delegates::CMultiDelegate1<Widget*> eventChangeMouseFocus;
 
 		/** Event : MultiDelegate. Key focus was changed.\n
 			signature : void method(MyGUI::Widget* _widget)\n
 			@param _widget
 		*/
-		delegates::CMultiDelegate1<Widget*>
-			eventChangeKeyFocus;
+		delegates::CMultiDelegate1<Widget*> eventChangeKeyFocus;
 
 		/*internal:*/
 		void _resetMouseFocusWidget();
 
 	private:
 		// удаляем данный виджет из всех возможных мест
-		void _unlinkWidget(Widget* _widget);
+		void _unlinkWidget(Widget* _widget) override;
 
 		void frameEntered(float _frame);
 
@@ -164,17 +151,19 @@ namespace MyGUI
 		Widget* mWidgetKeyFocus;
 		ILayer* mLayerMouseFocus;
 
-		// таймер для двойного клика
-		Timer mTimer; //used for double click timing
+		//used for double click timing
+		float mTimerDoubleClick; // time since the last click
 
 		// нажат ли шифт
 		bool mIsShiftPressed;
 		// нажат ли контрол
 		bool mIsControlPressed;
+		bool mIsAltPressed;
+		bool mIsMetaPressed;
 
 		IntPoint mMousePosition;
 
-		// last mouse press position
+		// last mouse press position (in Layer coordinates).
 		IntPoint mLastPressed[MouseButton::MAX];
 
 		// is mouse button captured by active widget
@@ -195,4 +184,4 @@ namespace MyGUI
 
 } // namespace MyGUI
 
-#endif // __MYGUI_INPUT_MANAGER_H__
+#endif // MYGUI_INPUT_MANAGER_H_

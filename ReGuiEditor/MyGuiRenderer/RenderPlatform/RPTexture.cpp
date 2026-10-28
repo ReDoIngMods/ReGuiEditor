@@ -253,7 +253,7 @@ void RPTexture::createManual(int _width, int _height, MyGUI::TextureUsage _usage
 	}
 
 	rend::Texture2DFlags flags = rend::Texture2DFlags::ShaderResource;
-	if (_usage == MyGUI::TextureUsage::RenderTarget)
+	if (_usage.isValue(MyGUI::TextureUsage::RenderTarget))
 		flags = flags | rend::Texture2DFlags::RenderTarget;
 
 	if (this->createBacking(_width, _height, flags))
@@ -374,7 +374,7 @@ void* RPTexture::lock(MyGUI::TextureUsage _access) {
 	if (this->isLocked_ || !this->texture_)
 		return nullptr;
 
-	if (_access != MyGUI::TextureUsage::Write) {
+	if (!_access.isValue(MyGUI::TextureUsage::Write)) {
 		CONSOLE_ERROR("RPTexture::lock: Only write access is supported for locking.");
 		return nullptr;
 	}

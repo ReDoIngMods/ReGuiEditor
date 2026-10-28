@@ -1,10 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		09/2009
-*/
-#ifndef __MYGUI_TEXT_VIEW_DATA_H__
-#define __MYGUI_TEXT_VIEW_DATA_H__
+/*
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
+
+#ifndef MYGUI_TEXT_VIEW_DATA_H_
+#define MYGUI_TEXT_VIEW_DATA_H_
 
 #include "MyGUI_Prerequest.h"
 
@@ -123,18 +124,18 @@ namespace MyGUI
 		{
 			width = 0;
 			count = 0;
-			simbols.clear();
+			symbols.clear();
 			offset = 0;
 		}
 
 		int width;
 		int offset;
 		size_t count;
-		VectorCharInfo simbols;
+		VectorCharInfo symbols;
 	};
 
 	typedef std::vector<LineInfo> VectorLineInfo;
 
 } // namespace MyGUI
 
-#endif // __MYGUI_TEXT_VIEW_DATA_H__
+#endif // MYGUI_TEXT_VIEW_DATA_H_

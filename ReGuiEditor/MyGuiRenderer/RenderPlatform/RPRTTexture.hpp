@@ -25,5 +25,5 @@ public:
 
 	void doRender(MyGUI::IVertexBuffer* _buffer, MyGUI::ITexture* _texture, size_t _count) override;
 
-	const MyGUI::RenderTargetInfo& getInfo() override { return this->renderTargetInfo_; }
+	const MyGUI::RenderTargetInfo& getInfo() const override { return this->renderTargetInfo_; }
 };

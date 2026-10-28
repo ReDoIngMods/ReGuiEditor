@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		12/2007
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_TEXT_BOX_H__
-#define __MYGUI_TEXT_BOX_H__
+#ifndef MYGUI_TEXT_BOX_H_
+#define MYGUI_TEXT_BOX_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_Widget.h"
@@ -28,6 +13,9 @@
 namespace MyGUI
 {
 
+	/** \brief @wpage{TextBox}
+		TextBox widget description should be here.
+	*/
 	class MYGUI_EXPORT TextBox :
 		public Widget
 	{
@@ -37,35 +25,35 @@ namespace MyGUI
 		TextBox();
 
 		/** Get text region coordinate */
-		virtual IntCoord getTextRegion();
+		virtual IntCoord getTextRegion() const;
 
 		/** Get text region size */
-		virtual IntSize getTextSize();
+		virtual IntSize getTextSize() const;
 
 		/** Set widget caption */
 		virtual void setCaption(const UString& _value);
 		/** Get widget caption */
-		virtual const UString& getCaption();
+		virtual const UString& getCaption() const;
 
 		/** Set widget text font */
 		virtual void setFontName(const std::string& _value);
 		/** Get widget text font name */
-		const std::string& getFontName();
+		const std::string& getFontName() const;
 
 		/** Set widget text font height */
 		virtual void setFontHeight(int _value);
 		/** Get widget text font height */
-		int getFontHeight();
+		virtual int getFontHeight() const;
 
 		/** Set widget text align */
 		virtual void setTextAlign(Align _value);
 		/** Get widget text align */
-		Align getTextAlign();
+		Align getTextAlign() const;
 
 		/** Set widget text colour */
 		virtual void setTextColour(const Colour& _value);
 		/** Get widget text colour */
-		const Colour& getTextColour();
+		const Colour& getTextColour() const;
 
 		/** Set TextBox caption and replace special sequences.\n
 			"\\n" will be replaced with new line character;\n
@@ -77,17 +65,17 @@ namespace MyGUI
 		/** Set widget text shadow colour */
 		virtual void setTextShadowColour(const Colour& _value);
 		/** Get widget text shadow colour */
-		const Colour& getTextShadowColour();
+		const Colour& getTextShadowColour() const;
 
 		/** Set widget text shadow */
 		virtual void setTextShadow(bool _value);
 		/** Get widget text shadow */
-		bool getTextShadow();
+		bool getTextShadow() const;
 
 	protected:
-		virtual void setPropertyOverride(const std::string& _key, const std::string& _value);
+		void setPropertyOverride(const std::string& _key, const std::string& _value) override;
 	};
 
 } // namespace MyGUI
 
-#endif // __MYGUI_TEXT_BOX_H__
+#endif // MYGUI_TEXT_BOX_H_

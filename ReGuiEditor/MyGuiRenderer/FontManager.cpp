@@ -161,11 +161,13 @@ bool FontManager::loadFromCache(const std::string& filePath, MyGUI::xml::Element
 			const FT_UInt glyphIndex = reader.read<FT_UInt>();
 
 			fontResource->mCharMap[codePoint] = glyphIndex;
-			fontResource->mGlyphMap[glyphIndex] = std::move(glyphInfo);
 
-			MyGUI::GlyphInfo* glyphInfoPtr = &fontResource->mGlyphMap[glyphIndex];
+			// Since MyGUI 3.4 the glyph map is keyed by code point, not glyph index.
+			MyGUI::GlyphInfo& storedGlyphInfo = fontResource->mGlyphMap[codePoint];
+			storedGlyphInfo = glyphInfo;
+
 			if (fontResource->mSubstituteCodePoint == codePoint)
-				fontResource->mSubstituteGlyphInfo = glyphInfoPtr;
+				fontResource->mSubstituteGlyphInfo = &storedGlyphInfo;
 		}
 	}
 
@@ -278,7 +280,7 @@ bool FontManager::generateCacheFile(const std::string& filePath, const std::stri
 		for (uint64_t value = range.first; value <= range.second; ++value) {
 			const MyGUI::Char codePoint = static_cast<MyGUI::Char>(value);
 
-			MyGUI::GlyphInfo* glyphInfo = fontResource->getGlyphInfo(codePoint);
+			const MyGUI::GlyphInfo* glyphInfo = fontResource->getGlyphInfo(codePoint);
 			if (!glyphInfo) {
 				CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to retrieve glyph info for code point: %u in font: %s", codePoint, fontName.c_str());
 				continue;

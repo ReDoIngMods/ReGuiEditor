@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		10/2008
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_EVENT_PAIR_H__
-#define __MYGUI_EVENT_PAIR_H__
+#ifndef MYGUI_EVENT_PAIR_H_
+#define MYGUI_EVENT_PAIR_H_
 
 #include "MyGUI_Prerequest.h"
 
@@ -142,7 +127,7 @@ namespace MyGUI
 	};
 
 	template <typename EventObsolete, typename Event>
-	class EventPair3to4
+	class EventPairAddParameter
 	{
 	public:
 
@@ -189,6 +174,23 @@ namespace MyGUI
 			m_event -= _delegate;
 		}
 
+		// 1 to 2
+		template <typename TP1, typename TP2>
+		void operator()( TP1 p1, TP2 p2 )
+		{
+			m_eventObsolete(p1);
+			m_event(p1, p2);
+		}
+
+		// 2 to 3
+		template <typename TP1, typename TP2, typename TP3, typename TP4>
+		void operator()( TP1 p1, TP2 p2, TP3 p3 )
+		{
+			m_eventObsolete(p1, p2);
+			m_event(p1, p2, p3);
+		}
+
+		// 3 to 4
 		template <typename TP1, typename TP2, typename TP3, typename TP4>
 		void operator()( TP1 p1, TP2 p2, TP3 p3, TP4 p4 )
 		{
@@ -208,4 +210,4 @@ namespace MyGUI
 
 } // namespace MyGUI
 
-#endif // __MYGUI_EVENT_PAIR_H__
+#endif // MYGUI_EVENT_PAIR_H_

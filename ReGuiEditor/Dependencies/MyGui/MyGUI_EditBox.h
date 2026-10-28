@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		11/2007
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_EDIT_BOX_H__
-#define __MYGUI_EDIT_BOX_H__
+#ifndef MYGUI_EDIT_BOX_H_
+#define MYGUI_EDIT_BOX_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_TextBox.h"
@@ -34,6 +19,9 @@ namespace MyGUI
 
 	typedef delegates::CMultiDelegate1<EditBox*> EventHandle_EditPtr;
 
+	/** \brief @wpage{EditBox}
+		EditBox widget description should be here.
+	*/
 	class MYGUI_EXPORT EditBox :
 		public TextBox,
 		public ScrollViewBase,
@@ -58,7 +46,7 @@ namespace MyGUI
 
 		// возвращает текст с тегами
 		/** Get _count characters with tags from _start position */
-		UString getTextInterval(size_t _start, size_t _count);
+		UString getTextInterval(size_t _start, size_t _count) const;
 
 		/** Set selected text interval
 			@param _start of interval
@@ -70,7 +58,7 @@ namespace MyGUI
 		void deleteTextSelection();
 
 		/** Get selected text */
-		UString getTextSelection();
+		UString getTextSelection() const;
 
 		/** Is any text selected */
 		bool isTextSelection() const;
@@ -85,14 +73,14 @@ namespace MyGUI
 
 
 		/** Set edit text applying tags */
-		virtual void setCaption(const UString& _value);
+		void setCaption(const UString& _value) override;
 		/** Get edit text with tags */
-		virtual const UString& getCaption();
+		const UString& getCaption() const override;
 
 		/** Set edit text without tags */
 		void setOnlyText(const UString& _value);
 		/** Get edit text without tags */
-		UString getOnlyText();
+		UString getOnlyText() const;
 
 		/** Get text length excluding tags
 			For example "Hello" length is 5
@@ -176,25 +164,22 @@ namespace MyGUI
 		bool getTabPrinting() const;
 
 		/** Get invert selected text color property */
-		bool getInvertSelected();
+		bool getInvertSelected() const;
 		/** Enable or disable inverting color of selected text\n
 			Enabled (true) by default
 		*/
 		void setInvertSelected(bool _value);
 
 		//! @copydoc Widget::setPosition(const IntPoint& _value)
-		virtual void setPosition(const IntPoint& _value);
+		void setPosition(const IntPoint& _value) override;
 		//! @copydoc Widget::setSize(const IntSize& _value)
-		virtual void setSize(const IntSize& _value);
+		void setSize(const IntSize& _value) override;
 		//! @copydoc Widget::setCoord(const IntCoord& _value)
-		virtual void setCoord(const IntCoord& _value);
+		void setCoord(const IntCoord& _value) override;
 
-		/** @copydoc Widget::setPosition(int _left, int _top) */
-		void setPosition(int _left, int _top);
-		/** @copydoc Widget::setSize(int _width, int _height) */
-		void setSize(int _width, int _height);
-		/** @copydoc Widget::setCoord(int _left, int _top, int _width, int _height) */
-		void setCoord(int _left, int _top, int _width, int _height);
+		using Widget::setPosition;
+		using Widget::setSize;
+		using Widget::setCoord;
 
 		/** Show VScroll when text size larger than EditBox */
 		void setVisibleVScroll(bool _value);
@@ -208,7 +193,7 @@ namespace MyGUI
 		*/
 		size_t getVScrollRange() const;
 		/** Get current position of vertical scroll (or 0 if no scroll) */
-		size_t getVScrollPosition();
+		size_t getVScrollPosition() const;
 		/** Set current position of vertical scroll */
 		void setVScrollPosition(size_t _index);
 
@@ -223,56 +208,56 @@ namespace MyGUI
 		*/
 		size_t getHScrollRange() const;
 		/** Get current position of horizontal scroll (or 0 if no scroll) */
-		size_t getHScrollPosition();
+		size_t getHScrollPosition() const;
 		/** Set current position of horizontal scroll */
 		void setHScrollPosition(size_t _index);
 
 
 		//! @copydoc TextBox::setFontName
-		virtual void setFontName(const std::string& _value);
+		void setFontName(const std::string& _value) override;
 		//! @copydoc TextBox::setFontHeight
-		virtual void setFontHeight(int _value);
+		void setFontHeight(int _value) override;
+		//! @copydoc TextBox::getFontHeight
+		int getFontHeight() const override;
 
 		//! @copydoc TextBox::setTextAlign
-		virtual void setTextAlign(Align _value);
+		void setTextAlign(Align _value) override;
 		//! @copydoc TextBox::setTextColour
-		virtual void setTextColour(const Colour& _value);
+		void setTextColour(const Colour& _value) override;
 
 		//! @copydoc TextBox::getTextRegion
-		virtual IntCoord getTextRegion();
+		IntCoord getTextRegion() const override;
 
 		//! @copydoc TextBox::getTextSize
-		virtual IntSize getTextSize();
+		IntSize getTextSize() const override;
 
 		//! @copydoc TextBox::setTextShadowColour
-		virtual void setTextShadowColour(const Colour& _value);
+		void setTextShadowColour(const Colour& _value) override;
 
 		//! @copydoc TextBox::setTextShadow
-		virtual void setTextShadow(bool _value);
+		void setTextShadow(bool _value) override;
 
 		/*events:*/
 		/** Event : Enter pressed (Ctrl+enter in multiline mode).\n
 			signature : void method(MyGUI::EditBox* _sender)
 			@param _sender widget that called this event
 		*/
-		EventPair<EventHandle_WidgetVoid, EventHandle_EditPtr>
-			eventEditSelectAccept;
+		EventPair<EventHandle_WidgetVoid, EventHandle_EditPtr> eventEditSelectAccept;
 
 		/** Event : Text changed.\n
 			signature : void method(MyGUI::EditBox* _sender)
 			@param _sender widget that called this event
 		*/
-		EventPair<EventHandle_WidgetVoid, EventHandle_EditPtr>
-			eventEditTextChange;
+		EventPair<EventHandle_WidgetVoid, EventHandle_EditPtr> eventEditTextChange;
 
 	protected:
-		virtual void initialiseOverride();
-		virtual void shutdownOverride();
+		void initialiseOverride() override;
+		void shutdownOverride() override;
 
-		virtual void onMouseDrag(int _left, int _top, MouseButton _id);
-		virtual void onKeyLostFocus(Widget* _new);
-		virtual void onKeySetFocus(Widget* _old);
-		virtual void onKeyButtonPressed(KeyCode _key, Char _char);
+		void onMouseDrag(int _left, int _top, MouseButton _id) override;
+		void onKeyLostFocus(Widget* _new) override;
+		void onKeySetFocus(Widget* _old) override;
+		void onKeyButtonPressed(KeyCode _key, Char _char) override;
 
 		// потом убрать все нотифи в сраку
 		void notifyMouseSetFocus(Widget* _sender, Widget* _old);
@@ -291,7 +276,7 @@ namespace MyGUI
 
 		void eraseView();
 
-		virtual void setPropertyOverride(const std::string& _key, const std::string& _value);
+		void setPropertyOverride(const std::string& _key, const std::string& _value) override;
 
 	private:
 		// устанавливает текст
@@ -334,24 +319,24 @@ namespace MyGUI
 		void commandCopy();
 		void commandPast();
 
-		const UString& getRealString();
+		const UString& getRealString() const;
 
 		void setRealString(const UString& _caption);
 
 		void updateCursorPosition();
 
 		// размер данных
-		virtual IntSize getContentSize();
+		IntSize getContentSize() const override;
 		// смещение данных
-		virtual IntPoint getContentPosition();
-		virtual void setContentPosition(const IntPoint& _point);
+		IntPoint getContentPosition() const override;
+		void setContentPosition(const IntPoint& _point) override;
 		// размер окна, через которые видно данные
-		virtual IntSize getViewSize();
+		IntSize getViewSize() const override;
 		// размер на который прокручиваются данные при щелчке по скролу
-		virtual size_t getVScrollPage();
-		virtual size_t getHScrollPage();
+		size_t getVScrollPage() const override;
+		size_t getHScrollPage() const override;
 
-		virtual Align getContentAlign();
+		Align getContentAlign() const override;
 
 	protected:
 		// нажата ли кнопка
@@ -402,4 +387,4 @@ namespace MyGUI
 
 } // namespace MyGUI
 
-#endif // __MYGUI_EDIT_BOX_H__
+#endif // MYGUI_EDIT_BOX_H_

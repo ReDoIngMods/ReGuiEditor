@@ -299,7 +299,6 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\MyGui\MyGUI.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_ActionController.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_Align.h" />
-    <ClInclude Include="Dependencies\MyGui\MyGUI_Allocator.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_Any.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_BackwardCompatibility.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_BiIndexBase.h" />
@@ -319,15 +318,16 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerItem.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerManager.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerPosition.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_ControllerRepeatClick.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_CoordConverter.h" />
-    <ClInclude Include="Dependencies\MyGui\MyGUI_CustomAllocator.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_DataFileStream.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_DataManager.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DataMemoryStream.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_DataStream.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_DataStreamHolder.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_DDContainer.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_DDItemInfo.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_Delegate.h" />
-    <ClInclude Include="Dependencies\MyGui\MyGUI_DelegateImplement.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_DeprecatedTypes.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_DeprecatedWidgets.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_Diagnostic.h" />
@@ -464,6 +464,7 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetTranslate.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_WidgetUserData.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_Window.h" />
+    <ClInclude Include="Dependencies\MyGui\MyGUI_WindowsClipboardHandler.h" />
     <ClInclude Include="Dependencies\MyGui\MyGUI_XmlDocument.h" />
     <ClInclude Include="Dependencies\steam\isteamapps.h" />
     <ClInclude Include="Dependencies\steam\isteamappticket.h" />

@@ -1,29 +1,16 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		12/2008
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_WIDGET_STYLE_H__
-#define __MYGUI_WIDGET_STYLE_H__
+#ifndef MYGUI_WIDGET_STYLE_H_
+#define MYGUI_WIDGET_STYLE_H_
 
 #include "MyGUI_Prerequest.h"
-#include <string.h>
+#include <string>
+#include <cstring>
+#include <iostream>
 
 namespace MyGUI
 {
@@ -39,12 +26,12 @@ namespace MyGUI
 		};
 
 		WidgetStyle() :
-			value(MAX)
+			mValue(MAX)
 		{
 		}
 
 		WidgetStyle(Enum _value) :
-			value(_value)
+			mValue(_value)
 		{
 		}
 
@@ -59,23 +46,23 @@ namespace MyGUI
 					break;
 				value++;
 			}
-			type.value = (Enum)value;
+			type.mValue = (Enum)value;
 			return type;
 		}
 
 		friend bool operator == (WidgetStyle const& a, WidgetStyle const& b)
 		{
-			return a.value == b.value;
+			return a.mValue == b.mValue;
 		}
 
 		friend bool operator != (WidgetStyle const& a, WidgetStyle const& b)
 		{
-			return a.value != b.value;
+			return a.mValue != b.mValue;
 		}
 
 		friend std::ostream& operator << (std::ostream& _stream, const WidgetStyle&  _value)
 		{
-			_stream << _value.getValueName(_value.value);
+			_stream << _value.getValueName(_value.mValue);
 			return _stream;
 		}
 
@@ -89,7 +76,12 @@ namespace MyGUI
 
 		std::string print() const
 		{
-			return getValueName(value);
+			return getValueName(mValue);
+		}
+
+		int getValue() const
+		{
+			return mValue;
 		}
 
 	private:
@@ -100,9 +92,9 @@ namespace MyGUI
 		}
 
 	private:
-		Enum value;
+		Enum mValue;
 	};
 
 } // namespace MyGUI
 
-#endif // __MYGUI_WIDGET_STYLE_H__
+#endif // MYGUI_WIDGET_STYLE_H_

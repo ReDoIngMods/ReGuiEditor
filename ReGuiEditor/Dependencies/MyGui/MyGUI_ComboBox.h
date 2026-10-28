@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		12/2007
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_COMBO_BOX_H__
-#define __MYGUI_COMBO_BOX_H__
+#ifndef MYGUI_COMBO_BOX_H_
+#define MYGUI_COMBO_BOX_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_EditBox.h"
@@ -37,6 +22,9 @@ namespace MyGUI
 
 	typedef delegates::CMultiDelegate2<ComboBox*, size_t> EventHandle_ComboBoxPtrSizeT;
 
+	/** \brief @wpage{ComboBox}
+		ComboBox widget description should be here.
+	*/
 	class MYGUI_EXPORT ComboBox :
 		public EditBox,
 		public IItemContainer,
@@ -107,7 +95,7 @@ namespace MyGUI
 		void setItemNameAt(size_t _index, const UString& _name);
 
 		//! Get item name from specified position
-		const UString& getItemNameAt(size_t _index);
+		const UString& getItemNameAt(size_t _index) const;
 
 
 		//------------------------------------------------------------------------------//
@@ -157,34 +145,32 @@ namespace MyGUI
 			@param _sender widget that called this event
 			@param _index item
 		*/
-		EventPair<EventHandle_WidgetVoid, EventHandle_ComboBoxPtrSizeT>
-			eventComboAccept;
+		EventPair<EventHandle_WidgetVoid, EventHandle_ComboBoxPtrSizeT> eventComboAccept;
 
 		/** Event : Position changed.\n
 			signature : void method(MyGUI::ComboBox* _sender, size_t _index)
 			@param _sender widget that called this event
 			@param _index of new position
 		*/
-		EventPair<EventHandle_WidgetSizeT, EventHandle_ComboBoxPtrSizeT>
-			eventComboChangePosition;
+		EventPair<EventHandle_WidgetSizeT, EventHandle_ComboBoxPtrSizeT> eventComboChangePosition;
 
 		/*internal:*/
 		// IItemContainer impl
-		virtual size_t _getItemCount();
-		virtual void _addItem(const MyGUI::UString& _name);
-		virtual void _removeItemAt(size_t _index);
-		virtual void _setItemNameAt(size_t _index, const UString& _name);
-		virtual const UString& _getItemNameAt(size_t _index);
+		size_t _getItemCount() const override;
+		void _addItem(const MyGUI::UString& _name) override;
+		void _removeItemAt(size_t _index) override;
+		void _setItemNameAt(size_t _index, const UString& _name) override;
+		const UString& _getItemNameAt(size_t _index) const override;
 
-		virtual void _resetContainer(bool _update);
+		void _resetContainer(bool _update) override;
 
 	protected:
-		virtual void initialiseOverride();
-		virtual void shutdownOverride();
+		void initialiseOverride() override;
+		void shutdownOverride() override;
 
-		virtual void onKeyButtonPressed(KeyCode _key, Char _char);
+		void onKeyButtonPressed(KeyCode _key, Char _char) override;
 
-		virtual void setPropertyOverride(const std::string& _key, const std::string& _value);
+		void setPropertyOverride(const std::string& _key, const std::string& _value) override;
 
 	private:
 		void notifyButtonPressed(Widget* _sender, int _left, int _top, MouseButton _id);
@@ -200,7 +186,7 @@ namespace MyGUI
 		void showList();
 		void hideList();
 
-		void actionWidgetHide(Widget* _widget);
+		void actionWidgetHide(Widget* _widget, ControllerItem* _controller);
 
 		ControllerFadeAlpha* createControllerFadeAlpha(float _alpha, float _coef, bool _enable);
 		IntCoord calculateListPosition();
@@ -221,4 +207,4 @@ namespace MyGUI
 
 } // namespace MyGUI
 
-#endif // __MYGUI_COMBO_BOX_H__
+#endif // MYGUI_COMBO_BOX_H_

@@ -1,26 +1,11 @@
-/*!
-	@file
-	@author		Albert Semenov
-	@date		09/2008
-*/
 /*
-	This file is part of MyGUI.
+ * This source file is part of MyGUI. For the latest info, see http://mygui.info/
+ * Distributed under the MIT License
+ * (See accompanying file COPYING.MIT or copy at http://opensource.org/licenses/MIT)
+ */
 
-	MyGUI is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	MyGUI is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public License
-	along with MyGUI.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef __MYGUI_RESOURCE_IMAGE_SET_H__
-#define __MYGUI_RESOURCE_IMAGE_SET_H__
+#ifndef MYGUI_RESOURCE_IMAGE_SET_H_
+#define MYGUI_RESOURCE_IMAGE_SET_H_
 
 #include "MyGUI_Prerequest.h"
 #include "MyGUI_Macros.h"
@@ -46,27 +31,24 @@ namespace MyGUI
 		MYGUI_RTTI_DERIVED( ResourceImageSet )
 
 	public:
-		ImageIndexInfo getIndexInfo(const std::string& _group, const std::string& _index);
-		ImageIndexInfo getIndexInfo(size_t _group, const std::string& _index);
-		ImageIndexInfo getIndexInfo(const std::string& _group, size_t _index);
-		ImageIndexInfo getIndexInfo(size_t _group, size_t _index);
-		ImageIndexInfo getIndexInfo(const IntSize& _group, size_t _index);
-		ImageIndexInfo getIndexInfo(const IntSize& _group, const std::string& _index);
+		ImageIndexInfo getIndexInfo(const std::string& _group, const std::string& _index) const;
+		ImageIndexInfo getIndexInfo(size_t _group, const std::string& _index) const;
+		ImageIndexInfo getIndexInfo(const std::string& _group, size_t _index) const;
+		ImageIndexInfo getIndexInfo(size_t _group, size_t _index) const;
+		ImageIndexInfo getIndexInfo(const IntSize& _group, size_t _index) const;
+		ImageIndexInfo getIndexInfo(const IntSize& _group, const std::string& _index) const;
 
 		/** Get groups Enumerator */
 		EnumeratorGroupImage getEnumerator() const;
 
+		void AddGroupImage(const GroupImage& _group);
+
 	private:
-		ResourceImageSet();
-		virtual ~ResourceImageSet();
+		void deserialization(xml::ElementPtr _node, Version _version) override;
 
-		virtual void deserialization(xml::ElementPtr _node, Version _version);
-
-		size_t getGroupIndex(const std::string& _name);
-		size_t getGroupIndex(const IntSize& _size);
-		size_t getImageIndex(GroupImage& _group, const std::string& _name);
-		const IntSize& getGroupSize(size_t _index);
-		const IntSize& getGroupSize(const std::string& _group);
+		size_t getGroupIndex(const std::string& _name) const;
+		size_t getGroupIndex(const IntSize& _size) const;
+		size_t getImageIndex(const GroupImage& _group, const std::string& _name) const;
 
 	private:
 		VectorGroupImage mGroups;
@@ -76,4 +58,4 @@ namespace MyGUI
 
 } // namespace MyGUI
 
-#endif // __MYGUI_RESOURCE_IMAGE_SET_H__
+#endif // MYGUI_RESOURCE_IMAGE_SET_H_

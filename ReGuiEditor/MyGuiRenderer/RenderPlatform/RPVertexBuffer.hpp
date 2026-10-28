@@ -16,7 +16,7 @@ public:
 	~RPVertexBuffer() override;
 
 	void setVertexCount(size_t _count) override;
-	size_t getVertexCount() override { return this->vertexCount_; }
+	size_t getVertexCount() const override { return this->vertexCount_; }
 
 	MyGUI::Vertex* lock() override;
 	void unlock() override;
