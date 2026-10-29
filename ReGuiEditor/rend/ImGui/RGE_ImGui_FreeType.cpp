@@ -239,7 +239,7 @@ static void fontSourceDestroy(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig
 	sourceConfig->FontLoaderData = nullptr;
 }
 
-static bool fontSourceContainsGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImWchar codepoint) {
+static bool fontSourceContainsGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, int glyphIndex) {
 	IM_UNUSED(fontAtlas);
 
 	IM_ASSERT(sourceConfig != nullptr && "Invalid source font config");
@@ -247,7 +247,18 @@ static bool fontSourceContainsGlyph(ImFontAtlas* fontAtlas, ImFontConfig* source
 	RGE_ImGui_FreeType_FontSourceData* fontData = static_cast<RGE_ImGui_FreeType_FontSourceData*>(sourceConfig->FontLoaderData);
 	IM_ASSERT(fontData != nullptr && "Invalid font loader data");
 
-	return FT_Get_Char_Index(fontData->ftFace, codepoint) != 0;
+	return glyphIndex >= 0 && glyphIndex < fontData->ftFace->num_glyphs;
+}
+
+static int fontSourceGetGlyphIndexFromCodepoint(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImWchar codepoint) {
+	IM_UNUSED(fontAtlas);
+	
+	IM_ASSERT(sourceConfig != nullptr && "Invalid source font config");
+	
+	RGE_ImGui_FreeType_FontSourceData* fontData = static_cast<RGE_ImGui_FreeType_FontSourceData*>(sourceConfig->FontLoaderData);
+	IM_ASSERT(fontData != nullptr && "Invalid font loader data");
+
+	return FT_Get_Char_Index(fontData->ftFace, static_cast<FT_ULong>(codepoint));
 }
 
 static bool bakedInit(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImFontBaked* bakedFont, void* loaderDataForBakedSource) {
@@ -332,7 +343,7 @@ static void bakedDestroy(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImF
 	}
 }
 
-static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImFontBaked* bakedFont, void* loaderDataForBakedSource, ImWchar codepoint, ImFontGlyph* outputGlyph, float* outputAdvanceX) {
+static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, ImFontBaked* bakedFont, void* loaderDataForBakedSource, int glyphIndex, ImFontGlyph* outputGlyph, float* outputAdvanceX) {
 	IM_ASSERT(fontAtlas != nullptr && "Invalid font atlas");
 	IM_ASSERT(fontAtlas->FontLoaderData != nullptr && "Invalid font loader data");
 	IM_ASSERT(sourceConfig != nullptr && "Invalid source font config");
@@ -342,10 +353,6 @@ static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, I
 
 	RGE_ImGui_FreeType_FontSourceBakedData* bakedData = reinterpret_cast<RGE_ImGui_FreeType_FontSourceBakedData*>(loaderDataForBakedSource);
 	IM_ASSERT(bakedData != nullptr && "Invalid font source data");
-
-	uint32_t glyphIndex = FT_Get_Char_Index(fontData->ftFace, codepoint);
-	if (glyphIndex == 0)
-		return false;
 
 	if (fontData->ftSizeLastActivated != bakedData->ftSize) {
 		FT_Error error = FT_Activate_Size(bakedData->ftSize);
@@ -396,7 +403,6 @@ static bool bakedLoadGlyph(ImFontAtlas* fontAtlas, ImFontConfig* sourceConfig, I
 	uint32_t glyphHeight = ftBitmap->rows;
 	bool isVisible = glyphWidth != 0 && glyphHeight != 0;
 
-	outputGlyph->Codepoint = codepoint;
 	outputGlyph->AdvanceX = advanceX;
 
 	if (!isVisible)
@@ -446,6 +452,7 @@ IMGUI_API const ImFontLoader* RGE_ImGui_FreeType_GetFontLoader() {
 	loader.FontSrcInit = fontSourceInit;
 	loader.FontSrcDestroy = fontSourceDestroy;
 	loader.FontSrcContainsGlyph = fontSourceContainsGlyph;
+	loader.FontSrcGetGlyphIndexFromCodepoint = fontSourceGetGlyphIndexFromCodepoint;
 	loader.FontBakedInit = bakedInit;
 	loader.FontBakedDestroy = bakedDestroy;
 	loader.FontBakedLoadGlyph = bakedLoadGlyph;

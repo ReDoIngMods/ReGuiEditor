@@ -3,6 +3,7 @@
 #include "ViewsManager.hpp"
 
 #include <UGCManager/UGCMod.hpp>
+
 #include <UTILS/Singleton.hpp>
 
 #include <functional>
