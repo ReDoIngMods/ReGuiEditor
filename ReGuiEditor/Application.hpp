@@ -22,16 +22,10 @@
 
 #include <Windows.h>
 
+#include <memory>
+
 class Application : public UTILS::Singleton<Application> {
 public:
-	Application() = default;
-	~Application();
-
-	Application(const Application&) = delete;
-	Application& operator=(const Application&) = delete;
-	Application(Application&&) = delete;
-	Application& operator=(Application&&) = delete;
-
 	bool isRunning = true;
 	bool isInitialized = false;
 	bool isWindowShown = false;
@@ -39,19 +33,19 @@ public:
 	Window window;
 	Splashscreen splashscreen;
 
-	rend::Renderer* renderer = nullptr;
+	std::shared_ptr<rend::Renderer> renderer = nullptr;
 	rend::SwapChainHandle swapChain;
 
-	ConfigManager* configManager = nullptr;
-	DirectoryManager* directoryManager = nullptr;
-	FilesystemManager* filesystemManager = nullptr;
-	UGCManager* ugcManager = nullptr;
+	std::shared_ptr<ConfigManager> configManager = nullptr;
+	std::shared_ptr<DirectoryManager> directoryManager = nullptr;
+	std::shared_ptr<FilesystemManager> filesystemManager = nullptr;
+	std::shared_ptr<UGCManager> ugcManager = nullptr;
 	
-	GuiSystemManager* guiSystemManager = nullptr;
-	LayoutManager* layoutManager = nullptr;
-	UIManager* uiManager = nullptr;
+	std::shared_ptr<GuiSystemManager> guiSystemManager = nullptr;
+	std::shared_ptr<LayoutManager> layoutManager = nullptr;
+	std::shared_ptr<UIManager> uiManager = nullptr;
 
-	LuaManager* luaManager = nullptr;
+	std::shared_ptr<LuaManager> luaManager = nullptr;
 
 	LARGE_INTEGER frequency{};
 	LARGE_INTEGER counter{};

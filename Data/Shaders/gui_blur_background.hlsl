@@ -11,7 +11,6 @@ cbuffer ConstantBufferData : register(b0) {
 	float4 atlasUV;
 };
 
-// We have to set alpha to 1 or otherwise the unblurred background will be visible through the blurred background.
 float4 lerpFixedAlpha(float4 a, float4 b, float t) {
 	float4 result = lerp(a, b, t);
 	result.a = 1.0;
@@ -27,7 +26,7 @@ float4 psMain(VertexOutput input) : SV_TARGET {
 	float4 atlasColor = atlasTexture.Sample(samplerState, atlasUVCoordinates);
 
 	float alpha = atlasColor.a;
-	if (alpha < 0.06)
+	if (alpha < 0.03)
 		return atlasColor;
 
 	return lerpFixedAlpha(backdropColor, atlasColor, alpha);

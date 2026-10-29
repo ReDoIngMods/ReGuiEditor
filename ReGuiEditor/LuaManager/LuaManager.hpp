@@ -14,7 +14,7 @@ class LuaManager : public UTILS::Singleton<LuaManager> {
 	lua_State* state_ = nullptr;
 	std::vector<std::unique_ptr<LuaVM>> luaVMs_;
 
-	UserdataManager* userdataManager_ = nullptr;
+	std::shared_ptr<UserdataManager> userdataManager_ = nullptr;
 
 	LuaVM* reGuiVM_ = nullptr;
 

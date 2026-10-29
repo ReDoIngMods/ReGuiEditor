@@ -14,6 +14,7 @@
 #include "LayoutManager/LayoutManager.hpp"
 
 #include <rend/Renderer.hpp>
+#include <rend/ResourceManager.hpp>
 
 #include <rend/Common/Color.hpp>
 
@@ -28,57 +29,6 @@
 
 #include <filesystem>
 #include <functional>
-
-Application::~Application() {
-	if (this->luaManager) {
-		this->luaManager->destroyInstance();
-		this->luaManager = nullptr;
-	}
-
-	if (this->layoutManager) {
-		this->layoutManager->destroyInstance();
-		this->layoutManager = nullptr;
-	}
-
-	if (this->guiSystemManager) {
-		this->guiSystemManager->destroyInstance();
-		this->guiSystemManager = nullptr;
-	}
-
-	if (this->uiManager) {
-		this->uiManager->destroyInstance();
-		this->uiManager = nullptr;
-	}
-
-	if (this->configManager) {
-		this->configManager->destroyInstance();
-		this->configManager = nullptr;
-	}
-
-	if (this->ugcManager) {
-		this->ugcManager->destroyInstance();
-		this->ugcManager = nullptr;
-	}
-
-	this->swapChain.reset();
-
-	if (this->renderer) {
-		this->renderer->destroyInstance();
-		this->renderer = nullptr;
-	}
-
-	if (this->filesystemManager) {
-		this->filesystemManager->destroyInstance();
-		this->filesystemManager = nullptr;
-	}
-
-	if (this->directoryManager) {
-		this->directoryManager->destroyInstance();
-		this->directoryManager = nullptr;
-	}
-
-	this->window.cleanup();
-}
 
 bool Application::initialize() {
 	PROFILE_FUNCTION();
@@ -105,10 +55,10 @@ bool Application::initialize() {
 
 	this->splashscreen.setStatus(L"Initializing renderer...");
 	this->renderer = rend::Renderer::createInstance();
-	if (!this->renderer->init(this->window.getHwnd()))
+	if (!this->renderer->init())
 		return false;
 
-	this->swapChain = this->renderer->getResourceManager()->createSwapChain(this->window.getHwnd());
+	this->swapChain = rend::ResourceManager::getInstance().createSwapChain(this->window.getHwnd());
 	if (!this->swapChain)
 		return false;
 

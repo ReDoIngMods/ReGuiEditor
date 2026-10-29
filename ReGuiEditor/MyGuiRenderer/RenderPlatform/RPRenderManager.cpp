@@ -3,11 +3,10 @@
 #include "RPTexture.hpp"
 #include "RPVertexBuffer.hpp"
 
-#include <UTILS/Console.hpp>
-
 #include <rend/Common/CullingMode.hpp>
 #include <rend/Common/Format.hpp>
 #include <rend/Common/PrimitiveTopology.hpp>
+#include <rend/Common/RefCounter.hpp>
 #include <rend/Common/SamplerAddressMode.hpp>
 #include <rend/Common/Viewport.hpp>
 

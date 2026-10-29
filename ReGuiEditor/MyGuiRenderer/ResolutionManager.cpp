@@ -88,71 +88,74 @@ bool ResolutionManager::initialize() {
 }
 
 bool ResolutionManager::setResolution(uint32_t width, uint32_t height) {
-	const Resolution* bestResolution = nullptr;
-	for (const auto& resolution : this->resolutions_) {
-		if (resolution.width <= width && resolution.height <= height) {
-			if (!bestResolution || resolution.width > bestResolution->width || resolution.height > bestResolution->height)
-				bestResolution = &resolution;
-		}
-	}
+    const Resolution* bestResolution = nullptr;
+    for (const auto& resolution : this->resolutions_) {
+        if (resolution.width <= width && resolution.height <= height) {
+            if (!bestResolution || resolution.width > bestResolution->width || resolution.height > bestResolution->height)
+                bestResolution = &resolution;
+        }
+    }
 
-	if (bestResolution == nullptr) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "No suitable resolution found for: %ux%u", width, height);
-		return false;
-	}
+    if (bestResolution == nullptr) {
+        CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "No suitable resolution found for: %ux%u", width, height);
+        return false;
+    }
 
-	if (this->resolution_) {
-		if (bestResolution->width == this->resolution_->width && bestResolution->height == this->resolution_->height)
-			return true;
-	}
+    if (this->resolution_ == bestResolution)
+        return true;
 
-	DataManager* dataManager = dynamic_cast<DataManager*>(MyGUI::DataManager::getInstancePtr());
-	if (!dataManager) {
-		CONSOLE_ERROR("Failed to get DataManager instance.");
-		return false;
-	}
+    DataManager* dataManager = dynamic_cast<DataManager*>(MyGUI::DataManager::getInstancePtr());
+    if (!dataManager) {
+        CONSOLE_ERROR("Failed to get DataManager instance.");
+        return false;
+    }
 
-	MyGUI::ResourceManager& resourceManager = MyGUI::ResourceManager::getInstance();
-	for (const auto& resource : this->loadedResources)
-		resourceManager.removeResource(resource);
+    MyGUI::ResourceManager& resourceManager = MyGUI::ResourceManager::getInstance();
+    for (const auto& resource : this->loadedResources)
+        resourceManager.removeResource(resource);
+    
+    this->loadedResources.clear();
 
-	this->loadedResources.clear();
+    if (this->resolution_)
+        dataManager->removeSearchDirectory(this->resolution_->folder.generic_string());
 
-	if (this->resolution_)
-		dataManager->removeSearchDirectory(this->resolution_->folder.generic_string());
+    this->resolution_ = bestResolution;
+    const std::string newFolderStr = this->resolution_->folder.generic_string();
+    dataManager->addSearchDirectory(newFolderStr, true);
 
-	this->resolution_ = bestResolution;
-	dataManager->addSearchDirectory(this->resolution_->folder.generic_string(), true);
+    std::unordered_set<std::string> oldResourceNames;
+    {
+        MyGUI::ResourceManager::EnumeratorPtr enumerator = resourceManager.getEnumerator();
+        while (enumerator.next()) {
+            oldResourceNames.insert(enumerator.current().first);
+        }
+    }
 
-	std::unordered_set<std::string> oldResourceNames;
-	{
-		MyGUI::ResourceManager::EnumeratorPtr enumerator = resourceManager.getEnumerator();
-		while (enumerator.next())
-			oldResourceNames.insert(enumerator.current().first);
-	}
+    this->loadedResources.reserve(this->resources_.size());
 
-	this->loadedResources.reserve(this->resources_.size());
+    for (const auto& resourcePath : this->resources_) {
+        const std::string fullPath = (this->resolution_->folder / resourcePath).generic_string();
 
-	for (const auto& resourcePath : this->resources_) {
-		const std::string fullPath = (this->resolution_->folder / resourcePath).generic_string();
+        Application::getInstance().splashscreen.setStatus(L"Loading resource: " + UTILS::toWideString(resourcePath));
 
-		Application::getInstance().splashscreen.setStatus(L"Loading resource: " + UTILS::toWideString(resourcePath));
+        if (!resourceManager.load(fullPath)) {
+            CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to load resource: %s", fullPath.c_str());
+            continue;
+        }
 
-		if (!resourceManager.load(fullPath)) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to load resource: %s", fullPath.c_str());
-			continue;
-		}
+        CONSOLE_LOG(LEVEL_RENDER, COLOR_BLUE, "Loaded resource: %s", fullPath.c_str());
+    }
 
-		CONSOLE_LOG(LEVEL_RENDER, COLOR_BLUE, "Loaded resource: %s", fullPath.c_str());
-	}
+    {
+        MyGUI::ResourceManager::EnumeratorPtr enumerator = resourceManager.getEnumerator();
+        while (enumerator.next()) {
+            const auto& [name, resource] = enumerator.current();
 
-	MyGUI::ResourceManager::EnumeratorPtr enumerator = resourceManager.getEnumerator();
-	while (enumerator.next()) {
-		const auto& [name, resource] = enumerator.current();
+            if (oldResourceNames.find(name) == oldResourceNames.end()) {
+                this->loadedResources.push_back(resource);
+            }
+        }
+    }
 
-		if (oldResourceNames.find(name) == oldResourceNames.end())
-			this->loadedResources.push_back(resource);
-	}
-
-	return true;
+    return true;
 }

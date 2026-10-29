@@ -1,6 +1,7 @@
 #pragma once
 #include <UTILS/Singleton.hpp>
 
+#include "LanguageManager.hpp"
 #include "ResolutionManager.hpp"
 
 #include "BackgroundImageHelper.hpp"
@@ -24,6 +25,8 @@
 #include <MyGui/MyGUI_LogSource.h>
 
 #include <cstdint>
+#include <memory>
+#include <string>
 
 class GuiSystemManager : public UTILS::Singleton<GuiSystemManager> {
 	MyGUI::LogManager* logManager_ = nullptr;
@@ -34,13 +37,14 @@ class GuiSystemManager : public UTILS::Singleton<GuiSystemManager> {
 	RPRenderManager* renderManager_ = nullptr;
 	
 	DataManager* dataManager_ = nullptr;
-	FontManager* myGuiFontManager_ = nullptr;
+	std::shared_ptr<FontManager> myGuiFontManager_ = nullptr;
+	std::shared_ptr<LanguageManager> languageManager_ = nullptr;
 
-	ResolutionManager* resolutionManager_ = nullptr;
+	std::shared_ptr<ResolutionManager> resolutionManager_ = nullptr;
 
-	GuiBlurManager* guiBlurManager_ = nullptr;
-	BlurrySubSkinRegistry* blurrySubSkinRegistry_ = nullptr;
-	BlurrySubSkinRenderer* blurrySubSkinRenderer_ = nullptr;
+	std::shared_ptr<GuiBlurManager> guiBlurManager_ = nullptr;
+	std::shared_ptr<BlurrySubSkinRegistry> blurrySubSkinRegistry_ = nullptr;
+	std::shared_ptr<BlurrySubSkinRenderer> blurrySubSkinRenderer_ = nullptr;
 
 	uint32_t renderTargetWidth_ = 0;
 	uint32_t renderTargetHeight_ = 0;
@@ -51,6 +55,21 @@ class GuiSystemManager : public UTILS::Singleton<GuiSystemManager> {
 
 	bool createRenderTarget(uint32_t width, uint32_t height);
 	void cleanupRenderTarget();
+
+	void onLanguageChanged(const std::string& language);
+
+	void initializeLogging();
+	void initializeDataManager();
+
+	[[nodiscard]] bool initializeRenderManager();
+	[[nodiscard]] bool initializeRenderTarget(uint32_t& canvasWidth, uint32_t& canvasHeight);
+	[[nodiscard]] bool initializeGui();
+	[[nodiscard]] bool loadResourceFiles();
+	[[nodiscard]] bool initializeFonts();
+	[[nodiscard]] bool initializeLanguages();
+	[[nodiscard]] bool initializeResolution(uint32_t canvasWidth, uint32_t canvasHeight);
+	[[nodiscard]] bool initializeBlurring(uint32_t canvasWidth, uint32_t canvasHeight);
+	[[nodiscard]] bool initializeBackground();
 public:
 	GuiSystemManager() = default;
 	~GuiSystemManager() { this->cleanup(); }
@@ -69,7 +88,6 @@ public:
 
 	uint32_t getRenderTargetWidth() const { return this->renderTargetWidth_; }
 	uint32_t getRenderTargetHeight() const { return this->renderTargetHeight_; }
-	GuiBlurManager* getGuiBlurManager() const { return this->guiBlurManager_; }
 
 	const rend::ShaderResourceView* getRenderShaderResourceView() const { return this->renderView_.get(); }
 	BackgroundImageHelper* getBackgroundImageHelper() const { return this->backgroundImageHelper_; }

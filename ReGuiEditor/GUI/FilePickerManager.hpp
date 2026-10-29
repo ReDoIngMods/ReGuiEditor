@@ -6,6 +6,7 @@
 
 #include <UTILS/Singleton.hpp>
 
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -13,13 +14,16 @@
 
 struct FilePickerResult {
 	std::shared_ptr<UGCMod> selectedMod = nullptr;
-	std::string selectedPath = "";
+	std::filesystem::path selectedPath = "";
 
 	std::string getFullPath() const {
 		if (!this->isValid())
 			return "";
 
-		return this->selectedMod->contentPath + "/" + this->selectedPath;
+		std::filesystem::path output = this->selectedMod->contentPath / this->selectedPath;
+		output.make_preferred();
+
+		return output.string();
 	}
 
 	bool isValid() const {

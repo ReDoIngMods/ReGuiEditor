@@ -27,7 +27,7 @@ inline static int raiseError(lua_State* L, std::string& error) {
 	return lua_error(L);
 }
 
-inline static void pushJson(lua_State* L, const JSONValue& value, int depth) {
+inline static void pushJson(lua_State* L, const JSONValue& value) {
 	switch (value.getType()) {
 	case JSONType::Object: {
 		const JSONObject& object = value.get<JSONObject>();
@@ -39,7 +39,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value, int depth) {
 				continue;
 
 			lua_pushlstring(L, key.data(), key.size());
-			pushJson(L, child, depth + 1);
+			pushJson(L, child);
 			lua_rawset(L, -3);
 		}
 
@@ -50,7 +50,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value, int depth) {
 
 		lua_createtable(L, static_cast<int>(array.size()), 0);
 		for (size_t index = 0; index < array.size(); ++index) {
-			pushJson(L, array[index], depth + 1);
+			pushJson(L, array[index]);
 			lua_rawseti(L, -2, static_cast<int>(index + 1));
 		}
 
@@ -72,51 +72,42 @@ inline static void pushJson(lua_State* L, const JSONValue& value, int depth) {
 	}
 }
 
-inline static void toJson(lua_State* L, int index, int depth, JSONValue& output) {
+[[nodiscard]] static bool toJson(lua_State* L, int index, JSONValue& output, std::string& error) {
 	if (index < 0 && index > LUA_REGISTRYINDEX)
 		index = lua_gettop(L) + index + 1;
 
 	switch (lua_type(L, index)) {
-	case LUA_TNIL:
-		output = nullptr;
-		return;
 	case LUA_TBOOLEAN:
 		output = lua_toboolean(L, index) != 0;
-		return;
+		return true;
 	case LUA_TNUMBER:
 		output = lua_tonumber(L, index);
-		return;
+		return true;
 	case LUA_TSTRING:
 		output = lua_tostring(L, index);
-		return;
+		return true;
 	case LUA_TTABLE:
 		break;
 	default:
 		output = nullptr;
-		return;
+		return true;
 	}
 
-	size_t entries = 0;
+	if (!lua_checkstack(L, 8)) {
+		error = "Stack overflow while serializing table.";
+		return false;
+	}
 
+	const size_t length = lua_objlen(L, index);
+
+	size_t entries = 0;
 	lua_pushnil(L);
 	while (lua_next(L, index) != 0) {
 		++entries;
 		lua_pop(L, 1);
 	}
 
-	const size_t length = lua_objlen(L, index);
-
-	bool isArray = entries == length;
-	for (size_t objectIndex = 1; isArray && objectIndex <= length; ++objectIndex) {
-		lua_rawgeti(L, index, static_cast<int>(objectIndex));
-
-		if (lua_isnil(L, -1))
-			isArray = false;
-
-		lua_pop(L, 1);
-	}
-
-	if (isArray) {
+	if (entries == length) {
 		JSONArray array;
 		array.reserve(length);
 
@@ -124,13 +115,15 @@ inline static void toJson(lua_State* L, int index, int depth, JSONValue& output)
 			lua_rawgeti(L, index, static_cast<int>(objectIndex));
 
 			array.emplace_back();
-			toJson(L, -1, depth + 1, array.back());
+			const bool success = toJson(L, -1, array.back(), error);
 
 			lua_pop(L, 1);
+			if (!success)
+				return false;
 		}
 
 		output = std::move(array);
-		return;
+		return true;
 	}
 
 	JSONObject object;
@@ -141,29 +134,32 @@ inline static void toJson(lua_State* L, int index, int depth, JSONValue& output)
 			size_t keyLength = 0;
 			const char* key = lua_tolstring(L, -2, &keyLength);
 
-			std::string keyString(key, keyLength);
-
 			JSONValue child;
-			toJson(L, -1, depth + 1, child);
+			if (!toJson(L, -1, child, error)) {
+				lua_pop(L, 2);
+				return false;
+			}
 
-			object[keyString] = std::move(child);
+			object[std::string(key, keyLength)] = std::move(child);
 		}
 
 		lua_pop(L, 1);
 	}
 
 	output = std::move(object);
+	return true;
 }
 
-inline static bool stringifyJson(lua_State* L, int index, bool pretty, std::string& output, std::string& error) {
+[[nodiscard]] inline static bool stringifyJson(lua_State* L, int index, bool pretty, std::string& output, std::string& error) {
 	JSONValue document;
-	toJson(L, index, 0, document);
+	if (!toJson(L, index, document, error))
+		return false;
 
 	output = JSONWriter::stringify(document, pretty);
 	return true;
 }
 
-inline static bool openJson(lua_State* L, const char* path, std::string& error) {
+[[nodiscard]] inline static bool openJson(lua_State* L, const char* path, std::string& error) {
 	std::string resolvedPath = path;
 	if (!LuaUtils::resolveContentDataPath(L, resolvedPath)) {
 		error = "Failed to resolve content data path.";
@@ -177,10 +173,12 @@ inline static bool openJson(lua_State* L, const char* path, std::string& error) 
 	}
 
 	JSONValue document;
-	if (!JSONParser::parseJson(content, document))
+	if (!JSONParser::parseJson(content, document)) {
+		error = "Failed to parse JSON file '" + resolvedPath + "'.";
 		return false;
-	
-	pushJson(L, document, 0);
+	}
+
+	pushJson(L, document);
 	return true;
 }
 
@@ -242,14 +240,14 @@ static int sm_json_parseJsonString(lua_State* L) {
 		return raiseError(L, error);
 	}
 
-	pushJson(L, document, 0);
+	pushJson(L, document);
 	return 1;
 }
 
 static int sm_json_writeJsonString(lua_State* L) {
 	luaL_checktype(L, 1, LUA_TTABLE);
 
-	bool pretty = lua_toboolean(L, 2) != 0;
+	const bool pretty = lua_toboolean(L, 2) != 0;
 
 	std::string output;
 	std::string error;
@@ -270,6 +268,18 @@ static int sm_json_save(lua_State* L) {
 		return raiseError(L, error);
 
 	return 0;
+}
+
+bool SmJson::toJson(lua_State* L, int index, JSONValue& output, std::string& error) {
+	return ::toJson(L, index, output, error);
+}
+
+void SmJson::pushJson(lua_State* L, const JSONValue& value) {
+	::pushJson(L, value);
+}
+
+int SmJson::raiseError(lua_State* L, std::string& error) {
+	return ::raiseError(L, error);
 }
 
 void wrap_sm_json(lua_State* L) {

@@ -14,6 +14,9 @@ class Window {
 
 	friend LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 public:
+	Window() = default;
+	~Window() { this->cleanup(); }
+
 	bool create(const wchar_t* title, int width, int height);
 	void cleanup();
 

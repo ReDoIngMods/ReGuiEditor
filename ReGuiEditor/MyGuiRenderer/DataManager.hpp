@@ -1,9 +1,12 @@
 #pragma once
+#include "DataFileIndex.hpp"
+
 #include <MyGui/MyGUI_DataManager.h>
 #include <MyGui/MyGUI_IDataStream.h>
 #include <MyGui/MyGUI_Types.h>
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -14,22 +17,12 @@ private:
 		bool recursive;
 	};
 
-	std::vector<SearchDirectory> searchDirectories_ = {
-		SearchDirectory{"$GAME_DATA/Gui", false},
-		SearchDirectory{"$GAME_DATA/Gui/Editor", false},
-		SearchDirectory{"$GAME_DATA/Gui/Fonts", false},
-		SearchDirectory{"$GAME_DATA/Gui/MyGUI_Media", false},
-		SearchDirectory{"$GAME_DATA/Gui/Beacon", false},
-		SearchDirectory{"$GAME_DATA/Gui/EnemyMarkers", false},
-		SearchDirectory{"$GAME_DATA/Gui/Handbook", false},
-		SearchDirectory{"$GAME_DATA/Gui/LostItem", false},
-		SearchDirectory{"$GAME_DATA/Gui/QuestMarker", false},
-		SearchDirectory{"$GAME_DATA/Gui/QuestPins", false},
-		SearchDirectory{"$GAME_DATA/Gui/Waypoint", false},
+	std::vector<SearchDirectory> searchDirectories_;
 
-		SearchDirectory{"$CHALLENGE_DATA/Gui", false},
-		SearchDirectory{"$SURVIVAL_DATA/Gui" , false}
-	};
+	std::shared_ptr<DataFileIndex> dataFileIndex_ = DataFileIndex::createInstance();
+
+	std::vector<DataFileIndex::SearchFolder> resolveSearchFolders() const;
+	bool executeLookup(bool forceRebuild, const std::string& pattern, std::string& path) const;
 public:
 	MyGUI::IDataStream* getData(const std::string& _name) const override;
 
@@ -40,17 +33,21 @@ public:
 	bool isDataExist(const std::string& _name) const override;
 
 	const MyGUI::VectorString& getDataListNames(const std::string& _pattern) const override;
-
 	const std::string& getDataPath(const std::string& _name) const override;
 
-	void addSearchDirectory(const std::string& path, bool recursive) {
-		this->searchDirectories_.push_back({ path, recursive });
+	void addSearchDirectory(const std::string& path, bool recursive = false) {
+		this->searchDirectories_.emplace_back(path, recursive);
+
+		CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Added search directory: %s%s", path.c_str(), recursive ? " (recursive)" : "");
 	}
 
 	void removeSearchDirectory(const std::string& path) {
 		auto iterator = std::remove_if(this->searchDirectories_.begin(), this->searchDirectories_.end(), [&path](const SearchDirectory& dir) -> bool {
 			return dir.path == path;
 		});
+
+		if (iterator != this->searchDirectories_.end())
+			CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Removed search directory: %s", path.c_str());
 
 		this->searchDirectories_.erase(iterator, this->searchDirectories_.end());
 	}

@@ -6,8 +6,6 @@
 #include <rend/D3D11Device.hpp>
 #include <rend/ResourceManager.hpp>
 
-#include <UTILS/Console.hpp>
-
 #include <MyGui/MyGUI_ITexture.h>
 #include <MyGui/MyGUI_IVertexBuffer.h>
 

@@ -12,7 +12,6 @@
 
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
-#include <UTILS/Console.hpp>
 #include <UTILS/Strings.hpp>
 
 #include <FreeImage/FreeImage.h>

@@ -222,31 +222,6 @@ bool UIManager::initialize() {
 }
 
 void UIManager::cleanup() {
-	if (this->filePickerManager) {
-		this->filePickerManager->destroyInstance();
-		this->filePickerManager = nullptr;
-	}
-
-	if (this->viewsManager) {
-		this->viewsManager->destroyInstance();
-		this->viewsManager = nullptr;
-	}
-
-	if (this->notificationManager) {
-		this->notificationManager->destroyInstance();
-		this->notificationManager = nullptr;
-	}
-
-	if (this->imageManager) {
-		this->imageManager->destroyInstance();
-		this->imageManager = nullptr;
-	}
-
-	if (this->fontManager) {
-		this->fontManager->destroyInstance();
-		this->fontManager = nullptr;
-	}
-
 	if (ImGui::GetCurrentContext()) {
 		RGE_ImGui_ImplDX11_Shutdown();
 		RGE_ImGui_ImplWin32_Shutdown();

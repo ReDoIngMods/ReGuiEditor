@@ -11,6 +11,8 @@
 #include "DebugTextHandler.hpp"
 #include "FileIconHandler.hpp"
 
+#include <memory>
+
 class UIManager : public UTILS::Singleton<UIManager> {
 	void applyImGuiTheme();
 public:
@@ -20,12 +22,12 @@ public:
 	bool initialize();
 	void cleanup();
 
-	ImGuiFontManager* fontManager = nullptr;
-	ImageManager* imageManager = nullptr;
-	NotificationManager* notificationManager = nullptr;
-	ViewsManager* viewsManager = nullptr;
+	std::shared_ptr<ImGuiFontManager> fontManager = nullptr;
+	std::shared_ptr<ImageManager> imageManager = nullptr;
+	std::shared_ptr<NotificationManager> notificationManager = nullptr;
+	std::shared_ptr<ViewsManager> viewsManager = nullptr;
 
-	FilePickerManager* filePickerManager = nullptr;
+	std::shared_ptr<FilePickerManager> filePickerManager = nullptr;
 
 	DebugTextHandler debugTextHandler;
 	FileIconHandler fileIconHandler;

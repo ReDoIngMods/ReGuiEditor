@@ -57,15 +57,15 @@ bool rend::D3D11Device::createDevice() {
 rend::D3D11Device::~D3D11Device() {
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GRAY, "Cleaning up renderer...");
 
-	if (this->isInitialized_ && this->shutdownCallback_)
-		this->shutdownCallback_();
-
-	this->isInitialized_ = false;
-
 	if (this->deviceContext1_) {
 		this->deviceContext1_->ClearState();
 		this->deviceContext1_->Flush();
 	}
+
+	if (this->isInitialized_ && this->shutdownCallback_)
+		this->shutdownCallback_();
+
+	this->isInitialized_ = false;
 
 #if defined(_DEBUG) || defined(DEBUG)
 	if (this->device1_) {

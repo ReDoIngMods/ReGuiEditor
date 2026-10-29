@@ -4,8 +4,6 @@
 
 #include <rend/Resources/Buffers/BufferResource.hpp>
 
-#include <UTILS/Console.hpp>
-
 #include <MyGui/MyGUI_VertexData.h>
 
 #include <atomic>

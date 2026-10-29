@@ -2,6 +2,7 @@
 
 #include "wrap_sm_color.hpp"
 #include "wrap_sm_json.hpp"
+#include "wrap_sm_jsonGui.hpp"
 #include "wrap_sm_log.hpp"
 #include "wrap_sm_noise.hpp"
 #include "wrap_sm_quat.hpp"
@@ -70,6 +71,7 @@ void wrap_sm(lua_State* L) {
 
 	wrap_sm_color(L);
 	wrap_sm_json(L);
+	wrap_sm_jsonGui(L);
 	wrap_sm_log(L);
 	wrap_sm_noise(L);
 	wrap_sm_quat(L);

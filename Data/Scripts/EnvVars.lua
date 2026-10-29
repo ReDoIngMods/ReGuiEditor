@@ -110,6 +110,7 @@ unsafe_env = {
         --raycastResult = sm.raycastResult,
         --container = sm.container,
         json = sm.json,
+        jsonGui = sm.jsonGui,
         --gui = sm.gui,
         --player = sm.player,
         --character = sm.character,

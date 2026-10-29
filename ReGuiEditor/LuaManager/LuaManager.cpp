@@ -13,6 +13,8 @@
 
 #include <Filesystem/FilesystemManager.hpp>
 
+#include <MyGuiRenderer/JsonGuiInstance.hpp>
+
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -126,14 +128,11 @@ void LuaManager::cleanup() {
 		lua_close(this->state_);
 		this->state_ = nullptr;
 	}
-
-	if (this->userdataManager_) {
-		this->userdataManager_->destroyInstance();
-		this->userdataManager_ = nullptr;
-	}
 }
 
 void LuaManager::update(float deltaTime) {
+	JsonGuiInstance::dispatchPendingEvents();
+
 	for (const auto& luaVM : this->luaVMs_)
 		luaVM->update(deltaTime);
 }

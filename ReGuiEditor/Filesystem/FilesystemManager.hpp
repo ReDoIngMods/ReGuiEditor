@@ -4,6 +4,10 @@
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
 
+#include <JSON/JSONObject.hpp>
+#include <JSON/JSONParser.hpp>
+#include <JSON/JSONWriter.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -50,6 +54,17 @@ public:
 		return true;
 	}
 
+	[[nodiscard]] bool readFile(const std::string& path, JSONValue& output) const {
+		std::string content;
+		if (!this->readFile(path, content))
+			return false;
+
+		if (!JSONParser::parseJson(content, output))
+			return false;
+
+		return true;
+	}
+
 	[[nodiscard]] bool writeFile(const std::string& path, const std::vector<uint8_t>& data) const;
 	[[nodiscard]] bool writeFile(const std::string& path, const std::string& data) const {
 		std::vector<uint8_t> byteData(data.begin(), data.end());
@@ -63,6 +78,11 @@ public:
 
 	[[nodiscard]] bool writeFile(const std::string& path, const UTILS::ByteStreamWriter& writer) const {
 		return this->writeFile(path, writer.toVector());
+	}
+
+	[[nodiscard]] bool writeFile(const std::string& path, const JSONValue& data, bool prettyPrint = true) const {
+		const std::string jsonString = JSONWriter::stringify(data, prettyPrint);
+		return this->writeFile(path, jsonString);
 	}
 
 	[[nodiscard]] bool exists(const std::string& path) const;

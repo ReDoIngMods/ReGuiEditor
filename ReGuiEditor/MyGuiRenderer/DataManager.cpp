@@ -1,5 +1,6 @@
 #include "DataManager.hpp"
 
+#include "DataFileIndex.hpp"
 #include "DataStream.hpp"
 
 #include <Filesystem/DirectoryManager.hpp>
@@ -8,71 +9,35 @@
 
 #include <filesystem>
 #include <string>
-#include <system_error>
+#include <utility>
 #include <vector>
 
-inline static bool matchWildcard(const std::string& pattern, const std::string& str) {
-	size_t patternIndex = 0;
-	size_t stringIndex = 0;
+std::vector<DataFileIndex::SearchFolder> DataManager::resolveSearchFolders() const {
+	DirectoryManager& directoryManager = DirectoryManager::getInstance();
 
-	size_t starPatternIndex = std::string::npos;
-	size_t starStringIndex = 0;
+	std::vector<DataFileIndex::SearchFolder> folders;
+	folders.reserve(this->searchDirectories_.size());
 
-	while (stringIndex < str.size()) {
-		const bool patternMatches = patternIndex < pattern.size() && (pattern[patternIndex] == str[stringIndex] || pattern[patternIndex] == '?');
-		if (patternMatches) {
-			++patternIndex;
-			++stringIndex;
-		} else if (patternIndex < pattern.size() && pattern[patternIndex] == '*') {
-			starPatternIndex = patternIndex++;
-			starStringIndex = stringIndex;
-		} else if (starPatternIndex != std::string::npos) {
-			patternIndex = starPatternIndex + 1;
-			stringIndex = ++starStringIndex;
-		} else {
-			return false;
-		}
+	for (const SearchDirectory& searchDirectory : this->searchDirectories_) {
+		DataFileIndex::SearchFolder folder;
+		folder.configuredPath = searchDirectory.path;
+		folder.recursive = searchDirectory.recursive;
+
+		std::filesystem::path resolvedPath;
+		if (directoryManager.resolveDirectory(searchDirectory.path, resolvedPath))
+			folder.resolvedPath = resolvedPath.string();
+
+		folders.push_back(std::move(folder));
 	}
 
-	while (patternIndex < pattern.size() && pattern[patternIndex] == '*')
-		++patternIndex;
-
-	return patternIndex == pattern.size();
+	return folders;
 }
 
-inline static void addEntry(std::vector<std::string>& result, const std::filesystem::directory_entry& entry, const std::string& pattern, const std::filesystem::path& basePath, bool outputAsFullPath) {
-	if (entry.is_directory())
-		return;
+bool DataManager::executeLookup(bool forceRebuild, const std::string& pattern, std::string& path) const {
+	DataFileIndex& index = DataFileIndex::getInstance();
+	index.update(this->resolveSearchFolders(), forceRebuild);
 
-	const std::string name = entry.path().filename().string();
-	if (!pattern.empty() && !matchWildcard(pattern, name))
-		return;
-
-	result.push_back(outputAsFullPath ? entry.path().lexically_relative(basePath).string() : name);
-}
-
-inline static void scanFolder(std::vector<std::string>& result, const std::string& folder, bool scanRecursive, const std::string& mask, bool outputAsFullPath) {
-	const std::string pattern = (mask == "*.*") ? "" : mask;
-	const std::filesystem::path basePath(folder);
-	const auto options = std::filesystem::directory_options::skip_permission_denied;
-
-	std::error_code errorCode;
-
-	if (scanRecursive) {
-		std::filesystem::recursive_directory_iterator iterator(folder, options, errorCode);
-		if (errorCode)
-			return;
-
-		for (const auto& entry : iterator)
-			addEntry(result, entry, pattern, basePath, outputAsFullPath);
-	} else {
-		std::filesystem::directory_iterator iterator(folder, options, errorCode);
-		if (errorCode)
-			return;
-
-		for (const auto& entry : iterator)
-			addEntry(result, entry, pattern, basePath, outputAsFullPath);
-	}
+	return index.findFirst(pattern, path);
 }
 
 MyGUI::IDataStream* DataManager::getData(const std::string& _name) const {
@@ -95,15 +60,10 @@ const std::vector<std::string>& DataManager::getDataListNames(const std::string&
 	static std::vector<std::string> result;
 	result.clear();
 
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
-	for (const auto& searchDir : this->searchDirectories_) {
-		std::filesystem::path resolvedPath;
-		if (!directoryManager.resolveDirectory(searchDir.path, resolvedPath))
-			continue;
+	DataFileIndex& index = DataFileIndex::getInstance();
+	index.update(this->resolveSearchFolders(), false);
 
-		scanFolder(result, resolvedPath.string(), searchDir.recursive, _pattern, false);
-	}
-
+	index.collectNames(_pattern == "*.*" ? std::string() : _pattern, result);
 	return result;
 }
 
@@ -111,28 +71,15 @@ const std::string& DataManager::getDataPath(const std::string& _name) const {
 	static std::string path;
 	path.clear();
 
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
 	if (_name.starts_with("$")) {
 		path = _name;
 		return path;
 	}
 
-	std::vector<std::string> result;
-	result.clear();
-
-	for (const auto& searchDir : this->searchDirectories_) {
-		std::filesystem::path resolvedPath;
-		if (!directoryManager.resolveDirectory(searchDir.path, resolvedPath))
-			continue;
-
-		scanFolder(result, resolvedPath.string(), searchDir.recursive, _name, true);
-
-		if (result.size() == 1) {
-			path = (std::filesystem::path(searchDir.path) / result[0]).string();
-			return path;
-		}
-
-		result.clear();
+	const std::string pattern = (_name == "*.*") ? "" : _name;
+	if (!this->executeLookup(false, pattern, path)) {
+		if (!this->executeLookup(true, pattern, path))
+			path.clear();
 	}
 
 	return path;

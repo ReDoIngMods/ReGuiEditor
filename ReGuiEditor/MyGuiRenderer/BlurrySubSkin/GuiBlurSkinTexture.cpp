@@ -8,8 +8,6 @@
 
 #include <rend/ResourceManager.hpp>
 
-#include <UTILS/Console.hpp>
-
 #include <string>
 
 bool GuiBlurSkinTexture::initialize(const std::string& name, int width, int height) {

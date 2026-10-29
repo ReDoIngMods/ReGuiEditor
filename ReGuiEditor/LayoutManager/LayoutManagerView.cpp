@@ -14,6 +14,8 @@ void LayoutManagerView::openLayout(bool force) {
 	FilePickerRequest request;
 	request.title = "Open Layout";
 	request.allowedExtensions = { ".layout" };
+	request.defaultPath = this->lastOpenedLayoutPath.parent_path().string();
+	request.defaultMod = this->lastOpenedLayoutMod;
 	request.onSelected = [this](const FilePickerResult& result) {
 		CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Selected layout: %s", result.getFullPath().c_str());
 
@@ -21,6 +23,9 @@ void LayoutManagerView::openLayout(bool force) {
 			CONSOLE_ERROR("Invalid layout selection.");
 			return;
 		}
+
+		this->lastOpenedLayoutPath = result.selectedPath;
+		this->lastOpenedLayoutMod = result.selectedMod;
 
 		if (!LayoutManager::getInstance().loadLayout(result.getFullPath()))
 			CONSOLE_ERROR("Failed to load layout: %s", result.getFullPath().c_str());

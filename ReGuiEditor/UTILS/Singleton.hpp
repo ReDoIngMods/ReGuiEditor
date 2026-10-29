@@ -1,41 +1,40 @@
 #pragma once
+
 #include <cassert>
+#include <memory>
 
 namespace UTILS {
-	template <typename T>
-	class Singleton {
-		friend T;
+    template <typename T>
+    class Singleton {
+        friend T;
 
-		inline static T* instance_ = nullptr;
-	protected:
-		Singleton() = default;
-	public:
-		virtual ~Singleton() = default;
+        inline static T* instance_ = nullptr;
+    protected:
+        Singleton() = default;
+    public:
+        virtual ~Singleton() { instance_ = nullptr; }
 
-		static T* createInstance() {
-			assert(instance_ == nullptr && "Singleton instance already exists.");
-			instance_ = new T();
-			return instance_;
-		}
+        [[nodiscard]] static std::shared_ptr<T> createInstance() {
+            assert(!instance_ && "Singleton instance already exists.");
 
-		static T& getInstance() {
-			assert(instance_ != nullptr && "Singleton instance does not exist.");
-			return *instance_;
-		}
+            std::shared_ptr<T> instance = std::make_shared<T>();
+            instance_ = instance.get();
 
-		static T* getInstancePtr() {
-			return instance_;
-		}
+            return instance;
+        }
 
-		static void destroyInstance() {
-			assert(instance_ != nullptr && "Singleton instance does not exist.");
-			delete instance_;
-			instance_ = nullptr;
-		}
+        static T& getInstance() {
+            assert(instance_ && "Singleton instance does not exist.");
+            return *instance_;
+        }
 
-		Singleton(const Singleton&) = delete;
-		Singleton& operator=(const Singleton&) = delete;
-		Singleton(Singleton&&) = delete;
-		Singleton& operator=(Singleton&&) = delete;
-	};
+        static T* getInstancePtr() {
+            return instance_;
+        }
+
+        Singleton(Singleton&) = delete;
+        Singleton(Singleton&&) = delete;
+        Singleton& operator=(Singleton&) = delete;
+        Singleton& operator=(Singleton&&) = delete;
+    };
 }

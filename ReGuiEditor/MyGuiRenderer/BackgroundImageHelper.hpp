@@ -14,6 +14,9 @@ class BackgroundImageHelper {
 
 	RPTexture* backgroundTexture_ = nullptr;
 public:
+	BackgroundImageHelper() = default;
+	~BackgroundImageHelper() { this->cleanup(); }
+
 	bool initialize();
 	void cleanup();
 

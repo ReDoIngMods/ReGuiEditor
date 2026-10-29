@@ -22,14 +22,6 @@ class ResolutionManager : public UTILS::Singleton<ResolutionManager> {
 
 	const Resolution* resolution_ = nullptr;
 public:
-	ResolutionManager() = default;
-	~ResolutionManager() = default;
-
-	ResolutionManager(const ResolutionManager&) = delete;
-	ResolutionManager& operator=(const ResolutionManager&) = delete;
-	ResolutionManager(ResolutionManager&&) = delete;
-	ResolutionManager& operator=(ResolutionManager&&) = delete;
-	
 	bool initialize();
 	
 	bool setResolution(uint32_t width, uint32_t height);

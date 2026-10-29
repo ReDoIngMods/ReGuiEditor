@@ -24,11 +24,11 @@ public:
 			if (message.starts_with("dublicate"))
 				message.replace(0, 9, "duplicate");
 
-			CONSOLE_LOG(LEVEL_MYGUI, COLOR_YELLOW, "WARN  | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, message.c_str());
+			CONSOLE_LOG(LEVEL_MYGUI, COLOR_YELLOW,  "WARN  | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, message.c_str());
 		} else if (_level == MyGUI::LogLevel::Error) {
-			CONSOLE_LOG(LEVEL_MYGUI, COLOR_RED, "ERROR | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
+			CONSOLE_LOG(LEVEL_MYGUI, COLOR_RED,     "ERROR | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
 		} else if (_level == MyGUI::LogLevel::Critical) {
-			CONSOLE_LOG(LEVEL_MYGUI, COLOR_RED, "FATAL | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
+			CONSOLE_LOG(LEVEL_MYGUI, COLOR_RED,     "FATAL | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
 		} else {
 			CONSOLE_LOG(LEVEL_MYGUI, COLOR_MAGENTA, "????  | %-8s | %s:%d %s", _section.c_str(), fileName.c_str(), _line, _message.c_str());
 		}

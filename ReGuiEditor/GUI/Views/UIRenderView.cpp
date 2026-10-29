@@ -16,8 +16,6 @@
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
-#include <UTILS/Console.hpp>
-
 #include <cstring>
 
 constexpr float GRID_BASE_SIZE = 45.0f;

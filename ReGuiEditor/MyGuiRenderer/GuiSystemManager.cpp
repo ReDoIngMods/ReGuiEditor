@@ -1,15 +1,12 @@
 #include "GuiSystemManager.hpp"
 
-#include "../ConfigManager/ConfigManager.hpp"
-
 #include "BackgroundImageHelper.hpp"
 
 #include "BlurrySubSkin/BlurrySubSkinRegistry.hpp"
-#include "BlurrySubSkin/BlurrySubSkinRenderer.hpp"
 #include "BlurrySubSkin/GuiBlurManager.hpp"
 
-#include "DataManager.hpp"
 #include "FontManager.hpp"
+
 #include "ResolutionManager.hpp"
 
 #include "RenderPlatform/RPRenderManager.hpp"
@@ -21,17 +18,10 @@
 #include <rend/Resources/Texture2D.hpp>
 
 #include <UTILS/Profiler.hpp>
+#include <UTILS/Strings.hpp>
 
-#include <MyGui/MyGUI_Align.h>
-#include <MyGui/MyGUI_Exception.h>
-#include <MyGui/MyGUI_FactoryManager.h>
 #include <MyGui/MyGUI_Gui.h>
-#include <MyGui/MyGUI_LayoutManager.h>
-#include <MyGui/MyGUI_LogManager.h>
-#include <MyGui/MyGUI_LogSource.h>
-#include <MyGui/MyGUI_ResourceManager.h>
-#include <MyGui/MyGUI_ResourceTrueTypeFont.h>
-#include <MyGui/MyGUI_Widget.h>
+#include <MyGui/MyGUI_LanguageManager.h>
 
 #include <DirectXColors.h>
 #include <d3d11.h>
@@ -39,6 +29,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 bool GuiSystemManager::createRenderTarget(uint32_t width, uint32_t height) {
 	this->cleanupRenderTarget();
@@ -75,151 +66,27 @@ void GuiSystemManager::cleanupRenderTarget() {
 	this->renderTargetHeight_ = 0;
 }
 
-bool GuiSystemManager::initialize() {
-	CONSOLE_LOG(LEVEL_RENDER, COLOR_GRAY, "Initializing GuiSystemManager...");
-	PROFILE_FUNCTION();
+void GuiSystemManager::onLanguageChanged(const std::string& language) {
+	this->myGuiFontManager_->loadFontXML("$GAME_DATA/Gui/Language/" + language + "/Fonts.xml");
 
-	// Initialize Logging
+	MyGUI::LanguageManager* languageManager = MyGUI::LanguageManager::getInstancePtr();
+	languageManager->clearUserTags();
 
-	this->logManager_ = new MyGUI::LogManager;
-	this->logManager_->setSTDOutputEnabled(false);
-
-	this->myGuiLogSource_ = new MyGUI::LogSource;
-	this->myGuiLogSource_->addLogListener(&this->myGuiLogListener_);
-	this->myGuiLogSource_->open();
-
-	this->logManager_->addLogSource(this->myGuiLogSource_);
-
-	// Initialize Data Manager
-
-	this->dataManager_ = new DataManager;
-
-	// Initialize Render Manager
-
-	this->renderManager_ = new RPRenderManager;
-	try {
-		if (!this->renderManager_->initialise()) {
-			CONSOLE_ERROR("Failed to initialize MyGUI RPRenderManager.");
-			return false;
-		}
-	} catch (const MyGUI::Exception& exception) {
-		CONSOLE_ERROR("Failed to initialize MyGUI RPRenderManager. Exception message: %s", exception.getFullDescription().c_str());
-		return false;
-	}
-
-	CONSOLE_LOG(LEVEL_RENDER, COLOR_GREEN, "Initialized MyGUI RPRenderManager.");
-
-	// Create Render Target
-
-	ConfigManager& configManager = ConfigManager::getInstance();
-	int canvasWidth = configManager.getConfigVariableWithDefault("mygui.canvas.width", 1920);
-	int canvasHeight = configManager.getConfigVariableWithDefault("mygui.canvas.height", 1080);
-
-	if (!this->createRenderTarget(static_cast<uint32_t>(canvasWidth), static_cast<uint32_t>(canvasHeight))) {
-		CONSOLE_ERROR("Failed to create render target for MyGUI.");
-		return false;
-	}
-
-	// Initialize Gui
-
-	this->gui_ = new MyGUI::Gui;
-	try {
-		this->gui_->initialise("");
-	} catch (const MyGUI::Exception& exception) {
-		CONSOLE_ERROR("Failed to initialize MyGUI Gui. Error: %s", exception.getFullDescription().c_str());
-		return false;
-	}
-	CONSOLE_LOG(LEVEL_RENDER, COLOR_GREEN, "Initialized MyGUI Gui.");
-
-	// Register ResourceTrueTypeFont factory
-
-	MyGUI::FactoryManager::getInstance().registerFactory<MyGUI::ResourceTrueTypeFont>("Resource", "ResourceTrueTypeFont");
-
-	// Load MyGUI resource files
-
-	static const std::array<std::string, 4> resourceFiles = {
-		"$GAME_DATA/Gui/GuiConfig.xml",
-		"$SURVIVAL_DATA/Gui/GuiConfigSurvival.xml",
-		"$CHALLENGE_DATA/Gui/GuiConfigChallenge.xml",
-		//"$CUSTOMIZATION_DATA/Gui/GuiConfigCustomization.xml",
-
-		"$GAME_DATA/Gui/GuiSettings.xml"
+	static constexpr std::array<std::string_view, 3> INTERFACE_TAG_FILES = {
+		"InterfaceTags.txt",
+		"LogItemInterfaceTags.txt",
+		"QuestInterfaceTags.txt"
 	};
 
-	MyGUI::ResourceManager& resourceManager = MyGUI::ResourceManager::getInstance();
-	for (const auto& resourceFile : resourceFiles) {
-		try {
-			if(!resourceManager.load(resourceFile)) {
-				CONSOLE_ERROR("Failed to load MyGUI resource file: %s", resourceFile.c_str());
-				return false;
-			}
-		} catch (const MyGUI::Exception& exception) {
-			CONSOLE_ERROR("Failed to load MyGUI resource file: %s. Exception message: %s", resourceFile.c_str(), exception.getFullDescription().c_str());
-			return false;
-		}
-
-		CONSOLE_LOG(LEVEL_RENDER, COLOR_BLUE, "Loaded resource: %s", resourceFile.c_str());
+	for (const std::string_view& tagFile : INTERFACE_TAG_FILES) {
+		const std::string tagFilePath = UTILS::formatString("$GAME_DATA/Gui/Language/%s/%s", language.c_str(), tagFile.data());
+		if (!languageManager->loadUserTags(tagFilePath))
+			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to load user tags from file: %s", tagFilePath.c_str());
 	}
-
-	// Initialize Font Manager
-
-	this->myGuiFontManager_ = FontManager::createInstance();
-	if (!this->myGuiFontManager_->loadFontXML("$GAME_DATA/Gui/Language/English/Fonts.xml")) {
-		CONSOLE_ERROR("Failed to load MyGUI fonts from XML.");
-		return false;
-	}
-
-	// Initialize Resolution Manager
-
-	this->resolutionManager_ = ResolutionManager::createInstance();
-	if (!this->resolutionManager_->initialize()) {
-		CONSOLE_ERROR("Failed to initialize ResolutionManager.");
-		return false;
-	}
-
-	// Initialize Blurring System
-
-	this->guiBlurManager_ = GuiBlurManager::createInstance();
-	if (!this->guiBlurManager_->initialize(static_cast<uint32_t>(canvasWidth), static_cast<uint32_t>(canvasHeight))) {
-		CONSOLE_ERROR("Failed to initialize GuiBlurManager.");
-		return false;
-	}
-
-	this->blurrySubSkinRenderer_ = BlurrySubSkinRenderer::createInstance();
-	if (!this->blurrySubSkinRenderer_->initialize()) {
-		CONSOLE_ERROR("Failed to initialize BlurrySubSkinRenderer.");
-		return false;
-	}
-
-	this->blurrySubSkinRegistry_ = BlurrySubSkinRegistry::createInstance();
-	if (!this->blurrySubSkinRegistry_) {
-		CONSOLE_ERROR("Failed to create BlurrySubSkinRegistry.");
-		return false;
-	}
-
-	// Set Resolution
-
-	if (!this->resolutionManager_->setResolution(static_cast<uint32_t>(canvasWidth), static_cast<uint32_t>(canvasHeight))) {
-		CONSOLE_ERROR("Failed to set resolution for MyGUI.");
-		return false;
-	}
-
-	// Initialize Background Image Helper
-
-	this->backgroundImageHelper_ = new BackgroundImageHelper;
-	if (!this->backgroundImageHelper_->initialize()) {
-		CONSOLE_ERROR("Failed to initialize BackgroundImageHelper.");
-		return false;
-	}
-
-	this->backgroundImageHelper_->setBackgroundTexture("gui_loadingscreen_creative.png");
-
-	return true;
 }
 
 void GuiSystemManager::cleanup() {
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GRAY, "Cleaning up GuiSystemManager...");
-
 
 	if (this->gui_) {
 		this->gui_->shutdown();
@@ -228,34 +95,8 @@ void GuiSystemManager::cleanup() {
 	}
 
 	if (this->backgroundImageHelper_) {
-		this->backgroundImageHelper_->cleanup();
 		delete this->backgroundImageHelper_;
 		this->backgroundImageHelper_ = nullptr;
-	}
-
-	if (this->blurrySubSkinRegistry_) {
-		this->blurrySubSkinRegistry_->destroyInstance();
-		this->blurrySubSkinRegistry_ = nullptr;
-	}
-
-	if (this->blurrySubSkinRenderer_) {
-		this->blurrySubSkinRenderer_->destroyInstance();
-		this->blurrySubSkinRenderer_ = nullptr;
-	}
-
-	if (this->guiBlurManager_) {
-		this->guiBlurManager_->destroyInstance();
-		this->guiBlurManager_ = nullptr;
-	}
-
-	if (this->resolutionManager_) {
-		this->resolutionManager_->destroyInstance();
-		this->resolutionManager_ = nullptr;
-	}
-
-	if (this->myGuiFontManager_) {
-		this->myGuiFontManager_->destroyInstance();
-		this->myGuiFontManager_ = nullptr;
 	}
 
 	this->cleanupRenderTarget();
@@ -287,7 +128,7 @@ bool GuiSystemManager::changeResolution(uint32_t width, uint32_t height) {
 
 	if (width == this->renderTargetWidth_ && height == this->renderTargetHeight_)
 		return true;
-	
+
 	this->cleanupRenderTarget();
 
 	if (!this->createRenderTarget(width, height)) {
