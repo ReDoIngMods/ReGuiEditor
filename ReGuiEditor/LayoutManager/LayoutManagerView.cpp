@@ -1,5 +1,7 @@
 #include "LayoutManagerView.hpp"
 
+#include "LayoutManager.hpp"
+
 #include <GUI/FilePickerManager.hpp>
 
 #include <ImGui/imgui.h>
@@ -14,6 +16,14 @@ void LayoutManagerView::openLayout(bool force) {
 	request.allowedExtensions = { ".layout" };
 	request.onSelected = [this](const FilePickerResult& result) {
 		CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Selected layout: %s", result.getFullPath().c_str());
+
+		if (!result.isValid()) {
+			CONSOLE_ERROR("Invalid layout selection.");
+			return;
+		}
+
+		if (!LayoutManager::getInstance().loadLayout(result.getFullPath()))
+			CONSOLE_ERROR("Failed to load layout: %s", result.getFullPath().c_str());
 	};
 
 	filePickerManager.sendRequest(request);

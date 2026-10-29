@@ -214,11 +214,6 @@ bool GuiSystemManager::initialize() {
 
 	this->backgroundImageHelper_->setBackgroundTexture("gui_loadingscreen_creative.png");
 
-	// Debug shit
-
-	MyGUI::Widget* rootWidget = this->gui_->createWidgetReal<MyGUI::Widget>("PanelEmpty", 0.f, 0.f, 1.f, 1.f, MyGUI::Align::Default, "Main");
-	MyGUI::LayoutManager::getInstance().loadLayout("$CONTENT_3660881a-a6b8-40e5-a348-27b368a742e9/Gui/Layout/Computer/Computer.layout", "", rootWidget);
-
 	return true;
 }
 
