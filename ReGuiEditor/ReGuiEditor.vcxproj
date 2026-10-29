@@ -192,7 +192,6 @@ exit /b 0</Command>
     <ClCompile Include="Dependencies\ImGui\imgui_draw.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_tables.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_widgets.cpp" />
-    <ClCompile Include="Dependencies\ImGui\misc\freetype\imgui_freetype.cpp" />
     <ClCompile Include="Filesystem\DirectoryManager.cpp" />
     <ClCompile Include="Filesystem\FilesystemManager.cpp" />
     <ClCompile Include="GUI\DebugTextHandler.cpp" />
@@ -283,7 +282,6 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\ImGui\imstb_rectpack.h" />
     <ClInclude Include="Dependencies\ImGui\imstb_textedit.h" />
     <ClInclude Include="Dependencies\ImGui\imstb_truetype.h" />
-    <ClInclude Include="Dependencies\ImGui\misc\freetype\imgui_freetype.h" />
     <ClInclude Include="Dependencies\LuaJIT\lauxlib.h" />
     <ClInclude Include="Dependencies\LuaJIT\lua.h" />
     <ClInclude Include="Dependencies\LuaJIT\lua.hpp" />

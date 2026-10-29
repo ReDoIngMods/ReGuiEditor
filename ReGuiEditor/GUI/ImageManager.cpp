@@ -26,10 +26,18 @@
 #include <shlwapi.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <d3d11.h>
+#include <d3dcommon.h>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <queue>
+#include <stop_token>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -79,13 +87,84 @@ inline static rend::Texture2DHandle createTextureFromBGRA(const void* pixels, ui
 	return texture;
 }
 
+static FIBITMAP* decodeBitmap(const std::string& path) {
+	std::vector<uint8_t> fileContent;
+	if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
+		CONSOLE_ERROR("Failed to read image file '%s'.", path.c_str());
+		return nullptr;
+	}
+
+	FIMEMORY* memory = FreeImage_OpenMemory(fileContent.data(), static_cast<DWORD>(fileContent.size()));
+	if (!memory) {
+		CONSOLE_ERROR("Failed to open image memory for '%s'.", path.c_str());
+		return nullptr;
+	}
+
+	const FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(memory, 0);
+	FIBITMAP* bitmap = format != FIF_UNKNOWN ? FreeImage_LoadFromMemory(format, memory, 0) : nullptr;
+	FreeImage_CloseMemory(memory);
+
+	if (!bitmap)
+		CONSOLE_ERROR("Failed to decode image '%s'.", path.c_str());
+
+	return bitmap;
+}
+
+void Image::finishBitmap(FIBITMAP* bitmap) {
+	if (!bitmap)
+		return this->fail();
+
+	this->bitmap_.reset(bitmap);
+	this->width_ = FreeImage_GetWidth(bitmap);
+	this->height_ = FreeImage_GetHeight(bitmap);
+	this->state_.store(State::Ready, std::memory_order_release);
+}
+
+void Image::finishPixels(std::vector<uint8_t> pixels, uint32_t width, uint32_t height) {
+	this->pixels_ = std::move(pixels);
+	this->width_ = width;
+	this->height_ = height;
+	this->state_.store(State::Ready, std::memory_order_release);
+}
+
 rend::Texture2DHandle Image::getTexture() {
-	if (!this->texture_ && this->bitmap_ && !this->textureFailed_) {
-		this->texture_ = createTexture(this->bitmap_.get(), this->path_);
+	if (!this->texture_ && !this->textureFailed_ && this->isReady()) {
+		if (this->bitmap_)
+			this->texture_ = createTexture(this->bitmap_.get(), this->path_);
+		else {
+			this->texture_ = createTextureFromBGRA(this->pixels_.data(), this->width_, this->height_, this->path_);
+			this->pixels_.clear();
+		}
+
 		this->textureFailed_ = !this->texture_;
 	}
 
 	return this->texture_;
+}
+
+void ImageManager::enqueue(std::function<void()> task) {
+	{
+		std::lock_guard lock(this->mutex_);
+		this->tasks_.push(std::move(task));
+	}
+
+	this->condition_.notify_one();
+}
+
+void ImageManager::workerLoop(std::stop_token stop) {
+	while (true) {
+		std::function<void()> task;
+		{
+			std::unique_lock lock(this->mutex_);
+			if (!this->condition_.wait(lock, stop, [this] { return !this->tasks_.empty(); }))
+				return;
+
+			task = std::move(this->tasks_.front());
+			this->tasks_.pop();
+		}
+
+		task();
+	}
 }
 
 bool ImageManager::initialize() {
@@ -94,10 +173,31 @@ bool ImageManager::initialize() {
 	rend::D3D11Device& d3d11Device = rend::D3D11Device::getInstance();
 	ID3D11Device1* device1 = d3d11Device.getDevice1();
 
-	rend::RefCountPtr<IDXGIDevice> dxgiDevice = nullptr;
-	HRESULT result = device1->QueryInterface(IID_PPV_ARGS(dxgiDevice.getAddressOf()));
+	rend::RefCountPtr<IDXGIDevice> rendererDxgiDevice = nullptr;
+	HRESULT result = device1->QueryInterface(IID_PPV_ARGS(rendererDxgiDevice.getAddressOf()));
 	if (FAILED(result)) {
 		CONSOLE_ERROR("Failed to get IDXGIDevice from ID3D11Device1. HRESULT: 0x%08X", result);
+		return false;
+	}
+
+	rend::RefCountPtr<IDXGIAdapter> adapter = nullptr;
+	result = rendererDxgiDevice->GetAdapter(adapter.getAddressOf());
+	if (FAILED(result)) {
+		CONSOLE_ERROR("Failed to get IDXGIAdapter. HRESULT: 0x%08X", result);
+		return false;
+	}
+
+	rend::RefCountPtr<ID3D11Device> svgDevice = nullptr;
+	result = D3D11CreateDevice(adapter, D3D_DRIVER_TYPE_UNKNOWN, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION, svgDevice.getAddressOf(), nullptr, nullptr);
+	if (FAILED(result)) {
+		CONSOLE_ERROR("Failed to create SVG ID3D11Device. HRESULT: 0x%08X", result);
+		return false;
+	}
+
+	rend::RefCountPtr<IDXGIDevice> dxgiDevice = nullptr;
+	result = svgDevice->QueryInterface(IID_PPV_ARGS(dxgiDevice.getAddressOf()));
+	if (FAILED(result)) {
+		CONSOLE_ERROR("Failed to get IDXGIDevice from SVG device. HRESULT: 0x%08X", result);
 		return false;
 	}
 
@@ -120,11 +220,19 @@ bool ImageManager::initialize() {
 		return false;
 	}
 
+	this->worker_ = std::jthread([this](std::stop_token stop) { this->workerLoop(stop); });
 	return true;
 }
 
 void ImageManager::cleanup() {
 	CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Cleaning up ImageManager...");
+
+	if (this->worker_.joinable()) {
+		this->worker_.request_stop();
+		this->worker_.join();
+	}
+
+	std::queue<std::function<void()>>().swap(this->tasks_);
 	this->images_.clear();
 }
 
@@ -147,35 +255,15 @@ ImagePtr ImageManager::findOrLoadImage(const std::string& path) {
 		return cached->second.image;
 	}
 
-	std::vector<uint8_t> fileContent;
-	if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
-		CONSOLE_ERROR("Failed to read image file '%s'.", path.c_str());
-		return nullptr;
-	}
+	ImagePtr image = std::make_shared<Image>(path);
+	CacheEntry& entry = this->images_[path];
+	entry.image = image;
+	entry.unusedFrames = 0;
 
-	FIMEMORY* memory = FreeImage_OpenMemory(fileContent.data(), static_cast<DWORD>(fileContent.size()));
-	if (!memory) {
-		CONSOLE_ERROR("Failed to open image memory for '%s'.", path.c_str());
-		return nullptr;
-	}
+	this->enqueue([image]() -> void {
+		image->finishBitmap(decodeBitmap(image->path_));
+		});
 
-	FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(memory, 0);
-	if (format == FIF_UNKNOWN) {
-		CONSOLE_ERROR("Unknown image format for '%s'.", path.c_str());
-
-		FreeImage_CloseMemory(memory);
-		return nullptr;
-	}
-
-	FIBITMAP* bitmap = FreeImage_LoadFromMemory(format, memory, 0);
-	FreeImage_CloseMemory(memory);
-	if (!bitmap) {
-		CONSOLE_ERROR("Failed to load image from memory for '%s'.", path.c_str());
-		return nullptr;
-	}
-
-	ImagePtr image = std::make_shared<Image>(path, bitmap);
-	this->images_.emplace(path, CacheEntry{ image, 0 });
 	return image;
 }
 
@@ -306,24 +394,27 @@ ImagePtr ImageManager::findOrLoadImageSVG(const std::string& path, uint32_t widt
 		return cached->second.image;
 	}
 
-	std::vector<char> fileContent;
-	if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
-		CONSOLE_ERROR("Failed to read SVG file '%s'.", path.c_str());
-		return nullptr;
-	}
+	ImagePtr image = std::make_shared<Image>(key);
+	CacheEntry& entry = this->images_[key];
+	entry.image = image;
+	entry.unusedFrames = 0;
 
-	std::vector<uint8_t> pixels;
-	if (!this->renderSVG(fileContent, width, height, color, pixels)) {
-		CONSOLE_ERROR("Failed to render SVG '%s'.", path.c_str());
-		return nullptr;
-	}
+	this->enqueue([this, image, path, width, height, color]() mutable -> void {
+		std::vector<char> fileContent;
+		if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
+			CONSOLE_ERROR("Failed to read SVG file '%s'.", path.c_str());
+			return image->fail();
+		}
 
-	rend::Texture2DHandle texture = createTextureFromBGRA(pixels.data(), width, height, key);
-	if (!texture)
-		return nullptr;
+		std::vector<uint8_t> pixels;
+		if (!this->renderSVG(fileContent, width, height, color, pixels)) {
+			CONSOLE_ERROR("Failed to render SVG '%s'.", path.c_str());
+			return image->fail();
+		}
 
-	ImagePtr image = std::make_shared<Image>(key, std::move(texture), width, height);
-	this->images_.emplace(key, CacheEntry{ image, 0 });
+		image->finishPixels(std::move(pixels), width, height);
+		});
+
 	return image;
 }
 
