@@ -123,7 +123,6 @@ std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, b
 	mod->fileId = json["fileId"].getOrDefault<uint64_t>(0);
 	mod->type = type;
 	mod->isLocal = isLocal;
-	mod->version = json["version"].getOrDefault<int>(0);
 
 	return mod;
 }

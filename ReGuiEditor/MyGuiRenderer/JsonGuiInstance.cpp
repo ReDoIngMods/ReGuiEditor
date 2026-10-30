@@ -14,7 +14,6 @@
 #include <MyGui/MyGUI_Types.h>
 #include <MyGui/MyGUI_Widget.h>
 
-#include <cmath>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -31,8 +30,7 @@ using EventBinding = std::pair<std::string_view, const JSONValue*>;
 			return parent->createWidgetT(type, skin, coord, MyGUI::Align::Default, name);
 
 		return MyGUI::Gui::getInstance().createWidgetT(type, skin, coord, MyGUI::Align::Default, layer, name);
-	}
-	catch (const std::exception& exception) {
+	} catch (const std::exception& exception) {
 		CONSOLE_ERROR("JsonGui: failed to create widget '%s' (%s): %s", name.c_str(), type.c_str(), exception.what());
 		return nullptr;
 	}

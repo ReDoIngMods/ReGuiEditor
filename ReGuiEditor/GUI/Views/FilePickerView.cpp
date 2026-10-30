@@ -15,7 +15,6 @@
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
-#include <UTILS/Strings.hpp>
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -46,9 +45,6 @@ constexpr float MOD_LIST_MAX_WIDTH_FRAMES = 15.f;
 
 constexpr const char* OPEN_TEXT = "Open";
 constexpr const char* CANCEL_TEXT = "Cancel";
-
-constexpr const char* OUTDATED_MOD_TEXT = " (Outdated)";
-constexpr ImColor OUTDATED_MOD_COLOR = ImColor(155, 0, 0, 255);
 
 constexpr const char* CONTENT_PREFIX = "$CONTENT_";
 constexpr size_t CONTENT_PREFIX_LENGTH = std::char_traits<char>::length(CONTENT_PREFIX);
@@ -221,7 +217,7 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 			return comparison < 0;
 
 		return (*a.first)->name < (*b.first)->name;
-		});
+	});
 
 	if (visibleMods.empty()) {
 		if (this->searchQueryModList_.empty())
@@ -248,36 +244,23 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 
 			WidgetGrid row = WidgetGrid::fromItemRect();
 			const ImRect clip = row.getRectangle();
-			row.pad(style.ItemSpacing * 0.5f);
+			row.pad(style.FramePadding);
 
 			const WidgetGrid icon = row.splitLeftPixels(row.getHeight() * ICON_ASPECT_RATIO, iconGap);
 			const WidgetGrid nameGrid = row.splitTopPixels(lineHeight);
-			const WidgetGrid subtitleGrid = row.splitTopPixels(lineHeight);
-			const WidgetGrid versionGrid = row;
+			const WidgetGrid subtitleGrid = row;
 
 			std::string subtitle = UGCModTypeToString(mod->type);
 			if (mod->fileId == 0)
 				subtitle += UNPUBLISHED_SUFFIX;
 
-
-			if (const ImagePtr thumbnail = mod->getThumbnail())
-				drawList->AddImage(thumbnail->getTextureId(), icon.getMin(), icon.getMax());
+			ImagePtr thumbnail = mod->getThumbnail();
+			if (thumbnail)
+				drawList->AddImage(thumbnail->getTextureId(), icon.getPosition(), icon.getRectangle().Max);
 
 			drawList->PushClipRect(clip.Min, clip.Max, true);
 			drawList->AddText(nameGrid.getPosition(), textColor, mod->name.c_str());
 			drawList->AddText(subtitleGrid.getPosition(), subtextColor, subtitle.c_str());
-
-			const std::string versionStr = UTILS::formatString("Version: %s", mod->getVersionAsString());
-			const ImVec2 versionStrTextSize = ImGui::CalcTextSize(versionStr.c_str());
-
-			const ImVec2 versionGridPos = versionGrid.getPosition();
-
-			drawList->AddText(versionGridPos, subtextColor, versionStr.c_str());
-			if (mod->isOutdated()) {
-				const ImVec2 versionOutdatedTextPos = { versionGridPos.x + versionStrTextSize.x, versionGridPos.y };
-				drawList->AddText(versionOutdatedTextPos, OUTDATED_MOD_COLOR, OUTDATED_MOD_TEXT);
-			}
-
 			drawList->PopClipRect();
 
 			if (ImGui::BeginItemTooltip()) {
@@ -285,7 +268,6 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 					tooltipRow("Path", mod->path.string());
 					tooltipRow("File ID", std::to_string(mod->fileId));
 					tooltipRow("Local ID", mod->localId.c_str());
-					tooltipRow("Version", mod->getVersionAsString());
 
 					ImGui::EndTable();
 				}
@@ -321,7 +303,7 @@ void FilePickerView::drawSearchBar(const WidgetGrid& grid) {
 
 	if (this->drawImageIconButton("$RGE_DATA/Icons/arrow-up.svg", "^", this->currentFilePath_.empty())) {
 		this->currentFilePath_ = this->currentFilePath_.parent_path();
-
+		
 		this->selectedFile_.clear();
 		this->selectedVisibleFile_.clear();
 
@@ -353,7 +335,7 @@ void FilePickerView::drawSearchBar(const WidgetGrid& grid) {
 
 	if (!this->pathInputInitialized_ || displayedPath != this->syncedPathInput_) {
 		snprintf(this->pathBuffer_, sizeof(this->pathBuffer_), "%s", displayedPath.c_str());
-
+	
 		this->syncedPathInput_ = displayedPath;
 		this->pathInputInitialized_ = true;
 	}
@@ -395,10 +377,10 @@ void FilePickerView::handlePathInput() {
 
 	const std::string relativePathString = separator == std::string::npos ? "" : enteredPath.substr(separator + 1);
 	const std::filesystem::path relativePath(relativePathString);
-
+	
 	const bool escapesRoot = relativePath.is_absolute() || std::any_of(relativePath.begin(), relativePath.end(), [](const std::filesystem::path& part) -> bool {
 		return part == "..";
-		});
+	});
 
 	if (escapesRoot) {
 		this->pathMessage_ = "Path must stay inside the selected mod.";
@@ -413,10 +395,10 @@ void FilePickerView::handlePathInput() {
 
 	this->selectedMod_ = matchedMod;
 	this->currentFilePath_ = relativePath;
-
+	
 	this->selectedFile_.clear();
 	this->selectedVisibleFile_.clear();
-
+	
 	this->listedPath_.clear();
 	this->forceRefresh_ = true;
 }
@@ -429,7 +411,7 @@ void FilePickerView::drawFileList(const WidgetGrid& grid) {
 
 	if (!this->pathMessage_.empty()) {
 		this->showMessage(this->pathMessage_.c_str(), grid);
-
+	
 		ImGui::EndChild();
 		return;
 	}
@@ -444,7 +426,7 @@ void FilePickerView::drawFileList(const WidgetGrid& grid) {
 
 	if (currentPath != this->listedPath_ || this->forceRefresh_) {
 		this->listedPath_ = currentPath;
-
+		
 		this->forceRefresh_ = false;
 
 		this->selectedFile_.clear();
