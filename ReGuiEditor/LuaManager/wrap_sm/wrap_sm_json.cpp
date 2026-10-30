@@ -166,15 +166,9 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 		return false;
 	}
 
-	std::string content;
-	if (!FilesystemManager::getInstance().readFile(resolvedPath, content)) {
-		error = "Failed to read file '" + resolvedPath + "'.";
-		return false;
-	}
-
 	JSONValue document;
-	if (!JSONParser::parseJson(content, document)) {
-		error = "Failed to parse JSON file '" + resolvedPath + "'.";
+	if (!FilesystemManager::getInstance().readFile(resolvedPath, document)) {
+		error = "Failed to read or parse JSON file '" + resolvedPath + "'.";
 		return false;
 	}
 

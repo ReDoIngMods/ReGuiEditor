@@ -4,22 +4,15 @@
 #include <Filesystem/FilesystemManager.hpp>
 
 #include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
 
 bool FileIconHandler::initialize() {
-	std::string jsonContent;
+	JSONValue jsonContent;
 	if (!FilesystemManager::getInstance().readFile("$RGE_DATA/Icons/IconTranslation.json", jsonContent)) {
 		CONSOLE_ERROR("Failed to read file icons configuration.");
 		return false;
 	}
 
-	JSONValue jsonValue;
-	if (!JSONParser::parseJson(jsonContent, jsonValue)) {
-		CONSOLE_ERROR("Failed to parse file icons configuration.");
-		return false;
-	}
-
-	const JSONObject* jsonObject = jsonValue.tryGet<JSONObject>();
+	const JSONObject* jsonObject = jsonContent.tryGet<JSONObject>();
 	if (!jsonObject) {
 		CONSOLE_ERROR("File icons configuration is not a valid JSON object.");
 		return false;

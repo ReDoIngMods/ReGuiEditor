@@ -124,7 +124,5 @@ std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, b
 	mod->type = type;
 	mod->isLocal = isLocal;
 
-	(void)mod->getThumbnail(); // Force loads it incase this mod gets loaded when ImageManager IS avaliable.
-
 	return mod;
 }

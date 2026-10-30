@@ -105,12 +105,17 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 	const std::string skin = JsonGui::getString(node, "Skin");
 	const std::string name = JsonGui::getString(node, "Name");
 
-	const MyGUI::IntCoord coord(
+	MyGUI::IntCoord coord(
 		node.at("x").getOrDefault(0),
 		node.at("y").getOrDefault(0),
 		node.at("width").getOrDefault(0),
 		node.at("height").getOrDefault(0)
 	);
+
+	coord.width = static_cast<int>(std::ceil(coord.width * 1.5f));
+	coord.height = static_cast<int>(std::ceil(coord.height * 1.5f));
+	coord.left = static_cast<int>(std::ceil(coord.left * 1.5f));
+	coord.top = static_cast<int>(std::ceil(coord.top * 1.5f));
 
 	MyGUI::Widget* widget = createWidget(parent, this->settings_.layer, type, skin, coord, name);
 	if (!widget)

@@ -12,7 +12,6 @@
 #include <MyGui/MyGUI_ResourceManager.h>
 
 #include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -21,24 +20,19 @@
 #include <vector>
 
 bool ResolutionManager::initialize() {
-	std::string jsonContent;
+    JSONValue jsonContent;
 	if (!FilesystemManager::getInstance().readFile("$GAME_DATA/Gui/guiResolutions.json", jsonContent)) {
 		CONSOLE_ERROR("Failed to read Resolutions.json file.");
 		return false;
 	}
 
-	JSONValue jsonData;
-	if (!JSONParser::parseJson(jsonContent, jsonData)) {
-		CONSOLE_ERROR("Failed to parse Resolutions.json file.");
-		return false;
-	}
-
-	if (!jsonData.is<JSONObject>()) {
+	const JSONObject* jsonData = jsonContent.tryGet<JSONObject>();
+	if (!jsonData) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: root is not an object.");
 		return false;
 	}
 
-	const JSONArray* resolutionList = jsonData["resolutionList"].tryGet<JSONArray>();
+	const JSONArray* resolutionList = jsonData->at("resolutionList").tryGet<JSONArray>();
 	if (!resolutionList) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: 'resolutionList' is not an array.");
 		return false;
@@ -65,7 +59,7 @@ bool ResolutionManager::initialize() {
 		this->resolutions_.emplace_back(width, height, folder);
 	}
 
-	const JSONArray* resourceList = jsonData["resources"].tryGet<JSONArray>();
+	const JSONArray* resourceList = jsonData->at("resources").tryGet<JSONArray>();
 	if (!resourceList) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: 'resources' is not an array.");
 		return false;

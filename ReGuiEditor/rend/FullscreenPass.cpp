@@ -89,7 +89,6 @@ bool rend::FullscreenPass::draw(const rend::FullscreenDrawParams& params) {
 	if (!this->isValid() || !params.target)
 		return false;
 
-	// A fully clipped region is perfectly normal (e.g. a window that's scrolled out of view), not an error.
 	if (params.viewport.width <= 0.0f || params.viewport.height <= 0.0f)
 		return true;
 
@@ -110,13 +109,10 @@ bool rend::FullscreenPass::draw(const rend::FullscreenDrawParams& params) {
 
 	this->pipelineContext_->setRenderViews(params.target);
 	this->pipelineContext_->setViewports(params.viewport);
-
-	// The triangle is generated from SV_VertexID, so there's no input layout or vertex buffer.
 	this->pipelineContext_->setInputLayout(nullptr);
 	this->pipelineContext_->setPrimitiveTopology(rend::PrimitiveTopology::TriangleList);
 
-	if (params.blendState)
-		this->pipelineContext_->setBlendState(params.blendState);
+	this->pipelineContext_->setBlendState(params.blendState);
 
 	this->pipelineContext_->setVertexShader(this->vertexShader_);
 	this->pipelineContext_->setPixelShader(this->pixelShader_);
@@ -127,19 +123,11 @@ bool rend::FullscreenPass::draw(const rend::FullscreenDrawParams& params) {
 
 	constantBuffers.insert(constantBuffers.end(), params.extraConstantBuffers.begin(), params.extraConstantBuffers.end());
 
-	if (!constantBuffers.empty())
-		this->pipelineContext_->setConstantBuffers(rend::ShaderStage::Pixel, 0, static_cast<uint32_t>(constantBuffers.size()), constantBuffers.data());
-
-	if (!params.samplerStates.empty())
-		this->pipelineContext_->setSamplerStates(rend::ShaderStage::Pixel, 0, static_cast<uint32_t>(params.samplerStates.size()), params.samplerStates.data());
-
-	if (!params.shaderResourceViews.empty())
-		this->pipelineContext_->setShaderResourceViews(rend::ShaderStage::Pixel, 0, static_cast<uint32_t>(params.shaderResourceViews.size()), params.shaderResourceViews.data());
+	this->pipelineContext_->setConstantBuffers<rend::ShaderStage::Pixel>(0, constantBuffers);
+	this->pipelineContext_->setSamplerStates<rend::ShaderStage::Pixel>(0, params.samplerStates);
+	this->pipelineContext_->setShaderResourceViews<rend::ShaderStage::Pixel>(0, params.shaderResourceViews);
 
 	this->pipelineContext_->draw(3, 0);
-
-	// The saved context state keeps whatever is bound to it alive after end(). Unbind the target (it may be the swap
-	// chain back buffer, which ResizeBuffers refuses to resize while anything still references it) and the inputs.
 	this->pipelineContext_->clearRenderViews();
 
 	if (!params.shaderResourceViews.empty())

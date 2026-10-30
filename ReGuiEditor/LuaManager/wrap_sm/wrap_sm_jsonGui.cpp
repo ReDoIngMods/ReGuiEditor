@@ -135,7 +135,10 @@ static int jsonGui_createGui(lua_State* L) {
 		});
 	}
 
-	UserdataManager::getInstance().create<JsonGuiHandle>(L, JsonGuiHandle{ std::move(gui) });
+	JsonGuiHandle handle;
+	handle.gui = std::move(gui);
+
+	UserdataManager::getInstance().create<JsonGuiHandle>(L, std::move(handle));
 	return 1;
 }
 

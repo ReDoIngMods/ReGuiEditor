@@ -60,7 +60,8 @@ void JsonGui::registerOverlayShader() {
 	MyGUI::RenderManager& renderManager = MyGUI::RenderManager::getInstance();
 
 	const std::string shaderName(OVERLAY_SHADER);
-	renderManager.registerShader(shaderName, std::string(OVERLAY_SHADER_FILE), std::string(OVERLAY_SHADER_FILE));
+	const std::string shaderPath(OVERLAY_SHADER_FILE);
+	renderManager.registerShader(shaderName, shaderPath, shaderPath);
 
 	MyGUI::ITexture* texture = renderManager.createTexture(std::string(OVERLAY_TEXTURE));
 	if (!texture) {

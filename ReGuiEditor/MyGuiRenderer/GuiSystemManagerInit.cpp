@@ -278,11 +278,11 @@ bool GuiSystemManager::initialize() {
 	uint32_t canvasHeight = 0;
 	if (!this->initializeRenderTarget(canvasWidth, canvasHeight)) return false;
 	if (!this->initializeGui()) return false;
+	if (!this->initializeBlurring(canvasWidth, canvasHeight)) return false;
 	if (!this->loadResourceFiles()) return false;
 	if (!this->initializeFonts()) return false;
 	if (!this->initializeLanguages()) return false;
 	if (!this->initializeResolution(canvasWidth, canvasHeight)) return false;
-	if (!this->initializeBlurring(canvasWidth, canvasHeight)) return false;
 
 	return this->initializeBackground();
 }
