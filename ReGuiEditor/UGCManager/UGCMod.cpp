@@ -3,9 +3,9 @@
 #include <JSON/JSONObject.hpp>
 #include <JSON/JSONParser.hpp>
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -13,7 +13,7 @@
 #include <memory>
 #include <string>
 
-std::array<std::string, static_cast<size_t>(UGCModType::COUNT) + 1> gUGCModTypeMap = {
+constexpr auto gUGCModTypeMap = std::to_array<const char*>({
 	"Blueprint",
 	"Blocks and Parts",
 	"Tile",
@@ -22,11 +22,10 @@ std::array<std::string, static_cast<size_t>(UGCModType::COUNT) + 1> gUGCModTypeM
 	"Challenge Pack",
 	"Challenge Level",
 	"Custom Game",
-
 	"Unknown"
-};
+});
 
-const std::string& UGCModTypeToString(UGCModType type) {
+const char* UGCModTypeToString(UGCModType type) {
 	const size_t index = static_cast<size_t>(type);
 	if (index >= gUGCModTypeMap.size())
 		return gUGCModTypeMap.back();
@@ -34,12 +33,13 @@ const std::string& UGCModTypeToString(UGCModType type) {
 	return gUGCModTypeMap[index];
 }
 
-UGCModType StringToUGCModType(const std::string& typeStr) {
-	const auto iterator = std::find(gUGCModTypeMap.begin(), gUGCModTypeMap.end(), typeStr);
-	if (iterator == gUGCModTypeMap.end())
-		return UGCModType::COUNT;
+UGCModType StringToUGCModType(const char* typeStr) {
+	for (size_t index = 0; index < gUGCModTypeMap.size(); ++index) {
+		if (strcmp(gUGCModTypeMap[index], typeStr) == 0)
+			return static_cast<UGCModType>(index);
+	}
 
-	return static_cast<UGCModType>(std::distance(gUGCModTypeMap.begin(), iterator));
+	return UGCModType::COUNT;
 }
 
 inline static std::string readFile(const std::filesystem::path& filePath) {
@@ -100,7 +100,7 @@ std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, b
 	
 	const std::string* typePtr = json["type"].tryGet<std::string>();
 	if (typePtr) {
-		type = StringToUGCModType(*typePtr);
+		type = StringToUGCModType(typePtr->c_str());
 	
 		if (type == UGCModType::COUNT) {
 			CONSOLE_ERROR("description.json from %s contains an unknown type: %s", modPath.string().c_str(), typePtr->c_str());
@@ -123,6 +123,7 @@ std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, b
 	mod->fileId = json["fileId"].getOrDefault<uint64_t>(0);
 	mod->type = type;
 	mod->isLocal = isLocal;
+	mod->version = json["version"].getOrDefault<int>(0);
 
 	return mod;
 }

@@ -15,6 +15,7 @@
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
+#include <UTILS/Strings.hpp>
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -45,6 +46,10 @@ constexpr float MOD_LIST_MAX_WIDTH_FRAMES = 15.f;
 
 constexpr const char* OPEN_TEXT = "Open";
 constexpr const char* CANCEL_TEXT = "Cancel";
+
+constexpr const char* OUTDATED_MOD_TEXT = " (Outdated)";
+constexpr const char* OUTDATED_MOD_TOOLTIP = "This mod is outdated and doesn't support JsonGui's. (Don't bother looking through here)";
+constexpr ImColor OUTDATED_MOD_COLOR = IM_COL32(255, 100, 100, 255);
 
 constexpr const char* CONTENT_PREFIX = "$CONTENT_";
 constexpr size_t CONTENT_PREFIX_LENGTH = std::char_traits<char>::length(CONTENT_PREFIX);
@@ -248,6 +253,7 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 
 			const WidgetGrid icon = row.splitLeftPixels(row.getHeight() * ICON_ASPECT_RATIO, iconGap);
 			const WidgetGrid nameGrid = row.splitTopPixels(lineHeight);
+			const WidgetGrid versionGrid = row.splitTopPixels(lineHeight);
 			const WidgetGrid subtitleGrid = row;
 
 			std::string subtitle = UGCModTypeToString(mod->type);
@@ -261,6 +267,18 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 			drawList->PushClipRect(clip.Min, clip.Max, true);
 			drawList->AddText(nameGrid.getPosition(), textColor, mod->name.c_str());
 			drawList->AddText(subtitleGrid.getPosition(), subtextColor, subtitle.c_str());
+
+			const std::string versionStr = UTILS::formatString("Version: %s (%d)", mod->getVersionName(), mod->version);
+			const ImVec2 versionSize = ImGui::CalcTextSize(versionStr.c_str());
+			const ImVec2 versionPos = versionGrid.getPosition();
+
+			drawList->AddText(versionGrid.getPosition(), subtextColor, versionStr.c_str());
+
+			if (mod->isOutdated()) {
+				const ImVec2 outdatedTextPosition = { versionPos.x + versionSize.x + style.ItemInnerSpacing.x, versionPos.y };
+				drawList->AddText(outdatedTextPosition, OUTDATED_MOD_COLOR, OUTDATED_MOD_TEXT);
+			}
+
 			drawList->PopClipRect();
 
 			if (ImGui::BeginItemTooltip()) {
@@ -270,6 +288,11 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 					tooltipRow("Local ID", mod->localId.c_str());
 
 					ImGui::EndTable();
+				}
+
+				if (mod->isOutdated()) {
+					ImGui::Separator();
+					ImGui::TextColored(OUTDATED_MOD_COLOR, OUTDATED_MOD_TOOLTIP);
 				}
 
 				ImGui::EndTooltip();
