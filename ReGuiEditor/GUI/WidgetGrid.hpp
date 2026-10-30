@@ -71,6 +71,9 @@ public:
 	ImVec2 getPosition() const { return this->rect_.Min; }
 	ImVec2 getSize() const { return this->rect_.GetSize(); }
 
+	ImVec2 getMin() const { return this->rect_.Min; }
+	ImVec2 getMax() const { return this->rect_.Max; }
+
 	ImVec2 getCenterForElement(const ImVec2& elementSize) const {
 		const ImVec2 center = this->getCenter();
 		return ImVec2(center.x - (elementSize.x * 0.5f), center.y - (elementSize.y * 0.5f));
@@ -114,6 +117,32 @@ public:
 	WidgetGrid& pad(const ImVec2& padding) {
 		this->rect_.Min += padding;
 		this->rect_.Max -= padding;
+		return *this;
+	}
+
+	WidgetGrid padYCopy(float padding) {
+		WidgetGrid copy = *this;
+		copy.rect_.Min.y += padding;
+		copy.rect_.Max.y -= padding;
+		return copy;
+	}
+
+	WidgetGrid& padY(float padding) {
+		this->rect_.Min.y += padding;
+		this->rect_.Max.y -= padding;
+		return *this;
+	}
+
+	WidgetGrid padXCopy(float padding) {
+		WidgetGrid copy = *this;
+		copy.rect_.Min.x += padding;
+		copy.rect_.Max.x -= padding;
+		return copy;
+	}
+
+	WidgetGrid& padX(float padding) {
+		this->rect_.Min.x += padding;
+		this->rect_.Max.x -= padding;
 		return *this;
 	}
 };

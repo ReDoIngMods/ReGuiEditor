@@ -37,6 +37,20 @@ public:
 	bool isLocal = false;
 	bool hasTriedLoadingThumbnail = false;
 
+	int version = 0;
+
+	[[nodiscard]] const char* getVersionAsString() const {
+		switch (this->version) {
+		case 0: return "Pre-Survival";
+		case 1: return "Survival";
+		case 2: return "Drilling Thunder";
+		default: return "Unknown";
+		}
+	}
+	[[nodiscard]] bool isOutdated() const {
+		return this->version >= 2;
+	}
+
 	[[nodiscard]] ImagePtr getThumbnail() {
 		if (this->thumbnail || this->hasTriedLoadingThumbnail)
 			return this->thumbnail;
