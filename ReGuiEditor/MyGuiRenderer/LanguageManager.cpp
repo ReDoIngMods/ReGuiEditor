@@ -4,10 +4,11 @@
 
 #include <JSON/JSONObject.hpp>
 
-#include <UTILS/Strings.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <MyGui/MyGUI_LanguageManager.h>
 
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,7 +29,7 @@ bool LanguageManager::initialize(const std::string& defaultLanguage) {
 
 	for (const auto& [languageKey, languageValue] : jsonData.get<JSONObject>()) {
 		if (!languageValue.is<std::string>()) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid language entry in languages.json: value is not a string for key '%s'", languageKey.c_str());
+			CONSOLE_WARNING("Skipping invalid language entry in languages.json: value is not a string for key '%s'", languageKey.c_str());
 			continue;
 		}
 
@@ -36,11 +37,11 @@ bool LanguageManager::initialize(const std::string& defaultLanguage) {
 		languageEntry.name = languageKey;
 		languageEntry.folderName = languageValue.get<std::string>();
 
-		const std::string languageFolderPath = UTILS::formatString("$GAME_DATA/Gui/Language/%s", languageEntry.folderName.c_str());
+		const std::string languageFolderPath = ReGuiEditor::formatString("$GAME_DATA/Gui/Language/%s", languageEntry.folderName.c_str());
 
 		auto entries = filesystemManager.listDirectory(languageFolderPath, true, false);
 		if (!entries.has_value()) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to list directory for language: %s", languageFolderPath.c_str());
+			CONSOLE_WARNING("Failed to list directory for language: %s", languageFolderPath.c_str());
 			continue;
 		}
 
@@ -51,7 +52,8 @@ bool LanguageManager::initialize(const std::string& defaultLanguage) {
 			if (entry.name.size() < 4 || entry.name.substr(entry.name.size() - 4) != ".txt")
 				continue;
 
-			languageEntry.interfaceTagFiles.push_back(UTILS::formatString("%s/%s", languageFolderPath.c_str(), entry.name.c_str()));
+			const std::filesystem::path tagFilePath = std::filesystem::path(languageFolderPath) / entry.name;
+			languageEntry.interfaceTagFiles.push_back(tagFilePath.string());
 		}
 
 		this->availableLanguages_.push_back(std::move(languageEntry));
@@ -82,6 +84,6 @@ void LanguageManager::setCurrentLanguage(const std::string& language) {
 
 	for (const auto& tagFile : languageEntry->interfaceTagFiles) {
 		if (!languageManager.loadUserTags(tagFile))
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to load user tags from file: %s", tagFile.c_str());
+			CONSOLE_WARNING("Failed to load user tags from file: %s", tagFile.c_str());
 	}
 }

@@ -33,7 +33,7 @@ public:
 	}
 };
 
-std::array<uint8_t, 20> UTILS::SHA1(const std::vector<uint8_t>& message) {
+std::array<uint8_t, 20> ReGuiEditor::generateSHA1(const std::vector<uint8_t>& message) {
 	static Hashing sha1Hasher(BCRYPT_SHA1_ALGORITHM);
 	if (!sha1Hasher.isValid())
 		return {};
@@ -45,7 +45,7 @@ std::array<uint8_t, 20> UTILS::SHA1(const std::vector<uint8_t>& message) {
 	return digest;
 }
 
-std::array<uint8_t, 32> UTILS::SHA256(const std::vector<uint8_t>& message) {
+std::array<uint8_t, 32> ReGuiEditor::generateSHA256(const std::vector<uint8_t>& message) {
 	static Hashing sha256Hasher(BCRYPT_SHA256_ALGORITHM);
 	if (!sha256Hasher.isValid())
 		return {};

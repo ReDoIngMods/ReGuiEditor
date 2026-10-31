@@ -132,7 +132,7 @@ bool rend::IndexBuffer::resizeBuffer(uint32_t newCount, bool copyOldData, bool f
 
 bool rend::IndexBuffer::changeFormat(rend::IndexBufferFormat newFormat, bool copyOldData) {
 	if (newFormat == this->format_) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "New format is the same as the current format. No changes made.");
+		CONSOLE_WARNING("New format is the same as the current format. No changes made.");
 		return true;
 	}
 

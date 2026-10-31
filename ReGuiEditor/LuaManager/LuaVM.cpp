@@ -73,7 +73,6 @@ int LuaVM::errorHandler(lua_State* L) {
 	return 1;
 }
 
-
 void LuaVM::createEnvironment() {
 	lua_State* L = this->state_;
 

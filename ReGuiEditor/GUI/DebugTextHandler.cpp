@@ -1,9 +1,9 @@
 #include "DebugTextHandler.hpp"
 
-#include <ImGui/imgui.h>
+#include <Modules/Math/ValueAverager.hpp>
+#include <Modules/Misc/Profiler.hpp>
 
-#include <UTILS/Profiler.hpp>
-#include <UTILS/ValueAverager.hpp>
+#include <ImGui/imgui.h>
 
 #include <Windows.h>
 
@@ -13,8 +13,8 @@
 #include <cfloat>
 
 struct FrameStats {
-	UTILS::ValueAverager<float> fpsAverager;
-	UTILS::ValueAverager<float> frameTimeAverager;
+	ReGuiEditor::ValueAverager<float> fpsAverager;
+	ReGuiEditor::ValueAverager<float> frameTimeAverager;
 
 	float minFrameTime = FLT_MAX;
 	float maxFrameTime = -FLT_MAX;
@@ -64,25 +64,25 @@ void DebugTextHandler::initialize() {
 	});
 
 	this->addEntry("Profiler info", [](DebugTextStream& stream) {
-		if (UTILS::gProfilerResults.empty()) {
+		if (ReGuiEditor::gProfilerResults.empty()) {
 			stream.write("No profiler results available.");
 			return;
 		}
 
 		size_t nameColumnWidth = 0;
-		for (const auto& [name, _] : UTILS::gProfilerResults) {
+		for (const auto& [name, _] : ReGuiEditor::gProfilerResults) {
 			if (name.size() > nameColumnWidth)
 				nameColumnWidth = name.size();
 		}
 
-		for (const auto& [name, time] : UTILS::gProfilerResults) {
+		for (const auto& [name, time] : ReGuiEditor::gProfilerResults) {
 			const double averageTime = time.getAverage();
 			const size_t sampleCount = time.getSampleCount();
 			
 			const char* timeUnit     = (averageTime > 1000.0) ? "s"                  : (averageTime > 1.0) ? "ms"        : "us";
 			const double displayTime = (averageTime > 1000.0) ? averageTime / 1000.0 : (averageTime > 1.0) ? averageTime : averageTime * 1000.0;
 			
-			if (sampleCount == UTILS::VALUE_AVERAGER_SAMPLE_COUNT)
+			if (sampleCount == ReGuiEditor::VALUE_AVERAGER_SAMPLE_COUNT)
 				stream.print("%-*s = [MAX S] %10.3f %s", static_cast<int>(nameColumnWidth), name.c_str(), displayTime, timeUnit);
 			else
 				stream.print("%-*s = [%3d S] %10.3f %s", static_cast<int>(nameColumnWidth), name.c_str(), static_cast<int>(sampleCount), displayTime, timeUnit);

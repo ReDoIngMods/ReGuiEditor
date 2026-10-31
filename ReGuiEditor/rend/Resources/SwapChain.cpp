@@ -1,13 +1,12 @@
 #include "SwapChain.hpp"
 
+#include <Modules/Misc/Strings.hpp>
+
 #include <rend/D3D11Device.hpp>
 #include <rend/ResourceManager.hpp>
 
-#include <rend/Common/RefCounter.hpp>
-
 #include <rend/Common/Color.hpp>
-
-#include <UTILS/Strings.hpp>
+#include <rend/Common/RefCounter.hpp>
 
 #include <Windows.h>
 #include <d3d11.h>
@@ -40,7 +39,7 @@ bool rend::SwapChain::createRenderTarget() {
 	}
 
 	const HWND window = this->getWindowHandle();
-	const std::string backbufferDebugName = UTILS::formatString("SwapChain BackBuffer (%p, %dx%d)", window, this->backBuffer_->getWidth(), this->backBuffer_->getHeight());
+	const std::string backbufferDebugName = ReGuiEditor::formatString("SwapChain BackBuffer (%p, %dx%d)", window, this->backBuffer_->getWidth(), this->backBuffer_->getHeight());
 	this->backBuffer_->setDebugName(backbufferDebugName);
 
 	this->renderTargetView_ = resourceManager.createRenderView(this->backBuffer_);
@@ -49,7 +48,7 @@ bool rend::SwapChain::createRenderTarget() {
 		return false;
 	}
 
-	const std::string renderViewDebugName = UTILS::formatString("SwapChain RenderView (%p, %dx%d)", window, this->backBuffer_->getWidth(), this->backBuffer_->getHeight());
+	const std::string renderViewDebugName = ReGuiEditor::formatString("SwapChain RenderView (%p, %dx%d)", window, this->backBuffer_->getWidth(), this->backBuffer_->getHeight());
 	this->renderTargetView_->setDebugName(renderViewDebugName);
 
 	return true;
@@ -107,11 +106,11 @@ bool rend::SwapChain::init(void* window) {
 			BOOL allowTearing = FALSE;
 			HRESULT result = dxgiFactory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
 			if (FAILED(result))
-				CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to check for tearing support! HRESULT: 0x%08X", result);
+				CONSOLE_WARNING("Failed to check for tearing support! HRESULT: 0x%08X", result);
 			else
 				this->tearingEnabled_ = allowTearing == TRUE;
 		} else {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to query IDXGIFactory5 interface! Tearing support check will be skipped.");
+			CONSOLE_WARNING("Failed to query IDXGIFactory5 interface! Tearing support check will be skipped.");
 		}
 	}
 

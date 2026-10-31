@@ -44,6 +44,6 @@ ImFont* ImGuiFontManager::getFont(const std::string& fontName) {
 	if (iterator != this->fonts_.end())
 		return iterator->second;
 
-	CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Font not found: %s", fontName.c_str());
+	CONSOLE_WARNING("Font not found: %s", fontName.c_str());
 	return nullptr;
 }

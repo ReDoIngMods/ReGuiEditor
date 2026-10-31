@@ -153,7 +153,7 @@ void RPRenderManager::shutdown() {
 MyGUI::ITexture* RPRenderManager::createTexture(const std::string& _name) {
 	auto iterator = this->textures.find(_name);
 	if (iterator != this->textures.end()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPRenderManager::createTexture: Texture with name '%s' already exists. Returning existing texture.", _name.c_str());
+		CONSOLE_WARNING("Texture with name '%s' already exists. Returning existing texture.", _name.c_str());
 		return iterator->second;
 	}
 
@@ -165,13 +165,13 @@ MyGUI::ITexture* RPRenderManager::createTexture(const std::string& _name) {
 
 void RPRenderManager::destroyTexture(MyGUI::ITexture* _texture) {
 	if (!_texture) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPRenderManager::destroyTexture: Attempted to destroy a null texture.");
+		CONSOLE_WARNING("Attempted to destroy a null texture.");
 		return;
 	}
 
 	auto iterator = this->textures.find(_texture->getName());
 	if (iterator == this->textures.end()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPRenderManager::destroyTexture: Texture with name '%s' not found in manager.", _texture->getName().c_str());
+		CONSOLE_WARNING("Texture with name '%s' not found in manager.", _texture->getName().c_str());
 		return;
 	}
 
@@ -309,7 +309,7 @@ void RPRenderManager::destroyAllResources() {
 void RPRenderManager::drawOneFrame() {
 	MyGUI::Gui* gui = MyGUI::Gui::getInstancePtr();
 	if (!gui) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPRenderManager::drawOneFrame: Failed to get GUI instance.");
+		CONSOLE_WARNING("RPRenderManager::drawOneFrame: Failed to get GUI instance.");
 		return;
 	}
 

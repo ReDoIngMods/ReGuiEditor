@@ -51,7 +51,7 @@ inline static void UpdateCodePage() {
 
 	WCHAR localeName[LOCALE_NAME_MAX_LENGTH]{};
 	if (LCIDToLocaleName(localeId, localeName, LOCALE_NAME_MAX_LENGTH, 0) == 0) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to convert LCID to locale name: %u (Defaulting to ACP)", localeId);
+		CONSOLE_WARNING("Failed to convert LCID to locale name: %u (Defaulting to ACP)", localeId);
 
 		backendData->codePage = GetACP();
 		return;
@@ -59,14 +59,15 @@ inline static void UpdateCodePage() {
 
 	UINT codePage = 0;
 	if (GetLocaleInfoEx(localeName, LOCALE_RETURN_NUMBER | LOCALE_IDEFAULTANSICODEPAGE, reinterpret_cast<LPWSTR>(&codePage), sizeof(codePage) / sizeof(WCHAR)) == 0) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to get code page for keyboard layout: %u (Defaulting to ACP)", localeId);
+		CONSOLE_WARNING("Failed to get code page for keyboard layout: %u (Defaulting to ACP)", localeId);
 
 		backendData->codePage = GetACP();
 		return;
 	}
 
 	if (!IsValidCodePage(codePage)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Invalid code page: %u (Defaulting to ACP)", codePage);
+		CONSOLE_WARNING("Invalid code page: %u (Defaulting to ACP)", codePage);
+
 		backendData->codePage = GetACP();
 		return;
 	}
@@ -378,7 +379,7 @@ inline static void RGE_ImGui_ImplWin32_DestroyWindow(ImGuiViewport* viewport) {
 
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_DestroyWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -391,7 +392,7 @@ inline static void RGE_ImGui_ImplWin32_DestroyWindow(ImGuiViewport* viewport) {
 inline static void RGE_ImGui_ImplWin32_ShowWindow(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_ShowWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -401,7 +402,7 @@ inline static void RGE_ImGui_ImplWin32_ShowWindow(ImGuiViewport* viewport) {
 inline static void RGE_ImGui_ImplWin32_SetWindowPos(ImGuiViewport* viewport, ImVec2 pos) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -411,7 +412,7 @@ inline static void RGE_ImGui_ImplWin32_SetWindowPos(ImGuiViewport* viewport, ImV
 inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowPos(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowPos: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return { 0.0f, 0.0f };
 	}
 
@@ -421,7 +422,7 @@ inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowPos(ImGuiViewport* viewport) {
 inline static void RGE_ImGui_ImplWin32_SetWindowSize(ImGuiViewport* viewport, ImVec2 size) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -431,7 +432,7 @@ inline static void RGE_ImGui_ImplWin32_SetWindowSize(ImGuiViewport* viewport, Im
 inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowSize(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowSize: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return { 0.0f, 0.0f };
 	}
 
@@ -441,7 +442,7 @@ inline static ImVec2 RGE_ImGui_ImplWin32_GetWindowSize(ImGuiViewport* viewport) 
 inline static void RGE_ImGui_ImplWin32_SetWindowFocus(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowFocus: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -453,7 +454,7 @@ inline static void RGE_ImGui_ImplWin32_SetWindowFocus(ImGuiViewport* viewport) {
 inline static bool RGE_ImGui_ImplWin32_GetWindowFocus(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RGE_ImGui_ImplWin32_GetWindowFocus: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_WARNING("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return false;
 	}
 
@@ -463,7 +464,7 @@ inline static bool RGE_ImGui_ImplWin32_GetWindowFocus(ImGuiViewport* viewport) {
 inline static bool RGE_ImGui_ImplWin32_GetWindowMinimized(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowMinimized: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return false;
 	}
 
@@ -473,13 +474,13 @@ inline static bool RGE_ImGui_ImplWin32_GetWindowMinimized(ImGuiViewport* viewpor
 inline static void RGE_ImGui_ImplWin32_SetWindowTitle(ImGuiViewport* viewport, const char* title) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowTitle: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
 	int length = MultiByteToWideChar(CP_UTF8, 0, title ? title : "", -1, nullptr, 0);
 	if (length <= 0) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowTitle: Failed to convert title to wide string. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to convert title to wide string. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -487,13 +488,13 @@ inline static void RGE_ImGui_ImplWin32_SetWindowTitle(ImGuiViewport* viewport, c
 	MultiByteToWideChar(CP_UTF8, 0, title ? title : "", -1, wideTitle.data(), length);
 
 	if (!SetWindowTextW(hwnd, wideTitle.data()))
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowTitle: Failed to set window title. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to set window title. Error: %lu", GetLastError());
 }
 
 inline static void RGE_ImGui_ImplWin32_SetWindowAlpha(ImGuiViewport* viewport, float alpha) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -503,13 +504,13 @@ inline static void RGE_ImGui_ImplWin32_SetWindowAlpha(ImGuiViewport* viewport, f
 	SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
 
 	if (!SetLayeredWindowAttributes(hwnd, 0, static_cast<BYTE>(alpha * 255.0f), LWA_ALPHA))
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_SetWindowAlpha: Failed to set window alpha. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to set window alpha. Error: %lu", GetLastError());
 }
 
 inline static void RGE_ImGui_ImplWin32_UpdateWindow(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_UpdateWindow: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return;
 	}
 
@@ -525,13 +526,13 @@ inline static void RGE_ImGui_ImplWin32_UpdateWindow(ImGuiViewport* viewport) {
 inline static float RGE_ImGui_ImplWin32_GetWindowDpiScale(ImGuiViewport* viewport) {
 	HWND hwnd = GetViewportHWND(viewport);
 	if (!hwnd) {
-		CONSOLE_ERROR("RGE_ImGui_ImplWin32_GetWindowDpiScale: Failed to get viewport window handle. Error: %lu", GetLastError());
+		CONSOLE_ERROR("Failed to get viewport window handle. Error: %lu", GetLastError());
 		return 1.0f;
 	}
 
 	UINT dpi = GetDpiForWindow(hwnd);
 	if (dpi == 0) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RGE_ImGui_ImplWin32_GetWindowDpiScale: Failed to get DPI for window. Error: %lu", GetLastError());
+		CONSOLE_WARNING("Failed to get DPI for window. Error: %lu", GetLastError());
 		return 1.0f;
 	}
 
@@ -548,7 +549,7 @@ inline static float RGE_ImGui_ImplWin32_GetMonitorDpiScale(HMONITOR monitor) {
 
 	HRESULT result = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
 	if (FAILED(result)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to get DPI for monitor! Error: 0x%08X", result);
+		CONSOLE_WARNING("Failed to get DPI for monitor! Error: 0x%08X", result);
 		return 1.0f;
 	}
 

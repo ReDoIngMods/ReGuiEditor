@@ -1,5 +1,5 @@
 #include "Console.hpp"
-#include "Strings.hpp"
+#include <Modules/Misc/Strings.hpp>
 
 #include <Windows.h>
 
@@ -36,22 +36,22 @@ static std::array<const wchar_t*, LEVEL_COUNT> gConsoleLogLevelNames = {
 
 inline static const wchar_t* consoleLogColorToAnsiEscapeCode(const ConsoleLogColor color) {
 	switch (color) {
-	case COLOR_BLACK: return L"\x1b[30m";
-	case COLOR_DARK_RED: return L"\x1b[31m";
-	case COLOR_DARK_GREEN: return L"\x1b[32m";
-	case COLOR_DARK_YELLOW: return L"\x1b[33m";
-	case COLOR_DARK_BLUE: return L"\x1b[34m";
+	case COLOR_BLACK:        return L"\x1b[30m";
+	case COLOR_DARK_RED:     return L"\x1b[31m";
+	case COLOR_DARK_GREEN:   return L"\x1b[32m";
+	case COLOR_DARK_YELLOW:  return L"\x1b[33m";
+	case COLOR_DARK_BLUE:    return L"\x1b[34m";
 	case COLOR_DARK_MAGENTA: return L"\x1b[35m";
-	case COLOR_DARK_CYAN: return L"\x1b[36m";
-	case COLOR_GRAY: return L"\x1b[37m";
-	case COLOR_DARK_GRAY: return L"\x1b[90m";
-	case COLOR_RED: return L"\x1b[91m";
-	case COLOR_GREEN: return L"\x1b[92m";
-	case COLOR_YELLOW: return L"\x1b[93m";
-	case COLOR_BLUE: return L"\x1b[94m";
-	case COLOR_MAGENTA: return L"\x1b[95m";
-	case COLOR_CYAN: return L"\x1b[96m";
-	case COLOR_WHITE: return L"\x1b[97m";
+	case COLOR_DARK_CYAN:    return L"\x1b[36m";
+	case COLOR_GRAY:         return L"\x1b[37m";
+	case COLOR_DARK_GRAY:    return L"\x1b[90m";
+	case COLOR_RED:          return L"\x1b[91m";
+	case COLOR_GREEN:        return L"\x1b[92m";
+	case COLOR_YELLOW:       return L"\x1b[93m";
+	case COLOR_BLUE:         return L"\x1b[94m";
+	case COLOR_MAGENTA:      return L"\x1b[95m";
+	case COLOR_CYAN:         return L"\x1b[96m";
+	case COLOR_WHITE:        return L"\x1b[97m";
 	default: return L"";
 	}
 }
@@ -97,7 +97,7 @@ inline static void writeFile64(HANDLE handle, const wchar_t* buffer, size_t leng
 	}
 }
 
-void UTILS::Console::createLogFile() {
+void ReGuiEditor::Console::createLogFile() {
 	if (!CreateDirectory(L"../Logs/", nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) {
 		this->log(LEVEL_ERROR, COLOR_RED, L"Failed to create Logs directory.");
 		return;
@@ -106,7 +106,7 @@ void UTILS::Console::createLogFile() {
 	SYSTEMTIME systemTime;
 	GetLocalTime(&systemTime);
 
-	const std::wstring logFilename = UTILS::formatString(L"../Logs/ReGuiEditor_%04d-%02d-%02d_%02d-%02d-%02d.log", systemTime.wYear, systemTime.wMonth, systemTime.wDay, systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+	const std::wstring logFilename = ReGuiEditor::formatString(L"../Logs/ReGuiEditor_%04d-%02d-%02d_%02d-%02d-%02d.log", systemTime.wYear, systemTime.wMonth, systemTime.wDay, systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
 
 	this->fileHandle_ = CreateFile(logFilename.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
 	if (this->fileHandle_ == INVALID_HANDLE_VALUE) {
@@ -133,7 +133,7 @@ void UTILS::Console::createLogFile() {
 		this->log(LEVEL_WARNING, COLOR_YELLOW, L"Failed to create ReGuiEditor_latest.log hard link.");
 }
 
-void UTILS::Console::parseArguments() {
+void ReGuiEditor::Console::parseArguments() {
 	const LPWSTR commandLine = GetCommandLineW();
 
 	int argc;
@@ -173,7 +173,7 @@ void UTILS::Console::parseArguments() {
 	LocalFree(argv);
 }
 
-void UTILS::Console::createConsole() {
+void ReGuiEditor::Console::createConsole() {
 	if (!this->getArgumentBool(L"--console") || GetConsoleWindow())
 		return;
 
@@ -206,7 +206,7 @@ void UTILS::Console::createConsole() {
 	this->consoleAllocated_ = true;
 }
 
-UTILS::Console::Console() {
+ReGuiEditor::Console::Console() {
 	this->parseArguments();
 
 	InitializeCriticalSection(&this->criticalSection_);
@@ -218,7 +218,7 @@ UTILS::Console::Console() {
 }
 
 
-UTILS::Console::~Console() {
+ReGuiEditor::Console::~Console() {
 	this->log(LEVEL_DEFAULT, COLOR_GRAY, L"Console shutting down...");
 
 	if (this->fileHandle_ != INVALID_HANDLE_VALUE) {
@@ -234,7 +234,7 @@ UTILS::Console::~Console() {
 	DeleteCriticalSection(&this->criticalSection_);
 }
 
-void UTILS::Console::log(ConsoleLogLevel level, ConsoleLogColor color, const std::wstring& message) {
+void ReGuiEditor::Console::log(ConsoleLogLevel level, ConsoleLogColor color, const std::wstring& message) {
 	if (!this->consoleAllocated_ && this->fileHandle_ == INVALID_HANDLE_VALUE)
 		return;
 
@@ -255,7 +255,7 @@ void UTILS::Console::log(ConsoleLogLevel level, ConsoleLogColor color, const std
 		renderResourceCount = rendResourceManager->getResourceCount();
 
 	const wchar_t* levelString = (level >= 0 && level < LEVEL_COUNT) ? gConsoleLogLevelNames[level] : L"[Unknown]";
-	const std::wstring formattedMessage = UTILS::formatString(L"%02d:%02d:%02d (%llu/%llu) %s %s\n", time.wHour, time.wMinute, time.wSecond, myGuiResourceCount, renderResourceCount, levelString, message.c_str());
+	const std::wstring formattedMessage = ReGuiEditor::formatString(L"%02d:%02d:%02d (%llu/%llu) %s %s\n", time.wHour, time.wMinute, time.wSecond, myGuiResourceCount, renderResourceCount, levelString, message.c_str());
 
 	if (this->consoleAllocated_) {		
 		const wchar_t* colorCode = consoleLogColorToAnsiEscapeCode(color);
@@ -272,15 +272,15 @@ void UTILS::Console::log(ConsoleLogLevel level, ConsoleLogColor color, const std
 	LeaveCriticalSection(&this->criticalSection_);
 }
 
-bool UTILS::Console::hasArgument(const std::wstring& argument) const {
+bool ReGuiEditor::Console::hasArgument(const std::wstring& argument) const {
 	return std::find(this->arguments_.begin(), this->arguments_.end(), argument) != this->arguments_.end();
 }
 
-bool UTILS::Console::getArgumentBool(const std::wstring& argument) const {
+bool ReGuiEditor::Console::getArgumentBool(const std::wstring& argument) const {
 	return std::find(this->argumentsBools_.begin(), this->argumentsBools_.end(), argument) != this->argumentsBools_.end();
 }
 
-bool UTILS::Console::getArgumentInt(const std::wstring& argument, int& outputValue) const {
+bool ReGuiEditor::Console::getArgumentInt(const std::wstring& argument, int& outputValue) const {
 	auto iterator = this->argumentsInts_.find(argument);
 	if (iterator != this->argumentsInts_.end()) {
 		outputValue = iterator->second;
@@ -290,7 +290,7 @@ bool UTILS::Console::getArgumentInt(const std::wstring& argument, int& outputVal
 	return false;
 }
 
-bool UTILS::Console::getArgumentString(const std::wstring& argument, std::wstring& outputValue) const {
+bool ReGuiEditor::Console::getArgumentString(const std::wstring& argument, std::wstring& outputValue) const {
 	auto iterator = this->argumentsStrings_.find(argument);
 	if (iterator != this->argumentsStrings_.end()) {
 		outputValue = iterator->second;

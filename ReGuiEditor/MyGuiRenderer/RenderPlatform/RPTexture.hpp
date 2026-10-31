@@ -32,6 +32,7 @@ class RPTexture : public MyGUI::ITexture {
 	std::string shaderName_;
 
 	static std::string getCacheFilepath(const std::string& _filename);
+
 	bool loadCache(const std::string& _filename);
 	bool storeCache(const std::string& _filename, const uint8_t* _pixels);
 

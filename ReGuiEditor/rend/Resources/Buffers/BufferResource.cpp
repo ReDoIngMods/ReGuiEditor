@@ -10,7 +10,7 @@
 
 rend::BufferResource::~BufferResource() {
 	if (this->isMapped_) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Buffer is still mapped! You fucked something up mate... fix yo shit dumbass");
+		CONSOLE_WARNING("Buffer is still mapped! You fucked something up mate... fix yo shit dumbass");
 		rend::D3D11Device::getInstance().getDeviceContext1()->Unmap(this->buffer_, 0);
 	}
 }

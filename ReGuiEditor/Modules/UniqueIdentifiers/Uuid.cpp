@@ -1,6 +1,6 @@
 #include "Uuid.hpp"
 
-#include "Hashing.hpp"
+#include "../Math/Hashing.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,11 +19,11 @@ inline static const char fromHexValue(const char character) {
 	return -1;
 }
 
-bool UTILS::UUID::fromString(std::string_view text, UTILS::UUID& output) {
+bool ReGuiEditor::Uuid::fromString(std::string_view text, ReGuiEditor::Uuid& output) {
 	if (text.size() != 36)
 		return false;
 
-	UTILS::UUID result;
+	ReGuiEditor::Uuid result;
 	size_t bytesIndex = 0;
 	for (size_t textIndex = 0; textIndex < text.size();) {
 		if (text[textIndex] == '-') {
@@ -48,8 +48,8 @@ bool UTILS::UUID::fromString(std::string_view text, UTILS::UUID& output) {
 	return true;
 }
 
-UTILS::UUID UTILS::UUID::generateRandom() {
-	UTILS::UUID result;
+ReGuiEditor::Uuid ReGuiEditor::Uuid::generateRandom() {
+	ReGuiEditor::Uuid result;
 	for (size_t index = 0; index < result.bytes.size(); ++index)
 		result.bytes[index] = static_cast<uint8_t>(randomGenerator() & 0xFF);
 
@@ -58,13 +58,14 @@ UTILS::UUID UTILS::UUID::generateRandom() {
 	return result;
 }
 
-UTILS::UUID UTILS::UUID::generateNamed(const UTILS::UUID& uuidNamespace, std::string_view name) {
+
+ReGuiEditor::Uuid ReGuiEditor::Uuid::generateNamed(const ReGuiEditor::Uuid& uuidNamespace, std::string_view name) {
 	std::string message(reinterpret_cast<const char*>(uuidNamespace.bytes.data()), uuidNamespace.bytes.size());
 	message.append(name);
 
-	const std::array<uint8_t, 20> digest = UTILS::SHA1(message);
+	const std::array<uint8_t, 20> digest = ReGuiEditor::generateSHA1(message);
 
-	UTILS::UUID result;
+	ReGuiEditor::Uuid result;
 	std::copy_n(digest.begin(), 16, result.bytes.begin());
 
 	result.bytes[6] = (result.bytes[6] & 0x0F) | 0x50;
@@ -73,10 +74,10 @@ UTILS::UUID UTILS::UUID::generateNamed(const UTILS::UUID& uuidNamespace, std::st
 	return result;
 }
 
-UTILS::UUID UTILS::UUID::generateNamed(std::string_view uuidNamespace, std::string_view name) {
-	UTILS::UUID namespaceUuid;
-	if (!UTILS::UUID::fromString(uuidNamespace, namespaceUuid))
+ReGuiEditor::Uuid ReGuiEditor::Uuid::generateNamed(std::string_view uuidNamespace, std::string_view name) {
+	ReGuiEditor::Uuid namespaceUuid;
+	if (!ReGuiEditor::Uuid::fromString(uuidNamespace, namespaceUuid))
 		return {};
 
-	return UTILS::UUID::generateNamed(namespaceUuid, name);
+	return ReGuiEditor::Uuid::generateNamed(namespaceUuid, name);
 }

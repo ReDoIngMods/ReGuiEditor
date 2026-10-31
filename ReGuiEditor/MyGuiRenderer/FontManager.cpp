@@ -6,7 +6,7 @@
 
 #include <Filesystem/DirectoryManager.hpp>
 
-#include <UTILS/Strings.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <MyGui/MyGUI_FactoryManager.h>
 #include <MyGui/MyGUI_ResourceManager.h>
@@ -42,11 +42,11 @@ static void scaleFontSize(MyGUI::xml::ElementPtr element) {
 void FontManager::loadFont(MyGUI::xml::ElementPtr element, const std::string& xmlFilePath) {
 	const std::string fontName = element->findAttribute("name");
 	if (fontName.empty()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "FontManager::loadFont: Font XML file has a Resource element without a name attribute: %s", xmlFilePath.c_str());
+		CONSOLE_WARNING("Font XML file has a Resource element without a name attribute: %s", xmlFilePath.c_str());
 		return;
 	}
 
-	Application::getInstance().splashscreen.setStatus(L"Loading font: " + UTILS::toWideString(fontName));
+	Application::getInstance().splashscreen.setStatus(L"Loading font: " + ReGuiEditor::toWideString(fontName));
 
 	MyGUI::ResourceManager& resourceManager = MyGUI::ResourceManager::getInstance();
 	if (resourceManager.isExist(fontName))
@@ -79,7 +79,7 @@ void FontManager::loadFont(MyGUI::xml::ElementPtr element, const std::string& xm
 	resourceManager.addResource(fontResource);
 
 	if (!FontCache::save(cacheFilePath, fontName, fontResource))
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to generate cache file for font: %s", fontName.c_str());
+		CONSOLE_WARNING("Failed to generate cache file for font: %s", fontName.c_str());
 
 	this->loadedFonts_.push_back(fontResource);
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_DARK_BLUE, "Loaded font: %s from XML file: %s", fontName.c_str(), xmlFilePath.c_str());

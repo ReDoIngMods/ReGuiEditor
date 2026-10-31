@@ -17,8 +17,8 @@
 
 #include <rend/Resources/Texture2D.hpp>
 
-#include <UTILS/Profiler.hpp>
-#include <UTILS/Strings.hpp>
+#include <Modules/Misc/Profiler.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <MyGui/MyGUI_Gui.h>
 #include <MyGui/MyGUI_LanguageManager.h>
@@ -79,9 +79,9 @@ void GuiSystemManager::onLanguageChanged(const std::string& language) {
 	};
 
 	for (const std::string_view& tagFile : INTERFACE_TAG_FILES) {
-		const std::string tagFilePath = UTILS::formatString("$GAME_DATA/Gui/Language/%s/%s", language.c_str(), tagFile.data());
+		const std::string tagFilePath = ReGuiEditor::formatString("$GAME_DATA/Gui/Language/%s/%s", language.c_str(), tagFile.data());
 		if (!languageManager->loadUserTags(tagFilePath))
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to load user tags from file: %s", tagFilePath.c_str());
+			CONSOLE_WARNING("Failed to load user tags from file: %s", tagFilePath.c_str());
 	}
 }
 

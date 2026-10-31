@@ -17,11 +17,11 @@
 #include <vector>
 
 inline static std::optional<time_t> getFileWriteTime(const std::filesystem::path& path) {
-	std::error_code ec;
+	std::error_code errorCode;
 
-	auto ftime = std::filesystem::last_write_time(path, ec);
-	if (ec) {
-		CONSOLE_ERROR("Failed to get last write time for file: %s, error: %s", path.string().c_str(), ec.message().c_str());
+	auto ftime = std::filesystem::last_write_time(path, errorCode);
+	if (errorCode) {
+		CONSOLE_ERROR("Failed to get last write time for file: %s, error: %s", path.string().c_str(), errorCode.message().c_str());
 		return std::nullopt;
 	}
 
@@ -39,7 +39,7 @@ inline static void updateEntryData(FilesystemListEntry& entry, const std::filesy
 		std::tm* tm = std::localtime(&entry.writeTime);
 
 		char buffer[64];
-		if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm))
+		if (strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm))
 			entry.formattedWriteTime = buffer;
 		else
 			entry.formattedWriteTime = "N/A";
@@ -54,11 +54,11 @@ inline static void updateEntryData(FilesystemListEntry& entry, const std::filesy
 		entry.fileTypename = shFileInfo.szTypeName;
 
 	if (std::filesystem::is_regular_file(path)) {
-		std::error_code ec;
-		entry.fileSize = std::filesystem::file_size(path, ec);
+		std::error_code errorCode;
+		entry.fileSize = std::filesystem::file_size(path, errorCode);
 
-		if (ec) {
-			CONSOLE_ERROR("Failed to get file size for: %s, error: %s", path.string().c_str(), ec.message().c_str());
+		if (errorCode) {
+			CONSOLE_ERROR("Failed to get file size for: %s, error: %s", path.string().c_str(), errorCode.message().c_str());
 			entry.fileSize = 0;
 		}
 	} else {
@@ -68,10 +68,8 @@ inline static void updateEntryData(FilesystemListEntry& entry, const std::filesy
 
 bool FilesystemManager::readFile(const std::string& path, std::vector<uint8_t>& outputData) const {
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
-		CONSOLE_ERROR("Failed to resolve path: %s", path.data());
+	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
-	}
 
 	if (!std::filesystem::exists(resolvedPath)) {
 		CONSOLE_ERROR("File does not exist: %s", resolvedPath.string().c_str());
@@ -122,10 +120,8 @@ bool FilesystemManager::readFile(const std::string& path, std::vector<uint8_t>& 
 
 bool FilesystemManager::writeFile(const std::string& path, const std::vector<uint8_t>& data) const {
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
-		CONSOLE_ERROR("Failed to resolve path: %s", path.data());
+	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
-	}
 
 	if (!std::filesystem::exists(resolvedPath.parent_path())) {
 		if (!std::filesystem::create_directories(resolvedPath.parent_path())) {
@@ -188,25 +184,21 @@ bool FilesystemManager::writeFile(const std::string& path, const std::vector<uin
 
 bool FilesystemManager::exists(const std::string& path) const {
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
-		CONSOLE_ERROR("Failed to resolve path: %s", path.data());
+	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
-	}
 	
 	return std::filesystem::exists(resolvedPath);
 }
 
 bool FilesystemManager::getFileWriteTime(const std::string& path, time_t& writeTime) const {
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
-		CONSOLE_ERROR("Failed to resolve path: %s", path.data());
+	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
-	}
 	
-	std::error_code ec;
-	std::filesystem::file_time_type fileTime = std::filesystem::last_write_time(resolvedPath, ec);
-	if (ec) {
-		CONSOLE_ERROR("Failed to get file write time for path: %s. Error: %s", resolvedPath.string().c_str(), ec.message().c_str());
+	std::error_code errorCode;
+	std::filesystem::file_time_type fileTime = std::filesystem::last_write_time(resolvedPath, errorCode);
+	if (errorCode) {
+		CONSOLE_ERROR("Failed to get file write time for path: %s. Error: %s", resolvedPath.string().c_str(), errorCode.message().c_str());
 		return false;
 	}
 
@@ -219,10 +211,8 @@ std::optional<std::vector<FilesystemListEntry>> FilesystemManager::listDirectory
 		return {};
 	
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(directory, resolvedPath)) {
-		CONSOLE_ERROR("Failed to resolve directory: %s", directory.data());
+	if (!DirectoryManager::getInstance().resolveDirectory(directory, resolvedPath))
 		return std::nullopt;
-	}
 
 	if (!std::filesystem::exists(resolvedPath) || !std::filesystem::is_directory(resolvedPath)) {
 		CONSOLE_ERROR("Directory does not exist or is not a directory: %s", resolvedPath.string().c_str());
@@ -242,7 +232,6 @@ std::optional<std::vector<FilesystemListEntry>> FilesystemManager::listDirectory
 		entries.push_back(std::move(listEntry));
 	}
 
-	// Directories first, then names (case-insensitive, like Explorer).
 	std::sort(entries.begin(), entries.end(), [](const FilesystemListEntry& a, const FilesystemListEntry& b) -> bool {
 		if (a.isDirectory != b.isDirectory)
 			return a.isDirectory;

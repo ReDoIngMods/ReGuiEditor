@@ -124,7 +124,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Dependencies\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>UTILS\Console.hpp</ForcedIncludeFiles>
+      <ForcedIncludeFiles>Modules\Console\Console.hpp</ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -160,7 +160,7 @@ exit /b 0</Command>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Dependencies\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>UTILS\Console.hpp</ForcedIncludeFiles>
+      <ForcedIncludeFiles>Modules\Console\Console.hpp</ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -207,6 +207,12 @@ exit /b 0</Command>
     <ClCompile Include="LayoutManager\LayoutManagerView.cpp" />
     <ClCompile Include="GUI\ImGuiFontManager.cpp" />
     <ClCompile Include="LuaManager\wrap_sm\wrap_sm_jsonGui.cpp" />
+    <ClCompile Include="Modules\Bytestream\BytestreamReader.cpp" />
+    <ClCompile Include="Modules\Bytestream\BytestreamWriter.cpp" />
+    <ClCompile Include="Modules\Math\Easing.cpp" />
+    <ClCompile Include="Modules\Math\Noise.cpp" />
+    <ClCompile Include="Modules\Math\Random.cpp" />
+    <ClCompile Include="Modules\Misc\FuzzySearch.cpp" />
     <ClCompile Include="MyGuiRenderer\BackgroundImageHelper.cpp" />
     <ClCompile Include="MyGuiRenderer\BlurrySubSkin\BlurrySubSkin.cpp" />
     <ClCompile Include="MyGuiRenderer\BlurrySubSkin\BlurrySubSkinRenderer.cpp" />
@@ -274,13 +280,12 @@ exit /b 0</Command>
     <ClCompile Include="rend\Resources\SamplerState.cpp" />
     <ClCompile Include="UGCManager\UGCManager.cpp" />
     <ClCompile Include="UGCManager\UGCMod.cpp" />
-    <ClCompile Include="UTILS\Console.cpp" />
-    <ClCompile Include="UTILS\EnvVars.cpp" />
-    <ClCompile Include="UTILS\Hashing.cpp" />
-    <ClCompile Include="UTILS\Profiler.cpp" />
-    <ClCompile Include="UTILS\Strings.cpp" />
+    <ClCompile Include="Modules\Console\Console.cpp" />
+    <ClCompile Include="Modules\Math\Hashing.cpp" />
+    <ClCompile Include="Modules\Misc\Profiler.cpp" />
+    <ClCompile Include="Modules\Misc\Strings.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="UTILS\Uuid.cpp" />
+    <ClCompile Include="Modules\UniqueIdentifiers\Uuid.cpp" />
     <ClCompile Include="Window\Splashscreen.cpp" />
     <ClCompile Include="Window\Window.cpp" />
   </ItemGroup>
@@ -541,6 +546,10 @@ exit /b 0</Command>
     <ClInclude Include="LayoutManager\LayoutManager.hpp" />
     <ClInclude Include="GUI\ImGuiFontManager.hpp" />
     <ClInclude Include="LuaManager\wrap_sm\wrap_sm_jsonGui.hpp" />
+    <ClInclude Include="Modules\Math\Constants.hpp" />
+    <ClInclude Include="Modules\Math\Easing.hpp" />
+    <ClInclude Include="Modules\Math\Noise.hpp" />
+    <ClInclude Include="Modules\Math\Random.hpp" />
     <ClInclude Include="MyGuiRenderer\BackgroundImageHelper.hpp" />
     <ClInclude Include="MyGuiRenderer\BlurrySubSkin\BlurrySubSkin.hpp" />
     <ClInclude Include="MyGuiRenderer\BlurrySubSkin\BlurrySubSkinRegistry.hpp" />
@@ -627,22 +636,21 @@ exit /b 0</Command>
     <ClInclude Include="rend\Common\Viewport.hpp" />
     <ClInclude Include="UGCManager\UGCManager.hpp" />
     <ClInclude Include="UGCManager\UGCMod.hpp" />
-    <ClInclude Include="UTILS\FuzzySearch.hpp" />
-    <ClInclude Include="UTILS\Hashing.hpp" />
-    <ClInclude Include="UTILS\Profiler.hpp" />
-    <ClInclude Include="UTILS\Quaternion.hpp" />
-    <ClInclude Include="UTILS\Uuid.hpp" />
-    <ClInclude Include="UTILS\ValueAverager.hpp" />
-    <ClInclude Include="UTILS\Vector3.hpp" />
+    <ClInclude Include="Modules\Misc\FuzzySearch.hpp" />
+    <ClInclude Include="Modules\Math\Hashing.hpp" />
+    <ClInclude Include="Modules\Misc\Profiler.hpp" />
+    <ClInclude Include="Modules\Math\Quaternion.hpp" />
+    <ClInclude Include="Modules\UniqueIdentifiers\Uuid.hpp" />
+    <ClInclude Include="Modules\Math\ValueAverager.hpp" />
+    <ClInclude Include="Modules\Math\Vector3.hpp" />
     <ClInclude Include="Window\Splashscreen.hpp" />
     <ClInclude Include="Window\TitlebarHitTest.hpp" />
-    <ClInclude Include="UTILS\ByteStreamReader.hpp" />
-    <ClInclude Include="UTILS\ByteStreamWriter.hpp" />
-    <ClInclude Include="UTILS\Console.hpp" />
+    <ClInclude Include="Modules\Bytestream\BytestreamReader.hpp" />
+    <ClInclude Include="Modules\Bytestream\BytestreamWriter.hpp" />
+    <ClInclude Include="Modules\Console\Console.hpp" />
     <ClInclude Include="Filesystem\FilesystemManager.hpp" />
-    <ClInclude Include="UTILS\EnvVars.hpp" />
     <ClInclude Include="UTILS\Singleton.hpp" />
-    <ClInclude Include="UTILS\Strings.hpp" />
+    <ClInclude Include="Modules\Misc\Strings.hpp" />
     <ClInclude Include="Dependencies\dlg\dlg.h" />
     <ClInclude Include="Dependencies\dlg\output.h" />
     <ClInclude Include="Dependencies\FreeImage\FreeImage.h" />

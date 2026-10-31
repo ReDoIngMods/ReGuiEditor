@@ -2,11 +2,9 @@
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
-#include <UTILS/Strings.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <string>
-
-// WidgetGrid's are if not the best way of creating layouts for ImGui. Allows you to split a region into sub regions.
 
 struct WidgetGrid {
 private:
@@ -80,13 +78,11 @@ public:
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
 		drawList->AddRect(this->rect_.Min, this->rect_.Max, IM_COL32(255, 0, 0, 255));
 
-		const std::string debugText = UTILS::formatString("%s (%d, %d)", text, static_cast<int>(this->getWidth()), static_cast<int>(this->getHeight()));
+		const std::string debugText = ReGuiEditor::formatString("%s (%d, %d)", text, static_cast<int>(this->getWidth()), static_cast<int>(this->getHeight()));
 
 		ImVec2 textSize = ImGui::CalcTextSize(debugText.data());
 		drawList->AddText(this->getCenterForElement(textSize), IM_COL32_WHITE, debugText.data());
 	}
-
-	// Well i would love to make my own UDim and UDim2... but its kinda overkill for JUST this so lets not do that.
 
 	WidgetGrid splitLeft  (float scale, float offset = 0.0f, float paddingScale = 0.f, float paddingOffset = 0.f) { return this->cut(AxisX, false, scale, offset, paddingScale, paddingOffset); }
 	WidgetGrid splitTop   (float scale, float offset = 0.0f, float paddingScale = 0.f, float paddingOffset = 0.f) { return this->cut(AxisY, false, scale, offset, paddingScale, paddingOffset); }

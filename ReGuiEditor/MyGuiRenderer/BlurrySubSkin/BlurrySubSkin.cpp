@@ -7,7 +7,7 @@
 
 #include "../RenderPlatform/RPTexture.hpp"
 
-#include <UTILS/Strings.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <MyGui/MyGUI_Diagnostic.h>
 #include <MyGui/MyGUI_ILayerNode.h>
@@ -38,7 +38,7 @@ void BlurrySubSkin::createDrawItem(MyGUI::ITexture* _texture, MyGUI::ILayerNode*
 
 	this->atlasTexture_ = static_cast<RPTexture*>(_texture);
 
-	std::string textureName = UTILS::formatString("BlurrySubSkin_%p", this);
+	std::string textureName = ReGuiEditor::formatString("BlurrySubSkin_%p", this);
 	const bool isCompositeCreated = this->compositeTexture_.initialize(textureName, this->compositeWidth_, this->compositeHeight_);
 	MYGUI_ASSERT(isCompositeCreated, "Failed to create blur composite texture");
 

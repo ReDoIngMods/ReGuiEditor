@@ -1,5 +1,7 @@
 #include "UIManager.hpp"
 
+#include <Application.hpp>
+
 #include "ImGuiFontManager.hpp"
 #include "ImageManager.hpp"
 #include "NotificationManager.hpp"
@@ -12,13 +14,11 @@
 #include "Views/PropertiesView.hpp"
 #include "Views/UIRenderView.hpp"
 
+#include <Modules/Misc/Profiler.hpp>
+
 #include <rend/ImGui/RGE_ImGui_FreeType.hpp>
 #include <rend/ImGui/RGE_ImGui_Impl_DX11.hpp>
 #include <rend/ImGui/RGE_ImGui_Impl_Win32.hpp>
-
-#include <Application.hpp>
-
-#include <UTILS/Profiler.hpp>
 
 #include <ImGui/imgui.h>
 
@@ -26,11 +26,11 @@ void UIManager::applyImGuiTheme() {
 	ImGuiStyle& style = ImGui::GetStyle();
 	ImVec4* colors = style.Colors;
 
-	// Pure neutral gray: r == g == b, so no tint is possible
 	constexpr auto gray = [](unsigned v, float a = 1.0f) {
 		const float f = v / 255.0f;
 		return ImVec4{ f, f, f, a };
-		};
+	};
+
 	constexpr auto orange = [](float a = 1.0f) { return ImVec4{ 0.961f, 0.647f, 0.141f, a }; }; // #F5A524
 
 	const ImVec4 clear = gray(0, 0.0f);

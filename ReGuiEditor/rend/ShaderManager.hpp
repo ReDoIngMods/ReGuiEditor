@@ -4,9 +4,10 @@
 
 #include "Common/RefCounter.hpp"
 
-#include <UTILS/Hashing.hpp>
+#include <Modules/Math/Hashing.hpp>
+#include <Modules/Misc/Strings.hpp>
+
 #include <UTILS/Singleton.hpp>
-#include <UTILS/Strings.hpp>
 
 #include <cstdint>
 #include <string>
@@ -28,12 +29,13 @@ namespace rend {
 
 			void computeHash() {
 				this->hash = 0;
-				UTILS::hashCombine(this->hash, this->shaderPath);
-				UTILS::hashCombine(this->hash, this->entrypoint);
+
+				ReGuiEditor::hashCombine(this->hash, this->shaderPath);
+				ReGuiEditor::hashCombine(this->hash, this->entrypoint);
 				for (const auto& macro : this->macros)
-					UTILS::hashCombine(this->hash, macro);
+					ReGuiEditor::hashCombine(this->hash, macro);
 				
-				UTILS::hashCombine(this->hash, static_cast<uint64_t>(this->shaderType));
+				ReGuiEditor::hashCombine(this->hash, static_cast<uint64_t>(this->shaderType));
 			}
 
 			std::vector<D3D_SHADER_MACRO> getD3DMacros(const char* shaderDefine) const {
@@ -63,7 +65,7 @@ namespace rend {
 
 			std::string generateCacheFilepath(const char* shaderTypeName) const {
 				const std::string shaderFilename = this->getShaderFilename();
-				return UTILS::formatString("$RGE_CACHE_DATA/Shaders/shader_%s_%s_%016llx.cso", shaderTypeName, shaderFilename.c_str(), this->hash);
+				return ReGuiEditor::formatString("$RGE_CACHE_DATA/Shaders/shader_%s_%s_%016llx.cso", shaderTypeName, shaderFilename.c_str(), this->hash);
 			}
 		};
 

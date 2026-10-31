@@ -10,12 +10,12 @@
 #include <GUI/UIManager.hpp>
 #include <GUI/WidgetGrid.hpp>
 
-#include <UTILS/FuzzySearch.hpp>
+#include <Modules/Misc/FuzzySearch.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 
-#include <UTILS/Strings.hpp>
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -97,8 +97,8 @@ inline static std::vector<size_t> rankEntries(const std::vector<FilesystemListEn
 	ranked.reserve(entries.size());
 
 	for (size_t index = 0; index < entries.size(); ++index) {
-		if (const auto score = fuzzy::score(query, entries[index].name))
-			ranked.emplace_back(index, *score);
+		if (const auto score = ReGuiEditor::fuzzyCalculateScore(query, entries[index].name))
+			ranked.emplace_back(index, score.value());
 	}
 
 	if (!query.empty())
@@ -209,8 +209,8 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 		if (mod->type != UGCModType::BlocksAndParts && mod->type != UGCModType::CustomGame)
 			continue;
 
-		if (const auto score = fuzzy::score(query, mod->name))
-			visibleMods.emplace_back(&mod, *score);
+		if (const auto score = ReGuiEditor::fuzzyCalculateScore(query, mod->name))
+			visibleMods.emplace_back(&mod, score.value());
 	}
 
 	std::stable_sort(visibleMods.begin(), visibleMods.end(), [](const auto& a, const auto& b) -> bool {
@@ -268,7 +268,7 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 			drawList->AddText(nameGrid.getPosition(), textColor, mod->name.c_str());
 			drawList->AddText(subtitleGrid.getPosition(), subtextColor, subtitle.c_str());
 
-			const std::string versionStr = UTILS::formatString("Version: %s (%d)", mod->getVersionName(), mod->version);
+			const std::string versionStr = ReGuiEditor::formatString("Version: %s (%d)", mod->getVersionName(), mod->version);
 			const ImVec2 versionSize = ImGui::CalcTextSize(versionStr.c_str());
 			const ImVec2 versionPos = versionGrid.getPosition();
 

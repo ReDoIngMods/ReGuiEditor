@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <string>
 
-namespace UTILS {
+namespace ReGuiEditor {
 	std::wstring toWideString(const std::string& str);
 	std::string toShortString(const std::wstring& str);
 

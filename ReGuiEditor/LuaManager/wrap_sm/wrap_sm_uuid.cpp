@@ -2,32 +2,25 @@
 
 #include "../UserdataManager.hpp"
 
-#include <UTILS/Uuid.hpp>
+#include <Modules/UniqueIdentifiers/Uuid.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
 #include <string>
 #include <string_view>
-//
-//inline static UTILS::UUID& checkUuid(lua_State* L, int index) {
-//	return UserdataManager::getInstance().check<UTILS::UUID>(L, index);
-//}
-//
-//inline static int pushUuid(lua_State* L, const UTILS::UUID& value) {
-//	UserdataManager::getInstance().create<UTILS::UUID>(L, value);
-//	return 1;
-//}
+
+using Uuid = ReGuiEditor::Uuid;
 
 static int uuid_new(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
 	if (lua_gettop(L) == 0) {
-		userdataManager.create<UTILS::UUID>(L, UTILS::UUID::generateRandom());
+		userdataManager.create<Uuid>(L, Uuid::generateRandom());
 		return 1;
 	}
 
-	if (userdataManager.test<UTILS::UUID>(L, 1)) {
-		userdataManager.create<UTILS::UUID>(L, userdataManager.check<UTILS::UUID>(L, 1));
+	if (userdataManager.test<Uuid>(L, 1)) {
+		userdataManager.create<Uuid>(L, userdataManager.check<Uuid>(L, 1));
 		return 1;
 	}
 
@@ -35,21 +28,21 @@ static int uuid_new(lua_State* L) {
 	const char* text = luaL_checklstring(L, 1, &length);
 	const std::string_view uuidString(text, length);
 
-	UTILS::UUID uuid;
-	if (!UTILS::UUID::fromString(uuidString, uuid))
+	Uuid uuid;
+	if (!Uuid::fromString(uuidString, uuid))
 		return luaL_error(L, "invalid uuid '%s'", text);
 
-	userdataManager.create<UTILS::UUID>(L, uuid);
+	userdataManager.create<Uuid>(L, uuid);
 	return 1;
 }
 
 static int uuid_getNil(lua_State* L) {
-	UserdataManager::getInstance().create<UTILS::UUID>(L, UTILS::UUID());
+	UserdataManager::getInstance().create<Uuid>(L, Uuid());
 	return 1;
 }
 
 static int uuid_generateRandom(lua_State* L) {
-	UserdataManager::getInstance().create<UTILS::UUID>(L, UTILS::UUID::generateRandom());
+	UserdataManager::getInstance().create<Uuid>(L, Uuid::generateRandom());
 	return 1;
 }
 
@@ -60,15 +53,15 @@ static int uuid_generateNamed(lua_State* L) {
 	const char* name = luaL_checklstring(L, 2, &length);
 	const std::string_view nameView(name, length);
 
-	UTILS::UUID uuidNamespace = userdataManager.check<UTILS::UUID>(L, 1);
-	UTILS::UUID uuid = UTILS::UUID::generateNamed(uuidNamespace, nameView);
-	userdataManager.create<UTILS::UUID>(L, uuid);
+	Uuid uuidNamespace = userdataManager.check<Uuid>(L, 1);
+	Uuid uuid = Uuid::generateNamed(uuidNamespace, nameView);
+	userdataManager.create<Uuid>(L, uuid);
 
 	return 1;
 }
 
 static int uuid_isNil(lua_State* L) {
-	lua_pushboolean(L, UserdataManager::getInstance().check<UTILS::UUID>(L, 1).isNil());
+	lua_pushboolean(L, UserdataManager::getInstance().check<Uuid>(L, 1).isNil());
 	return 1;
 }
 
@@ -76,7 +69,7 @@ static int uuid_isNil(lua_State* L) {
 
 static int uuid_eq(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	lua_pushboolean(L, userdataManager.check<UTILS::UUID>(L, 1) == userdataManager.check<UTILS::UUID>(L, 2));
+	lua_pushboolean(L, userdataManager.check<Uuid>(L, 1) == userdataManager.check<Uuid>(L, 2));
 
 	return 1;
 }
@@ -84,7 +77,7 @@ static int uuid_eq(lua_State* L) {
 static int uuid_tostring(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
 
-	const std::string text = userdataManager.check<UTILS::UUID>(L, 1).toString();
+	const std::string text = userdataManager.check<Uuid>(L, 1).toString();
 	lua_pushlstring(L, text.data(), text.size());
 
 	return 1;
@@ -103,7 +96,7 @@ void wrap_sm_uuid(lua_State* L) {
 	};
 
 	UserdataDefinition* definition = UserdataManager::getInstance().createDefinition("Uuid", 1003);
-	definition->bind<UTILS::UUID>();
+	definition->bind<Uuid>();
 
 	definition->addMethod("isNil", uuid_isNil);
 

@@ -2,7 +2,7 @@
 #include <stack>
 #include <type_traits>
 
-namespace UTILS {
+namespace ReGuiEditor {
 	static constexpr size_t VALUE_AVERAGER_SAMPLE_COUNT = 256;
 
 	template<typename T>

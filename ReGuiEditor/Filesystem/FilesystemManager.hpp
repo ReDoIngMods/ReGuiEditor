@@ -1,8 +1,8 @@
 #pragma once
 #include <UTILS/Singleton.hpp>
 
-#include <UTILS/ByteStreamReader.hpp>
-#include <UTILS/ByteStreamWriter.hpp>
+#include <Modules/Bytestream/BytestreamReader.hpp>
+#include <Modules/Bytestream/BytestreamWriter.hpp>
 
 #include <JSON/JSONObject.hpp>
 #include <JSON/JSONParser.hpp>
@@ -45,12 +45,12 @@ public:
 		return true;
 	}
 
-	[[nodiscard]] bool readFile(const std::string& path, UTILS::ByteStreamReader& reader) const {
+	[[nodiscard]] bool readFile(const std::string& path, ReGuiEditor::BytestreamReader& reader) const {
 		std::vector<uint8_t> data;
 		if (!this->readFile(path, data))
 			return false;
 
-		reader.setData(data.data(), data.size());
+		reader = ReGuiEditor::BytestreamReader(data.data(), data.size());
 		return true;
 	}
 
@@ -76,8 +76,9 @@ public:
 		return this->writeFile(path, byteData);
 	}
 
-	[[nodiscard]] bool writeFile(const std::string& path, const UTILS::ByteStreamWriter& writer) const {
-		return this->writeFile(path, writer.toVector());
+	[[nodiscard]] bool writeFile(const std::string& path, const ReGuiEditor::BytestreamWriter& writer) const {
+		std::vector<uint8_t> data(writer.cbegin(), writer.cend());
+		return this->writeFile(path, data);
 	}
 
 	[[nodiscard]] bool writeFile(const std::string& path, const JSONValue& data, bool prettyPrint = true) const {

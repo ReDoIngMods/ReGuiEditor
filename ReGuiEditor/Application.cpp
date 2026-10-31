@@ -13,6 +13,8 @@
 
 #include "LayoutManager/LayoutManager.hpp"
 
+#include <Modules/Misc/Profiler.hpp>
+
 #include <rend/Renderer.hpp>
 #include <rend/ResourceManager.hpp>
 
@@ -20,8 +22,6 @@
 
 #include <rend/ImGui/RGE_ImGui_Impl_DX11.hpp>
 #include <rend/ImGui/RGE_ImGui_Impl_Win32.hpp>
-
-#include <UTILS/Profiler.hpp>
 
 #include <ImGui/imgui.h>
 

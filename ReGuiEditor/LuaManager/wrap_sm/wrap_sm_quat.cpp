@@ -2,8 +2,8 @@
 
 #include "../UserdataManager.hpp"
 
-#include <UTILS/Quaternion.hpp>
-#include <UTILS/Vector3.hpp>
+#include <Modules/Math/Quaternion.hpp>
+#include <Modules/Math/Vector3.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
@@ -13,14 +13,17 @@
 #include <cstdlib>
 #include <vector>
 
+using Quaternion = ReGuiEditor::Quaternion;
+using Vector3 = ReGuiEditor::Vector3;
+
 constexpr float DEGREES_TO_RADIANS = 0.01745329251994329577f;
 constexpr float HALF_PI = 1.57079632679489661923f;
 
 static int quat_new(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	if (userdataManager.test<UTILS::Quaternion>(L, 1)) {
-		UTILS::Quaternion& quat = userdataManager.check<UTILS::Quaternion>(L, 1);
-		userdataManager.create<UTILS::Quaternion>(L, quat);
+	if (userdataManager.test<Quaternion>(L, 1)) {
+		Quaternion& quat = userdataManager.check<Quaternion>(L, 1);
+		userdataManager.create<Quaternion>(L, quat);
 
 		return 1;
 	}
@@ -30,25 +33,25 @@ static int quat_new(lua_State* L) {
 	const float z = static_cast<float>(luaL_checknumber(L, 3));
 	const float w = static_cast<float>(luaL_checknumber(L, 4));
 
-	userdataManager.create<UTILS::Quaternion>(L, x, y, z, w);
+	userdataManager.create<Quaternion>(L, x, y, z, w);
 	return 1;
 }
 
 static int quat_identity(lua_State* L) {
-	UserdataManager::getInstance().create<UTILS::Quaternion>(L, UTILS::Quaternion::identity());
+	UserdataManager::getInstance().create<Quaternion>(L, Quaternion::identity());
 	return 1;
 }
 
 static int quat_angleAxis(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Quaternion>(L, UTILS::Quaternion::angleAxis(static_cast<float>(luaL_checknumber(L, 1)), userdataManager.check<UTILS::Vector3>(L, 2)));
+	userdataManager.create<Quaternion>(L, Quaternion::angleAxis(static_cast<float>(luaL_checknumber(L, 1)), userdataManager.check<Vector3>(L, 2)));
 
 	return 1;
 }
 
 static int quat_fromEuler(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Quaternion>(L, UTILS::Quaternion::fromEuler(userdataManager.check<UTILS::Vector3>(L, 1) * DEGREES_TO_RADIANS));
+	userdataManager.create<Quaternion>(L, Quaternion::fromEuler(userdataManager.check<Vector3>(L, 1) * DEGREES_TO_RADIANS));
 	
 	return 1;
 }
@@ -56,9 +59,9 @@ static int quat_fromEuler(lua_State* L) {
 static int quat_lookRotation(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
 
-	UTILS::Vector3& forward = userdataManager.check<UTILS::Vector3>(L, 1);
-	UTILS::Vector3& up = userdataManager.check<UTILS::Vector3>(L, 2);
-	userdataManager.create<UTILS::Quaternion>(L, UTILS::Quaternion::lookRotation(forward, up));
+	Vector3& forward = userdataManager.check<Vector3>(L, 1);
+	Vector3& up = userdataManager.check<Vector3>(L, 2);
+	userdataManager.create<Quaternion>(L, Quaternion::lookRotation(forward, up));
 
 	return 1;
 }
@@ -66,47 +69,47 @@ static int quat_lookRotation(lua_State* L) {
 static int quat_slerp(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
 
-	UTILS::Quaternion& from = userdataManager.check<UTILS::Quaternion>(L, 1);
-	UTILS::Quaternion& to = userdataManager.check<UTILS::Quaternion>(L, 2);
+	Quaternion& from = userdataManager.check<Quaternion>(L, 1);
+	Quaternion& to = userdataManager.check<Quaternion>(L, 2);
 	const float t = static_cast<float>(luaL_checknumber(L, 3));
-	userdataManager.create<UTILS::Quaternion>(L, UTILS::Quaternion::slerp(from, to, t));
+	userdataManager.create<Quaternion>(L, Quaternion::slerp(from, to, t));
 
 	return 1;
 }
 
-inline static UTILS::Quaternion axisRotation(int axis, int quarterTurns) {
-	static const UTILS::Vector3 AXES[3] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
-	return UTILS::Quaternion::angleAxis(static_cast<float>(quarterTurns) * HALF_PI, AXES[axis]);
+inline static Quaternion axisRotation(int axis, int quarterTurns) {
+	static const Vector3 AXES[3] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
+	return Quaternion::angleAxis(static_cast<float>(quarterTurns) * HALF_PI, AXES[axis]);
 }
 
 template <int Axis, int QuarterTurns>
 static int quat_fixedRotation(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Quaternion>(L, axisRotation(Axis, QuarterTurns));
+	userdataManager.create<Quaternion>(L, axisRotation(Axis, QuarterTurns));
 
 	return 1;
 }
 
-static int quat_getX(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).x); return 1; }
-static int quat_getY(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).y); return 1; }
-static int quat_getZ(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).z); return 1; }
-static int quat_getW(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).w); return 1; }
+static int quat_getX(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<Quaternion>(L, 1).x); return 1; }
+static int quat_getY(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<Quaternion>(L, 1).y); return 1; }
+static int quat_getZ(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<Quaternion>(L, 1).z); return 1; }
+static int quat_getW(lua_State* L) { lua_pushnumber(L, UserdataManager::getInstance().check<Quaternion>(L, 1).w); return 1; }
 
-static int quat_setX(lua_State* L) { UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).x = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
-static int quat_setY(lua_State* L) { UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).y = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
-static int quat_setZ(lua_State* L) { UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).z = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
-static int quat_setW(lua_State* L) { UserdataManager::getInstance().check<UTILS::Quaternion>(L, 1).w = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
+static int quat_setX(lua_State* L) { UserdataManager::getInstance().check<Quaternion>(L, 1).x = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
+static int quat_setY(lua_State* L) { UserdataManager::getInstance().check<Quaternion>(L, 1).y = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
+static int quat_setZ(lua_State* L) { UserdataManager::getInstance().check<Quaternion>(L, 1).z = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
+static int quat_setW(lua_State* L) { UserdataManager::getInstance().check<Quaternion>(L, 1).w = static_cast<float>(luaL_checknumber(L, 2)); return 0; }
 
 static int quat_inverse(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Quaternion>(L, userdataManager.check<UTILS::Quaternion>(L, 1).inverse());
+	userdataManager.create<Quaternion>(L, userdataManager.check<Quaternion>(L, 1).inverse());
 
 	return 1;
 }
 
 static int quat_normalize(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Quaternion>(L, userdataManager.check<UTILS::Quaternion>(L, 1).normalize());
+	userdataManager.create<Quaternion>(L, userdataManager.check<Quaternion>(L, 1).normalize());
 
 	return 1;
 }
@@ -114,28 +117,27 @@ static int quat_normalize(lua_State* L) {
 static int quat_safeNormalize(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
 
-	UTILS::Quaternion& quat = userdataManager.check<UTILS::Quaternion>(L, 1);
-	UTILS::Quaternion& fallback = userdataManager.check<UTILS::Quaternion>(L, 2);
+	Quaternion& quat = userdataManager.check<Quaternion>(L, 1);
+	Quaternion& fallback = userdataManager.check<Quaternion>(L, 2);
 
 	if (quat.length2() > 1e-6f)
-		userdataManager.create<UTILS::Quaternion>(L, quat.normalize());
+		userdataManager.create<Quaternion>(L, quat.normalize());
 	else
-		userdataManager.create<UTILS::Quaternion>(L, fallback);
+		userdataManager.create<Quaternion>(L, fallback);
 
 	return 1;
 }
 
-// Snaps to the closest of the 24 axis-aligned orientations.
 static int quat_round90(lua_State* L) {
-	static const std::vector<UTILS::Quaternion> ORIENTATIONS = [] {
-		std::vector<UTILS::Quaternion> orientations;
+	static const std::vector<Quaternion> ORIENTATIONS = [] {
+		std::vector<Quaternion> orientations;
 
 		for (int x = 0; x < 4; ++x)
 			for (int y = 0; y < 4; ++y)
 				for (int z = 0; z < 4; ++z) {
-					const UTILS::Quaternion candidate = axisRotation(0, x) * axisRotation(1, y) * axisRotation(2, z);
+					const Quaternion candidate = axisRotation(0, x) * axisRotation(1, y) * axisRotation(2, z);
 
-					const bool duplicate = std::any_of(orientations.begin(), orientations.end(), [&](const UTILS::Quaternion& other) -> bool {
+					const bool duplicate = std::any_of(orientations.begin(), orientations.end(), [&](const Quaternion& other) -> bool {
 						return std::abs(other.x * candidate.x + other.y * candidate.y + other.z * candidate.z + other.w * candidate.w) > 0.999f;
 					});
 
@@ -147,12 +149,12 @@ static int quat_round90(lua_State* L) {
 	}();
 
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	const UTILS::Quaternion& quat = userdataManager.check<UTILS::Quaternion>(L, 1);
+	const Quaternion& quat = userdataManager.check<Quaternion>(L, 1);
 
-	const UTILS::Quaternion* best = &ORIENTATIONS.front();
+	const Quaternion* best = &ORIENTATIONS.front();
 	float bestDot = -1.0f;
 
-	for (const UTILS::Quaternion& candidate : ORIENTATIONS) {
+	for (const Quaternion& candidate : ORIENTATIONS) {
 		const float dot = std::abs(quat.dot(candidate));
 		if (dot > bestDot) {
 			bestDot = dot;
@@ -160,60 +162,57 @@ static int quat_round90(lua_State* L) {
 		}
 	}
 
-	userdataManager.create<UTILS::Quaternion>(L, *best);
+	userdataManager.create<Quaternion>(L, *best);
+	return 1;
+}
+
+static int quat_getRight(lua_State* L) {
+	UserdataManager& userdataManager = UserdataManager::getInstance();
+	userdataManager.create<Vector3>(L, userdataManager.check<Quaternion>(L, 1).getRight());
+
 	return 1;
 }
 
 // NOTE: In-game getUp is the local Y axis and getAt is the local Z axis. If this doesn't match the Quaternion class's convention, swap them here.
 
-static int quat_getRight(lua_State* L) {
-	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Vector3>(L, userdataManager.check<UTILS::Quaternion>(L, 1).getRight());
-
-	return 1;
-}
-
 static int quat_getUp(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Vector3>(L, userdataManager.check<UTILS::Quaternion>(L, 1).getForward());
+	userdataManager.create<Vector3>(L, userdataManager.check<Quaternion>(L, 1).getForward());
 
 	return 1;
 }
 
 static int quat_getAt(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	userdataManager.create<UTILS::Vector3>(L, userdataManager.check<UTILS::Quaternion>(L, 1).getUp());
+	userdataManager.create<Vector3>(L, userdataManager.check<Quaternion>(L, 1).getUp());
 	return 1;
 }
-
-// Metamethods
 
 static int quat_mul(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
 
-	const UTILS::Quaternion& left = userdataManager.check<UTILS::Quaternion>(L, 1);
-	if (userdataManager.test<UTILS::Vector3>(L, 2)) {
-		userdataManager.create<UTILS::Vector3>(L, left * userdataManager.check<UTILS::Vector3>(L, 2));
-		return 1;
-	}
+	const Quaternion& left = userdataManager.check<Quaternion>(L, 1);
+	if (userdataManager.test<Vector3>(L, 2))
+		userdataManager.create<Vector3>(L, left * userdataManager.check<Vector3>(L, 2));
+	else
+		userdataManager.create<Quaternion>(L, left * userdataManager.check<Quaternion>(L, 2));
 
-	userdataManager.create<UTILS::Quaternion>(L, left * userdataManager.check<UTILS::Quaternion>(L, 2));
 	return 1;
 }
 
 static int quat_eq(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	lua_pushboolean(L, userdataManager.check<UTILS::Quaternion>(L, 1) == userdataManager.check<UTILS::Quaternion>(L, 2));
+	lua_pushboolean(L, userdataManager.check<Quaternion>(L, 1) == userdataManager.check<Quaternion>(L, 2));
 
 	return 1;
 }
 
 static int quat_tostring(lua_State* L) {
 	UserdataManager& userdataManager = UserdataManager::getInstance();
-	const UTILS::Quaternion& quat = userdataManager.check<UTILS::Quaternion>(L, 1);
+	const Quaternion& quat = userdataManager.check<Quaternion>(L, 1);
 	
 	char buffer[128];
-	std::snprintf(buffer, sizeof(buffer), "Quat( %g, %g, %g, %g )", quat.x, quat.y, quat.z, quat.w);
+	std::snprintf(buffer, sizeof(buffer), "{<Quat>, x = %g, y = %g, z = %g, w = %g}", quat.x, quat.y, quat.z, quat.w);
 	
 	lua_pushstring(L, buffer);
 	return 1;
@@ -235,28 +234,28 @@ void wrap_sm_quat(lua_State* L) {
 	};
 
 	static const luaL_Reg statics[] = {
-		{"new", quat_new},
-		{"identity", quat_identity},
-		{"angleAxis", quat_angleAxis},
-		{"fromEuler", quat_fromEuler},
+		{"new",          quat_new},
+		{"identity",     quat_identity},
+		{"angleAxis",    quat_angleAxis},
+		{"fromEuler",    quat_fromEuler},
 		{"lookRotation", quat_lookRotation},
-		{"slerp", quat_slerp},
+		{"slerp",        quat_slerp},
 
-		{"rotX90", quat_fixedRotation<0, 1>},
+		{"rotX90",    quat_fixedRotation<0,  1>},
 		{"rotNegX90", quat_fixedRotation<0, -1>},
-		{"rotX180", quat_fixedRotation<0, 2>},
-		{"rotY90", quat_fixedRotation<1, 1>},
+		{"rotX180",   quat_fixedRotation<0,  2>},
+		{"rotY90",    quat_fixedRotation<1,  1>},
 		{"rotNegY90", quat_fixedRotation<1, -1>},
-		{"rotY180", quat_fixedRotation<1, 2>},
-		{"rotZ90", quat_fixedRotation<2, 1>},
+		{"rotY180",   quat_fixedRotation<1,  2>},
+		{"rotZ90",    quat_fixedRotation<2,  1>},
 		{"rotNegZ90", quat_fixedRotation<2, -1>},
-		{"rotZ180", quat_fixedRotation<2, 2>},
+		{"rotZ180",   quat_fixedRotation<2,  2>},
 
 		{nullptr, nullptr}
 	};
 
 	UserdataDefinition* definition = UserdataManager::getInstance().createDefinition("Quat", 1001);
-	definition->bind<UTILS::Quaternion>();
+	definition->bind<Quaternion>();
 
 	for (const luaL_Reg* method = methods; method->name; ++method)
 		definition->addMethod(method->name, method->func);

@@ -6,14 +6,14 @@
 #include <string>
 #include <string_view>
 
-namespace UTILS {
-	struct UUID {
+namespace ReGuiEditor {
+	struct Uuid {
 		std::array<uint8_t, 16> bytes{};
 
-		constexpr UUID() = default;
+		constexpr Uuid() = default;
 
-		bool operator==(const UUID& other) const { return this->bytes == other.bytes; }
-		bool operator!=(const UUID& other) const { return !(*this == other); }
+		bool operator==(const Uuid& other) const { return this->bytes == other.bytes; }
+		bool operator!=(const Uuid& other) const { return !(*this == other); }
 
 		bool isNil() const { return std::all_of(this->bytes.begin(), this->bytes.end(), [](uint8_t b) { return b == 0; }); }
 
@@ -31,13 +31,11 @@ namespace UTILS {
 			return buffer;
 		}
 
-		static bool fromString(std::string_view text, UTILS::UUID& output);
+		static bool fromString(std::string_view text, ReGuiEditor::Uuid& output);
 
-		static UTILS::UUID generateRandom();
-		
-		// Named ones are UUID5, not UUID4
+		static ReGuiEditor::Uuid generateRandom();
 
-		static UTILS::UUID generateNamed(const UTILS::UUID& uuidNamespace, std::string_view name);
-		static UTILS::UUID generateNamed(std::string_view uuidNamespace, std::string_view name);
+		static ReGuiEditor::Uuid generateNamed(const ReGuiEditor::Uuid& uuidNamespace, std::string_view name);
+		static ReGuiEditor::Uuid generateNamed(std::string_view uuidNamespace, std::string_view name);
 	};
 }

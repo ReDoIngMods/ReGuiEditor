@@ -10,13 +10,11 @@
 #include <rend/ResourceManager.hpp>
 #include <rend/Resources/Texture2D.hpp>
 
-#include <UTILS/ByteStreamReader.hpp>
-#include <UTILS/ByteStreamWriter.hpp>
-#include <UTILS/Strings.hpp>
+#include <Modules/Bytestream/BytestreamReader.hpp>
+#include <Modules/Bytestream/BytestreamWriter.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <FreeImage/FreeImage.h>
-
-#include <LZ4/lz4.h>
 
 #include <MyGui/MyGUI_DataManager.h>
 #include <MyGui/MyGUI_IRenderTarget.h>
@@ -26,7 +24,6 @@
 #include <climits>
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,9 +32,8 @@ constexpr uint32_t BYTES_PER_PIXEL = 4;
 constexpr uint32_t MAX_CACHED_TEXTURE_SIZE = 8192;
 
 struct TextureCacheHeader {
-	char magic[4] = { 'M', 'G', 'T', 'C' }; // MyGui Texture Cache
-
-	uint32_t version = 4;
+	char magic[4] = { 'M', 'G', 'T', 'C' };
+	uint32_t version = 5;
 	uint32_t width = 0;
 	uint32_t height = 0;
 	uint32_t textureWidth = 0;
@@ -46,17 +42,8 @@ struct TextureCacheHeader {
 };
 
 std::string RPTexture::getCacheFilepath(const std::string& _filename) {
-	constexpr uint64_t FNV_OFFSET = 0xcbf29ce484222325ULL;
-	constexpr uint64_t FNV_PRIME = 0x100000001b3ULL;
-
-	uint64_t hash = FNV_OFFSET;
-	for (const char character : _filename) {
-		hash ^= static_cast<uint64_t>(static_cast<uint8_t>(character));
-		hash *= FNV_PRIME;
-	}
-
-	const std::string filename = std::filesystem::path(_filename).stem().string();
-	return UTILS::formatString("$RGE_CACHE_DATA/Textures/%016llx_%s.mgtc", hash, filename.c_str());
+	// Dimensions are unknown before the image is decoded, so they live in the header instead of the filename.
+	return ReGuiEditor::formatString("$RGE_CACHE_DATA/Textures/%s.mgtc", _filename.c_str());
 }
 
 bool RPTexture::createBacking(int _width, int _height, rend::Texture2DFlags _flags) {
@@ -67,11 +54,12 @@ bool RPTexture::createBacking(int _width, int _height, rend::Texture2DFlags _fla
 
 	this->texture_ = rend::ResourceManager::getInstance().createTexture2D(static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight), rend::Format::R8G8B8A8_UNORM, _flags);
 	if (!this->texture_) {
-		CONSOLE_ERROR("RPTexture: Failed to create %dx%d texture '%s'.", textureWidth, textureHeight, this->name_.c_str());
+		CONSOLE_ERROR("Failed to create %dx%d texture '%s'.", textureWidth, textureHeight, this->name_.c_str());
 		return false;
 	}
 
-	this->texture_->setDebugName("MyGUI::Texture \"" + this->name_ + "\"");
+	const std::string debugName = ReGuiEditor::formatString("MyGUI::Texture \"%s\"", this->name_.c_str());
+	this->texture_->setDebugName(debugName);
 
 	this->width_ = _width;
 	this->height_ = _height;
@@ -101,66 +89,47 @@ bool RPTexture::loadCache(const std::string& _filename) {
 
 	time_t sourceWriteTime = 0;
 	if (!filesystemManager.getFileWriteTime(sourceName, sourceWriteTime)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Failed to get write time for source file: %s", _filename.c_str());
+		CONSOLE_WARNING("Failed to get write time for source file: %s", _filename.c_str());
 		return false;
 	}
 
 	std::vector<uint8_t> buffer;
 	if (!filesystemManager.readFile(cacheName, buffer)) {
-		CONSOLE_LOG(LEVEL_CACHE, COLOR_DARK_GRAY, "RPTexture::loadCache: Cache file not found or failed to read: %s", cacheName.c_str());
+		CONSOLE_WARNING("Cache file not found or failed to read: %s", cacheName.c_str());
 		return false;
 	}
 
 	if (buffer.size() < sizeof(TextureCacheHeader)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Cache file is too small: %s", _filename.c_str());
+		CONSOLE_WARNING("Cache file is too small: %s", _filename.c_str());
 		return false;
 	}
 
-	UTILS::ByteStreamReader reader(buffer.data(), buffer.size());
+	ReGuiEditor::BytestreamReader reader(buffer.data(), buffer.size());
 
 	const TextureCacheHeader header = reader.read<TextureCacheHeader>();
 	if (memcmp(header.magic, "MGTC", 4) != 0 || header.version != TextureCacheHeader{}.version) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Invalid cache file format: %s", _filename.c_str());
+		CONSOLE_WARNING("Invalid cache file format: %s", _filename.c_str());
 		return false;
 	}
 
 	if (header.sourceWriteTime != sourceWriteTime) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Cache file is outdated: %s", _filename.c_str());
+		CONSOLE_WARNING("Cache file is outdated: %s", _filename.c_str());
 		return false;
 	}
 
 	if (header.width == 0 || header.height == 0 || header.textureWidth < header.width || header.textureHeight < header.height) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Invalid texture dimensions in cache file: %s", _filename.c_str());
+		CONSOLE_WARNING("Invalid texture dimensions in cache file: %s", _filename.c_str());
 		return false;
 	}
 
-	if (reader.getRemaining() < 2 * sizeof(uint64_t)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Cache file is truncated: %s", _filename.c_str());
+	std::vector<uint8_t> pixelData;
+	if (!reader.readCompressableData(pixelData)) {
+		CONSOLE_WARNING("Failed to read compressed texture data from cache file: %s", _filename.c_str());
 		return false;
 	}
 
-	const uint64_t uncompressedDataSize = reader.read<uint64_t>();
-	const uint64_t compressedDataSize = reader.read<uint64_t>();
-
-	const uint64_t expectedDataSize = static_cast<uint64_t>(header.width) * header.height * BYTES_PER_PIXEL;
-	if (uncompressedDataSize != expectedDataSize) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Uncompressed data size does not match expected size: %s", _filename.c_str());
-		return false;
-	}
-
-	if (compressedDataSize == 0 || compressedDataSize > static_cast<uint64_t>(INT_MAX) || compressedDataSize > reader.getRemaining()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Invalid compressed data size in cache file: %s", _filename.c_str());
-		return false;
-	}
-
-	std::vector<char> compressedData(static_cast<size_t>(compressedDataSize));
-	reader.readBytes(compressedData.data(), compressedData.size());
-
-	std::vector<uint8_t> pixelData(static_cast<size_t>(uncompressedDataSize));
-
-	const int decompressedSize = LZ4_decompress_safe(compressedData.data(), reinterpret_cast<char*>(pixelData.data()), static_cast<int>(compressedDataSize), static_cast<int>(uncompressedDataSize));
-	if (decompressedSize < 0 || static_cast<size_t>(decompressedSize) != pixelData.size()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Failed to decompress cached texture data: %s", _filename.c_str());
+	if (pixelData.size() != static_cast<size_t>(header.width) * header.height * BYTES_PER_PIXEL) {
+		CONSOLE_WARNING("Pixel data size mismatch in cache file: %s", _filename.c_str());
 		return false;
 	}
 
@@ -168,14 +137,14 @@ bool RPTexture::loadCache(const std::string& _filename) {
 		return false;
 
 	if (static_cast<uint32_t>(this->textureWidth_) != header.textureWidth || static_cast<uint32_t>(this->textureHeight_) != header.textureHeight) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Texture dimensions in cache file do not match expected size: %s", _filename.c_str());
+		CONSOLE_WARNING("Texture dimensions in cache file do not match expected size: %s", _filename.c_str());
 
 		this->destroy();
 		return false;
 	}
 
 	if (!this->upload(pixelData.data(), pixelData.size())) {
-		CONSOLE_ERROR("RPTexture::loadCache: Failed to upload cached texture: %s", _filename.c_str());
+		CONSOLE_ERROR("Failed to upload cached texture: %s", _filename.c_str());
 
 		this->destroy();
 		return false;
@@ -196,7 +165,7 @@ bool RPTexture::storeCache(const std::string& _filename, const uint8_t* _pixels)
 
 	time_t sourceWriteTime = 0;
 	if (!filesystemManager.getFileWriteTime(sourceName, sourceWriteTime)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::storeCache: Failed to get write time for source file: %s", _filename.c_str());
+		CONSOLE_WARNING("Failed to get write time for source file: %s", _filename.c_str());
 		return false;
 	}
 
@@ -204,22 +173,13 @@ bool RPTexture::storeCache(const std::string& _filename, const uint8_t* _pixels)
 	const uint32_t height = static_cast<uint32_t>(this->height_);
 
 	if (width > MAX_CACHED_TEXTURE_SIZE || height > MAX_CACHED_TEXTURE_SIZE) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::storeCache: Texture dimensions exceed maximum allowed size (%ux%u): %s", MAX_CACHED_TEXTURE_SIZE, MAX_CACHED_TEXTURE_SIZE, _filename.c_str());
+		CONSOLE_WARNING("Texture dimensions exceed maximum allowed size (%ux%u): %s", MAX_CACHED_TEXTURE_SIZE, MAX_CACHED_TEXTURE_SIZE, _filename.c_str());
 		return false;
 	}
 
 	const size_t dataSize = static_cast<size_t>(width) * height * BYTES_PER_PIXEL;
 	if (dataSize > static_cast<size_t>(INT_MAX)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::storeCache: Texture is too large for LZ4: %s", _filename.c_str());
-		return false;
-	}
-
-	const int maxCompressedSize = LZ4_compressBound(static_cast<int>(dataSize));
-	std::vector<char> compressedData(static_cast<size_t>(maxCompressedSize));
-
-	const int compressedSize = LZ4_compress_default(reinterpret_cast<const char*>(_pixels), compressedData.data(), static_cast<int>(dataSize), maxCompressedSize);
-	if (compressedSize <= 0) {
-		CONSOLE_ERROR("RPTexture::storeCache: Failed to compress texture data: %s", _filename.c_str());
+		CONSOLE_WARNING("Texture is too large for LZ4: %s", _filename.c_str());
 		return false;
 	}
 
@@ -230,15 +190,13 @@ bool RPTexture::storeCache(const std::string& _filename, const uint8_t* _pixels)
 	header.textureHeight = static_cast<uint32_t>(this->textureHeight_);
 	header.sourceWriteTime = sourceWriteTime;
 
-	UTILS::ByteStreamWriter writer;
-	writer.write(header);
-	writer.write<uint64_t>(static_cast<uint64_t>(dataSize));
-	writer.write<uint64_t>(static_cast<uint64_t>(compressedSize));
-	writer.writeBytes(compressedData.data(), static_cast<size_t>(compressedSize));
+	ReGuiEditor::BytestreamWriter writer;
+	writer.write<TextureCacheHeader>(header);
+	writer.writeCompressableData(_pixels, dataSize);
 
 	const std::string cacheName = getCacheFilepath(_filename);
-	if (!filesystemManager.writeFile(cacheName, writer.toString())) {
-		CONSOLE_ERROR("RPTexture::storeCache: Failed to write cache file: %s", cacheName.c_str());
+	if (!filesystemManager.writeFile(cacheName, writer)) {
+		CONSOLE_ERROR("Failed to write cache file: %s", cacheName.c_str());
 		return false;
 	}
 
@@ -247,7 +205,7 @@ bool RPTexture::storeCache(const std::string& _filename, const uint8_t* _pixels)
 
 void RPTexture::createManual(int _width, int _height, MyGUI::TextureUsage _usage, MyGUI::PixelFormat _format) {
 	if (_format != MyGUI::PixelFormat::R8G8B8A8 || _width <= 0 || _height <= 0) {
-		CONSOLE_ERROR("RPTexture::createManual: Unsupported format or invalid size (%dx%d) for '%s'.", _width, _height, this->name_.c_str());
+		CONSOLE_ERROR("Unsupported format or invalid size (%dx%d) for '%s'.", _width, _height, this->name_.c_str());
 		return;
 	}
 
@@ -351,7 +309,7 @@ void RPTexture::loadFromFile(const std::string& _filename) {
 }
 
 void RPTexture::saveToFile(const std::string& _filename) {
-	CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::saveToFile: Saving textures is not supported (requested '%s').", _filename.c_str());
+	CONSOLE_WARNING("RPTexture::saveToFile: Saving textures is not supported (requested '%s').", _filename.c_str());
 }
 
 void RPTexture::destroy() {

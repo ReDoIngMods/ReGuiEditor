@@ -81,7 +81,7 @@ inline static void DestroyTexture(ImTextureData* textureData) {
 
 	rend::Texture2D* texture = static_cast<rend::Texture2D*>(textureData->BackendUserData);
 	if (!texture) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "ImGui texture with ID %p has no associated rend::Texture2D resource. This may indicate a resource leak.", textureData->TexID);
+		CONSOLE_WARNING("ImGui texture with ID %p has no associated rend::Texture2D resource. This may indicate a resource leak.", textureData->TexID);
 		return;
 	}
 
@@ -147,7 +147,7 @@ void RGE_ImGui_ImplDX11_Shutdown() {
 
 	for (ImTextureData* textureData : platformIO.Textures) {
 		if (textureData->RefCount != 1) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "ImGui texture with ID %p has a reference count of %d, expected 1. This may indicate a resource leak.", textureData->TexID, textureData->RefCount);
+			CONSOLE_WARNING("ImGui texture with ID %p has a reference count of %d, expected 1. This may indicate a resource leak.", textureData->TexID, textureData->RefCount);
 			continue;
 		}
 

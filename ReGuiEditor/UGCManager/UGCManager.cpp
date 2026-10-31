@@ -6,7 +6,7 @@
 
 #include <Filesystem/DirectoryManager.hpp>
 
-#include <UTILS/Strings.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <steam/isteamremotestorage.h>
 #include <steam/isteamugc.h>
@@ -42,11 +42,11 @@ bool UGCManager::registerMod(const std::filesystem::path& modPath, bool isLocal)
 	}
 
 	if (!DirectoryManager::getInstance().addDirectory(mod->contentPath, modPath)) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Mod: %s was already loaded with localId: %s", modPath.string().c_str(), mod->localId.c_str());
+		CONSOLE_WARNING("Mod: %s was already loaded with localId: %s", modPath.string().c_str(), mod->localId.c_str());
 		return false;
 	}
 
-	Application::getInstance().splashscreen.setStatus(UTILS::formatString(L"Loading mod: %hs (%hs)", mod->localId.c_str(), modPath.string().c_str()));
+	Application::getInstance().splashscreen.setStatus(ReGuiEditor::formatString(L"Loading mod: %hs (%hs)", mod->localId.c_str(), modPath.string().c_str()));
 
 	this->mods_.push_back(mod);
 	if (mod->fileId != 0)
@@ -81,8 +81,10 @@ bool UGCManager::loadLocalMods() {
 	}
 
 	std::error_code error;
-	if (!std::filesystem::exists(modsRoot, error))
+	if (!std::filesystem::exists(modsRoot, error)) {
+		CONSOLE_ERROR("Local mods folder does not exist: %s", modsRoot.string().c_str());
 		return true;
+	}
 
 	for (std::filesystem::directory_iterator iterator(modsRoot, error), end; !error && iterator != end; iterator.increment(error)) {
 		if (iterator->is_directory(error))
@@ -122,7 +124,7 @@ void UGCManager::onItemUnsubscribed(RemoteStoragePublishedFileUnsubscribed_t* pC
 
 	const auto fileIdIterator = this->fileIdToLocalId_.find(pCallback->m_nPublishedFileId);
 	if (fileIdIterator == this->fileIdToLocalId_.end()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu is not in the local ID map.", fileId);
+		CONSOLE_WARNING("Steam Workshop item: %llu is not in the local ID map.", fileId);
 		return;
 	}
 
@@ -132,13 +134,13 @@ void UGCManager::onItemUnsubscribed(RemoteStoragePublishedFileUnsubscribed_t* pC
 	});
 
 	if (iterator == this->mods_.end()) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu with localId: %s is not in the mods list.", fileId, localId.c_str());
+		CONSOLE_WARNING("Steam Workshop item: %llu with localId: %s is not in the mods list.", fileId, localId.c_str());
 		return;
 	}
 
 	const std::shared_ptr<UGCMod> mod = *iterator;
 	if (!DirectoryManager::getInstance().removeDirectory(mod->contentPath))
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Steam Workshop item: %llu with localId: %s is not in the directories map.", fileId, localId.c_str());
+		CONSOLE_WARNING("Steam Workshop item: %llu with localId: %s is not in the directories map.", fileId, localId.c_str());
 
 	std::erase(this->workshopMods_, mod);
 	this->mods_.erase(iterator);

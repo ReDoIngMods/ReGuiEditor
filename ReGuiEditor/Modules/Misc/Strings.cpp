@@ -1,10 +1,10 @@
-#include "Strings.hpp" // VCIC-Excluded: Complains about being a unused file... even tho it isn't.
+#include "Strings.hpp" // VCIC-Excluded
 
 #include <Windows.h>
 
 #include <string>
 
-std::wstring UTILS::toWideString(const std::string& str) {
+std::wstring ReGuiEditor::toWideString(const std::string& str) {
 	int neededSize = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.size()), NULL, 0);
 	if (neededSize <= 0)
 		return L"";
@@ -15,7 +15,7 @@ std::wstring UTILS::toWideString(const std::string& str) {
 	return wideStr;
 }
 
-std::string UTILS::toShortString(const std::wstring& str) {
+std::string ReGuiEditor::toShortString(const std::wstring& str) {
 	int neededSize = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.size()), NULL, 0, NULL, NULL);
 	if (neededSize <= 0)
 		return "";

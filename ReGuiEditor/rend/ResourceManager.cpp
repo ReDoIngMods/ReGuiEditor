@@ -70,7 +70,7 @@ void rend::ResourceManager::cleanup() {
 	}
 
 	for (rend::Resource* resource : leaked) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "!!! LEAK !!! Resource \"%s\" was not released before shutdown!", resource->getTypeName());
+		CONSOLE_WARNING("!!! LEAK !!! Resource \"%s\" was not released before shutdown!", resource->getTypeName());
 		delete resource;
 	}
 }

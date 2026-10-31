@@ -2,8 +2,9 @@
 
 #include "../UserdataManager.hpp"
 
-#include <UTILS/Quaternion.hpp>
-#include <UTILS/Vector3.hpp>
+#include <Modules/Math/Easing.hpp>
+#include <Modules/Math/Quaternion.hpp>
+#include <Modules/Math/Vector3.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
@@ -11,125 +12,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <iterator>
 #include <vector>
 
+using Vector3 = ReGuiEditor::Vector3;
+using Quaternion = ReGuiEditor::Quaternion;
+
 constexpr double PI = 3.14159265358979323846;
-
-template <int N> inline static double easeInPow(double t) { return std::pow(t, N); }
-template <int N> inline static double easeOutPow(double t) { return 1.0 - std::pow(1.0 - t, N); }
-template <int N> inline static double easeInOutPow(double t) {
-	return t < 0.5 ? std::pow(2.0, N - 1) * std::pow(t, N) : 1.0 - std::pow(-2.0 * t + 2.0, N) / 2.0;
-}
-
-inline static double bounceOut(double t) {
-	constexpr double n1 = 7.5625, d1 = 2.75;
-	if (t < 1.0 / d1)
-		return n1 * t * t;
-
-	if (t < 2.0 / d1) {
-		const double u = t - 1.5 / d1;
-		return n1 * u * u + 0.75;
-	}
-
-	if (t < 2.5 / d1) {
-		const double u = t - 2.25 / d1;
-		return n1 * u * u + 0.9375;
-	}
-
-	const double u = t - 2.625 / d1;
-	return n1 * u * u + 0.984375;
-}
-
-constexpr double BACK_C1 = 1.70158;
-constexpr double BACK_C2 = BACK_C1 * 1.525;
-constexpr double BACK_C3 = BACK_C1 + 1.0;
-constexpr double ELASTIC_C4 = (2.0 * PI) / 3.0;
-constexpr double ELASTIC_C5 = (2.0 * PI) / 4.5;
-
-struct Easing {
-	const char* name;
-	double (*function)(double);
-};
-
-static const Easing EASINGS[] = {
-	{"linear", [](double t) { return t; }},
-
-	{"easeInSine", [](double t) { return 1.0 - std::cos(t * PI / 2.0); }},
-	{"easeOutSine", [](double t) { return std::sin(t * PI / 2.0); }},
-	{"easeInOutSine", [](double t) { return -(std::cos(PI * t) - 1.0) / 2.0; }},
-
-	{"easeInQuad", easeInPow<2>},
-	{"easeOutQuad", easeOutPow<2>},
-	{"easeInOutQuad", easeInOutPow<2>},
-
-	{"easeInCubic", easeInPow<3>},
-	{"easeOutCubic", easeOutPow<3>},
-	{"easeInOutCubic", easeInOutPow<3>},
-
-	{"easeInQuart", easeInPow<4>},
-	{"easeOutQuart", easeOutPow<4>},
-	{"easeInOutQuart", easeInOutPow<4>},
-
-	{"easeInQuint", easeInPow<5>},
-	{"easeOutQuint", easeOutPow<5>},
-	{"easeInOutQuint", easeInOutPow<5>},
-
-	{"easeInExpo", [](double t) { return t == 0.0 ? 0.0 : std::pow(2.0, 10.0 * t - 10.0); }},
-	{"easeOutExpo", [](double t) { return t == 1.0 ? 1.0 : 1.0 - std::pow(2.0, -10.0 * t); }},
-	{"easeInOutExpo", [](double t) {
-		if (t == 0.0 || t == 1.0)
-			return t;
-
-		return t < 0.5 ? std::pow(2.0, 20.0 * t - 10.0) / 2.0 : (2.0 - std::pow(2.0, -20.0 * t + 10.0)) / 2.0;
-	}},
-
-	{"easeInCirc", [](double t) { return 1.0 - std::sqrt(1.0 - t * t); }},
-	{"easeOutCirc", [](double t) { return std::sqrt(1.0 - (t - 1.0) * (t - 1.0)); }},
-	{"easeInOutCirc", [](double t) {
-		return t < 0.5
-			? (1.0 - std::sqrt(1.0 - 4.0 * t * t)) / 2.0
-			: (std::sqrt(1.0 - (-2.0 * t + 2.0) * (-2.0 * t + 2.0)) + 1.0) / 2.0;
-	}},
-
-	{"easeInBack", [](double t) { return BACK_C3 * t * t * t - BACK_C1 * t * t; }},
-	{"easeOutBack", [](double t) { return 1.0 + BACK_C3 * std::pow(t - 1.0, 3.0) + BACK_C1 * std::pow(t - 1.0, 2.0); }},
-	{"easeInOutBack", [](double t) {
-		return t < 0.5
-			? (std::pow(2.0 * t, 2.0) * ((BACK_C2 + 1.0) * 2.0 * t - BACK_C2)) / 2.0
-			: (std::pow(2.0 * t - 2.0, 2.0) * ((BACK_C2 + 1.0) * (t * 2.0 - 2.0) + BACK_C2) + 2.0) / 2.0;
-	}},
-
-	{"easeInElastic", [](double t) {
-		if (t == 0.0 || t == 1.0)
-			return t;
-
-		return -std::pow(2.0, 10.0 * t - 10.0) * std::sin((t * 10.0 - 10.75) * ELASTIC_C4);
-	}},
-
-	{"easeOutElastic", [](double t) {
-		if (t == 0.0 || t == 1.0)
-			return t;
-
-		return std::pow(2.0, -10.0 * t) * std::sin((t * 10.0 - 0.75) * ELASTIC_C4) + 1.0;
-	}},
-
-	{"easeInOutElastic", [](double t) {
-		if (t == 0.0 || t == 1.0)
-			return t;
-
-		return t < 0.5
-			? -(std::pow(2.0, 20.0 * t - 10.0) * std::sin((20.0 * t - 11.125) * ELASTIC_C5)) / 2.0
-			: (std::pow(2.0, -20.0 * t + 10.0) * std::sin((20.0 * t - 11.125) * ELASTIC_C5)) / 2.0 + 1.0;
-	}},
-
-	{"easeInBounce", [](double t) { return 1.0 - bounceOut(1.0 - t); }},
-	{"easeOutBounce", bounceOut},
-	{"easeInOutBounce", [](double t) {
-		return t < 0.5 ? (1.0 - bounceOut(1.0 - 2.0 * t)) / 2.0 : (1.0 + bounceOut(2.0 * t - 1.0)) / 2.0;
-	}},
-};
 
 static int util_clamp(lua_State* L) {
 	const double value = luaL_checknumber(L, 1);
@@ -179,25 +67,23 @@ static int util_easing(lua_State* L) {
 	const double t = luaL_checknumber(L, 2);
 	if (lua_type(L, 1) == LUA_TNUMBER) {
 		const lua_Integer id = lua_tointeger(L, 1);
-		constexpr auto easing_count = std::size(EASINGS);
-
-		if (id < 0 || static_cast<std::size_t>(id) >= easing_count)
+		if (!ReGuiEditor::easingTypeidValid(static_cast<int>(id)))
 			return luaL_argerror(L, 1, "invalid easing id");
 
-		lua_pushnumber(L, EASINGS[static_cast<std::size_t>(id)].function(t));
+		lua_pushnumber(L, ReGuiEditor::easingCalculate(t, static_cast<ReGuiEditor::EasingType>(id)));
 		return 1;
 	}
 
-	const char* name = luaL_checkstring(L, 1);
+	if (lua_type(L, 1) == LUA_TSTRING) {
+		const char* name = lua_tostring(L, 1);
+		if (!ReGuiEditor::easingTypenameValid(name))
+			return luaL_argerror(L, 1, "invalid easing name");
 
-	for (const Easing& easing : EASINGS) {
-		if (std::strcmp(easing.name, name) == 0) {
-			lua_pushnumber(L, easing.function(t));
-			return 1;
-		}
+		lua_pushnumber(L, ReGuiEditor::easingCalculate(t, name));
+		return 1;
 	}
 
-	return luaL_error(L, "unknown easing '%s'", name);
+	return luaL_argerror(L, 1, "expected easing id (number) or easing name (string)");
 }
 
 static int util_bezier2(lua_State* L) {
@@ -228,9 +114,9 @@ static int util_bezier3(lua_State* L) {
 static int util_axesToQuat(lua_State* L) {
 	UserdataManager& userdata = UserdataManager::getInstance();
 
-	const UTILS::Vector3 xAxis = userdata.check<UTILS::Vector3>(L, 1).normalize();
-	const UTILS::Vector3 zAxis = xAxis.cross(userdata.check<UTILS::Vector3>(L, 2)).normalize();
-	const UTILS::Vector3 yAxis = zAxis.cross(xAxis);
+	const Vector3 xAxis = userdata.check<Vector3>(L, 1).normalize();
+	const Vector3 zAxis = xAxis.cross(userdata.check<Vector3>(L, 2)).normalize();
+	const Vector3 yAxis = zAxis.cross(xAxis);
 
 	const float m00 = xAxis.x, m10 = xAxis.y, m20 = xAxis.z;
 	const float m01 = yAxis.x, m11 = yAxis.y, m21 = yAxis.z;
@@ -253,7 +139,7 @@ static int util_axesToQuat(lua_State* L) {
 		w = (m10 - m01) / s; x = (m02 + m20) / s; y = (m12 + m21) / s; z = 0.25f * s;
 	}
 
-	userdata.create<UTILS::Quaternion>(L, UTILS::Quaternion{ x, y, z, w });
+	userdata.create<Quaternion>(L, Quaternion{ x, y, z, w });
 	return 1;
 }
 
@@ -263,7 +149,7 @@ static int util_geometricMedian(lua_State* L) {
 	luaL_checktype(L, 1, LUA_TTABLE);
 	const int iterations = static_cast<int>(luaL_optinteger(L, 3, 20));
 
-	std::vector<UTILS::Vector3> points;
+	std::vector<Vector3> points;
 	points.reserve(lua_objlen(L, 1));
 
 	for (int index = 1;; ++index) {
@@ -271,7 +157,7 @@ static int util_geometricMedian(lua_State* L) {
 
 		const bool isNil = lua_isnil(L, -1);
 		if (!isNil)
-			points.push_back(userdata.check<UTILS::Vector3>(L, -1));
+			points.push_back(userdata.check<Vector3>(L, -1));
 
 		lua_pop(L, 1);
 
@@ -281,22 +167,22 @@ static int util_geometricMedian(lua_State* L) {
 
 	luaL_argcheck(L, !points.empty(), 1, "expected at least one point");
 
-	UTILS::Vector3 guess = { 0.0f, 0.0f, 0.0f };
+	Vector3 guess = { 0.0f, 0.0f, 0.0f };
 
-	if (userdata.test<UTILS::Vector3>(L, 2)) {
-		guess = userdata.check<UTILS::Vector3>(L, 2);
+	if (userdata.test<Vector3>(L, 2)) {
+		guess = userdata.check<Vector3>(L, 2);
 	} else {
-		for (const UTILS::Vector3& point : points)
+		for (const Vector3& point : points)
 			guess = guess + point;
 
 		guess = guess / static_cast<float>(points.size());
 	}
 
 	for (int iteration = 0; iteration < iterations; ++iteration) {
-		UTILS::Vector3 weighted = { 0.0f, 0.0f, 0.0f };
+		Vector3 weighted = { 0.0f, 0.0f, 0.0f };
 		float totalWeight = 0.0f;
 
-		for (const UTILS::Vector3& point : points) {
+		for (const Vector3& point : points) {
 			const float distance = (point - guess).length();
 			if (distance < 1e-6f)
 				continue;
@@ -312,7 +198,7 @@ static int util_geometricMedian(lua_State* L) {
 		guess = weighted / totalWeight;
 	}
 
-	userdata.create<UTILS::Vector3>(L, guess);
+	userdata.create<Vector3>(L, guess);
 	return 1;
 }
 

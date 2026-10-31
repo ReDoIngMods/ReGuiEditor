@@ -17,7 +17,7 @@
 
 #include "RenderPlatform/RPRenderManager.hpp"
 
-#include <UTILS/Profiler.hpp>
+#include <Modules/Misc/Profiler.hpp>
 
 #include <MyGui/MyGUI_Exception.h>
 #include <MyGui/MyGUI_FactoryManager.h>

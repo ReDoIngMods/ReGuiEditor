@@ -6,7 +6,7 @@
 
 #include <Filesystem/FilesystemManager.hpp> 
 
-#include <UTILS/Strings.hpp>
+#include <Modules/Misc/Strings.hpp>
 
 #include <MyGui/MyGUI_DataManager.h>
 #include <MyGui/MyGUI_ResourceManager.h>
@@ -44,7 +44,7 @@ bool ResolutionManager::initialize() {
 	for (const JSONValue& resolutionEntry : *resolutionList) {
 		const JSONObject* resolutionObject = resolutionEntry.tryGet<JSONObject>();
 		if (!resolutionObject) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid resolution entry in Resolutions.json: not an object.");
+			CONSOLE_WARNING("Skipping invalid resolution entry in Resolutions.json: not an object.");
 			continue;
 		}
 
@@ -52,7 +52,7 @@ bool ResolutionManager::initialize() {
 		int height = resolutionEntry.at("h").getOrDefault<int>(0);
 		std::string folder = resolutionEntry.at("folder").getOrDefault<std::string>("");
 		if (width == 0 || height == 0 || folder.empty()) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid resolution entry in Resolutions.json: missing or invalid fields.");
+			CONSOLE_WARNING("Skipping invalid resolution entry in Resolutions.json: missing or invalid fields.");
 			continue;
 		}
 
@@ -71,7 +71,7 @@ bool ResolutionManager::initialize() {
 	for (const JSONValue& resourceEntry : *resourceList) {
 		const std::string* resourcePath = resourceEntry.tryGet<std::string>();
 		if (!resourcePath) {
-			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid resource entry in Resolutions.json: not a string.");
+			CONSOLE_WARNING("Skipping invalid resource entry in Resolutions.json: not a string.");
 			continue;
 		}
 	
@@ -91,7 +91,7 @@ bool ResolutionManager::setResolution(uint32_t width, uint32_t height) {
     }
 
     if (bestResolution == nullptr) {
-        CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "No suitable resolution found for: %ux%u", width, height);
+        CONSOLE_WARNING("No suitable resolution found for: %ux%u", width, height);
         return false;
     }
 
@@ -130,10 +130,10 @@ bool ResolutionManager::setResolution(uint32_t width, uint32_t height) {
     for (const auto& resourcePath : this->resources_) {
         const std::string fullPath = (this->resolution_->folder / resourcePath).generic_string();
 
-        Application::getInstance().splashscreen.setStatus(L"Loading resource: " + UTILS::toWideString(resourcePath));
+        Application::getInstance().splashscreen.setStatus(L"Loading resource: " + ReGuiEditor::toWideString(resourcePath));
 
         if (!resourceManager.load(fullPath)) {
-            CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to load resource: %s", fullPath.c_str());
+            CONSOLE_WARNING("Failed to load resource: %s", fullPath.c_str());
             continue;
         }
 

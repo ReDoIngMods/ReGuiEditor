@@ -6,9 +6,8 @@
 
 #include <Filesystem/FilesystemManager.hpp>
 
-#include <UTILS/ByteStreamWriter.hpp>
-
-#include <LZ4/lz4.h>
+#include <Modules/Bytestream/BytestreamReader.hpp>
+#include <Modules/Bytestream/BytestreamWriter.hpp>
 
 #include <Windows.h>
 #include <d3dcommon.h>
@@ -26,21 +25,18 @@
 #include <utility>
 #include <vector>
 
+constexpr size_t SHADER_CACHE_MAGIC = 0x52474543; // "RGEC"
+constexpr size_t SHADER_CACHE_VERSION = 5;
+
 struct ShaderCacheHeader {
-	static constexpr uint32_t Magic = 0x52474543;
-	static constexpr uint32_t Version = 4;
-
-	uint32_t magic = Magic;
-	uint32_t version = Version;
+	uint32_t magic = SHADER_CACHE_MAGIC;
+	uint32_t version = SHADER_CACHE_VERSION;
 	int64_t lastWriteTime = 0;
-
-	uint32_t uncompressedSize = 0;
-	uint32_t compressedSize = 0;
 
 	uint64_t hash = 0;
 
 	[[nodiscard]] bool isValid() const {
-		return this->magic == Magic && this->version == Version;
+		return this->magic == SHADER_CACHE_MAGIC && this->version == SHADER_CACHE_VERSION && this->hash != 0;
 	}
 };
 
@@ -118,27 +114,16 @@ bool rend::ShaderManager::loadFromCache(const ShaderData& shaderData) {
 	if (!filesystemManager.exists(cacheFilepath))
 		return false;
 
-	std::vector<uint8_t> cachedData;
-	if (!filesystemManager.readFile(cacheFilepath, cachedData))
+	ReGuiEditor::BytestreamReader reader;
+	if (!filesystemManager.readFile(cacheFilepath, reader))
 		return false;
 
-	if (cachedData.size() < sizeof(ShaderCacheHeader)) {
+	if (reader.remaining() < sizeof(ShaderCacheHeader)) {
 		CONSOLE_WARNING("Shader cache file '%s' has an incomplete header.", cacheFilepath.c_str());
 		return false;
 	}
 
-	size_t offset = 0;
-	const auto readRaw = [&](void* destination, size_t size) {
-		if (cachedData.size() - offset < size)
-			return false;
-
-		std::memcpy(destination, cachedData.data() + offset, size);
-		offset += size;
-		return true;
-	};
-
-	ShaderCacheHeader header;
-	readRaw(&header, sizeof(header));
+	const ShaderCacheHeader header = reader.read<ShaderCacheHeader>();
 	if (!header.isValid()) {
 		CONSOLE_WARNING("Invalid shader cache header in file '%s'.", cacheFilepath.c_str());
 		return false;
@@ -158,57 +143,34 @@ bool rend::ShaderManager::loadFromCache(const ShaderData& shaderData) {
 		return false;
 	}
 
-	if (header.uncompressedSize == 0 || header.compressedSize == 0 || header.uncompressedSize > static_cast<uint32_t>(INT_MAX) || header.compressedSize > static_cast<uint32_t>(INT_MAX)) {
-		CONSOLE_WARNING("Invalid shader cache sizes in file '%s'.", cacheFilepath.c_str());
-		return false;
-	}
-
-	uint32_t includeCount = 0;
-	if (!readRaw(&includeCount, sizeof(includeCount))) {
-		CONSOLE_WARNING("Shader cache file '%s' has no include table.", cacheFilepath.c_str());
-		return false;
-	}
-
+	const uint32_t includeCount = reader.read<uint32_t>();
 	for (uint32_t index = 0; index < includeCount; ++index) {
-		int64_t includeWriteTime = 0;
-		uint32_t pathLength = 0;
-		if (!readRaw(&includeWriteTime, sizeof(includeWriteTime)) || !readRaw(&pathLength, sizeof(pathLength)) || cachedData.size() - offset < pathLength) {
+		if (reader.remaining() < sizeof(uint32_t) + sizeof(int64_t)) {
 			CONSOLE_WARNING("Corrupt include table in shader cache file '%s'.", cacheFilepath.c_str());
 			return false;
 		}
 
-		const std::string includePath(reinterpret_cast<const char*>(cachedData.data()) + offset, pathLength);
-		offset += pathLength;
-
 		time_t currentWriteTime = 0;
-		if (!filesystemManager.getFileWriteTime(includePath, currentWriteTime) || static_cast<int64_t>(currentWriteTime) != includeWriteTime) {
-			CONSOLE_WARNING("Included file '%s' of shader '%s' is missing or modified. Cache is invalid.", includePath.c_str(), shaderData.shaderPath.c_str());
+		if (!filesystemManager.getFileWriteTime(reader.read<std::string>(), currentWriteTime) || !reader.verify<int64_t>(currentWriteTime)) {
+			CONSOLE_WARNING("Included file of shader '%s' is missing or modified. Cache is invalid.", shaderData.shaderPath.c_str());
 			return false;
 		}
 	}
 
-	if (cachedData.size() - offset != header.compressedSize) {
-		CONSOLE_WARNING("Invalid compressed shader data size in cache file '%s'.", cacheFilepath.c_str());
-		return false;
-	}
-
-	const char* compressedData = reinterpret_cast<const char*>(cachedData.data()) + offset;
-
-	std::vector<char> uncompressedData(header.uncompressedSize);
-	const int decompressedSize = LZ4_decompress_safe(compressedData, uncompressedData.data(), static_cast<int>(header.compressedSize), static_cast<int>(header.uncompressedSize));
-	if (decompressedSize != static_cast<int>(header.uncompressedSize)) {
-		CONSOLE_WARNING("Failed to decompress shader data from cache file '%s'.", cacheFilepath.c_str());
+	std::vector<char> shaderBytes;
+	if (!reader.readCompressableData(shaderBytes) || shaderBytes.empty() || reader.remaining() != 0) {
+		CONSOLE_WARNING("Failed to read shader data from cache file '%s'.", cacheFilepath.c_str());
 		return false;
 	}
 
 	ID3DBlob* shaderBlob = nullptr;
-	const HRESULT result = D3DCreateBlob(static_cast<SIZE_T>(header.uncompressedSize), &shaderBlob);
+	const HRESULT result = D3DCreateBlob(static_cast<SIZE_T>(shaderBytes.size()), &shaderBlob);
 	if (FAILED(result) || !shaderBlob) {
 		CONSOLE_WARNING("Failed to create shader blob for shader '%s'.", shaderData.shaderPath.c_str());
 		return false;
 	}
 
-	memcpy(shaderBlob->GetBufferPointer(), uncompressedData.data(), static_cast<size_t>(header.uncompressedSize));
+	memcpy(shaderBlob->GetBufferPointer(), shaderBytes.data(), shaderBytes.size());
 
 	*shaderData.shaderBlob = new rend::ShaderBlob(shaderBlob, shaderData.hash);
 	return true;
@@ -230,22 +192,6 @@ bool rend::ShaderManager::storeToCache(const ShaderData& shaderData, ID3DBlob* s
 		return false;
 	}
 
-	const int compressedBound = LZ4_compressBound(static_cast<int>(blobSize));
-	if (compressedBound <= 0) {
-		CONSOLE_ERROR("Failed to compute compressed size for shader '%s'.", shaderData.shaderPath.c_str());
-		return false;
-	}
-
-	std::vector<char> compressedData(static_cast<size_t>(compressedBound));
-
-	const int actualCompressedSize = LZ4_compress_default(static_cast<const char*>(shaderBlob->GetBufferPointer()), compressedData.data(), static_cast<int>(blobSize), compressedBound);
-	if (actualCompressedSize <= 0) {
-		CONSOLE_ERROR("Failed to compress compiled shader '%s'.", shaderData.shaderPath.c_str());
-		return false;
-	}
-
-	compressedData.resize(static_cast<size_t>(actualCompressedSize));
-
 	time_t shaderFileWriteTime = 0;
 	const FilesystemManager& filesystemManager = FilesystemManager::getInstance();
 	if (!filesystemManager.getFileWriteTime(shaderData.shaderPath, shaderFileWriteTime)) {
@@ -255,11 +201,9 @@ bool rend::ShaderManager::storeToCache(const ShaderData& shaderData, ID3DBlob* s
 
 	ShaderCacheHeader header;
 	header.lastWriteTime = static_cast<int64_t>(shaderFileWriteTime);
-	header.uncompressedSize = static_cast<uint32_t>(blobSize);
-	header.compressedSize = static_cast<uint32_t>(actualCompressedSize);
 	header.hash = shaderData.hash;
 
-	UTILS::ByteStreamWriter writer;
+	ReGuiEditor::BytestreamWriter writer;
 	writer.write(header);
 	writer.write(static_cast<uint32_t>(includes.size()));
 	for (const std::string& includePath : includes) {
@@ -269,17 +213,14 @@ bool rend::ShaderManager::storeToCache(const ShaderData& shaderData, ID3DBlob* s
 			return false;
 		}
 
+		writer.write(includePath);
 		writer.write(static_cast<int64_t>(includeWriteTime));
-		writer.write(static_cast<uint32_t>(includePath.size()));
-		writer.writeBytes(includePath.data(), includePath.size());
 	}
 
-	writer.writeBytes(compressedData.data(), compressedData.size());
+	writer.writeCompressableData(static_cast<const char*>(shaderBlob->GetBufferPointer()), blobSize);
 
 	const std::string cacheFilepath = shaderData.generateCacheFilepath(shaderInfo.type);
-	const std::vector<char> cacheData = writer.toVector();
-
-	if (!filesystemManager.writeFile(cacheFilepath, cacheData)) {
+	if (!filesystemManager.writeFile(cacheFilepath, writer)) {
 		CONSOLE_WARNING("Failed to write shader cache file '%s'.", cacheFilepath.c_str());
 		return false;
 	}

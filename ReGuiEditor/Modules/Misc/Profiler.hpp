@@ -1,5 +1,5 @@
 #pragma once
-#include "ValueAverager.hpp"
+#include "../Math/ValueAverager.hpp"
 
 #include <Windows.h>
 #include <algorithm>
@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 
-namespace UTILS {
-	extern std::vector<std::pair<std::string, UTILS::ValueAverager<double>>> gProfilerResults;
+namespace ReGuiEditor {
+	extern std::vector<std::pair<std::string, ValueAverager<double>>> gProfilerResults;
 
 	class Profiler {
 		LARGE_INTEGER frequency_;
@@ -18,6 +18,7 @@ namespace UTILS {
 		Profiler() {
 			QueryPerformanceFrequency(&this->frequency_);
 			QueryPerformanceCounter(&this->startTime_);
+
 			this->endTime_ = this->startTime_;
 		}
 
@@ -39,17 +40,17 @@ namespace UTILS {
 		}
 
 		void saveResult(const std::string& name) const {
-			for (auto& [existingName, averager] : UTILS::gProfilerResults) {
+			for (auto& [existingName, averager] : gProfilerResults) {
 				if (existingName == name) {
 					averager.update(this->getElapsedMilliseconds());
 					return;
 				}
 			}
 
-			UTILS::gProfilerResults.emplace_back(name, UTILS::ValueAverager<double>());
-			UTILS::gProfilerResults.back().second.update(this->getElapsedMilliseconds());
+			gProfilerResults.emplace_back(name, ValueAverager<double>());
+			gProfilerResults.back().second.update(this->getElapsedMilliseconds());
 
-			std::sort(UTILS::gProfilerResults.begin(), UTILS::gProfilerResults.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+			std::sort(gProfilerResults.begin(), gProfilerResults.end(), [](const auto& a, const auto& b) -> bool { return a.first < b.first; });
 		}
 	};
 
@@ -71,5 +72,5 @@ namespace UTILS {
 #define PROFILE_CONCAT_IMPL(a, b) a##b
 #define PROFILE_CONCAT(a, b) PROFILE_CONCAT_IMPL(a, b)
 
-#define PROFILE_SCOPE(name) UTILS::ScopedProfiler PROFILE_CONCAT(profiler, __LINE__)(name)
+#define PROFILE_SCOPE(name) ReGuiEditor::ScopedProfiler PROFILE_CONCAT(profiler, __LINE__)(name)
 #define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCTION__)
