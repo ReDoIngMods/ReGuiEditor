@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <rend/FullscreenPass.hpp>
 #include <rend/Resources/RenderView.hpp>
@@ -8,7 +8,7 @@
 
 #include <MyGui/MyGUI_Types.h>
 
-class BlurrySubSkinRenderer : public UTILS::Singleton<BlurrySubSkinRenderer> {
+class BlurrySubSkinRenderer : public ReGuiEditor::Singleton<BlurrySubSkinRenderer> {
 	rend::FullscreenPass fullscreenPass_;
 	rend::SamplerStateHandle samplerState_;
 public:

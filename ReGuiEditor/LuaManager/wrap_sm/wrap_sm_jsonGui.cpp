@@ -7,7 +7,7 @@
 #include "../LuaVM.hpp"
 #include "../UserdataManager.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 #include <MyGuiRenderer/GuiSystemManager.hpp>
 #include <MyGuiRenderer/JsonGui/JsonGuiTypes.hpp>
@@ -163,7 +163,7 @@ static int jsonGui_render(lua_State* L) {
 	JsonGuiInstance& gui = checkGui(L, 1);
 	luaL_checktype(L, 2, LUA_TTABLE);
 
-	JSONValue document;
+	ReGuiEditor::JSONValue document;
 	std::string error;
 	if (!SmJson::toJson(L, 2, document, error))
 		return SmJson::raiseError(L, error);
@@ -227,7 +227,11 @@ static int jsonGui_getWidget(lua_State* L) {
 		return 1;
 	}
 
-	userdataManager.create<JsonWidgetHandle>(L, JsonWidgetHandle{ handle.gui, name });
+	JsonWidgetHandle widgetHandle;
+	widgetHandle.gui = handle.gui;
+	widgetHandle.name = name;
+
+	userdataManager.create<JsonWidgetHandle>(L, std::move(widgetHandle));
 	return 1;
 }
 

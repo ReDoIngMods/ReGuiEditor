@@ -2,16 +2,14 @@
 
 #include "DataManager.hpp"
 
-#include <Application.hpp>
+#include <Window/Splashscreen.hpp>
 
 #include <Filesystem/FilesystemManager.hpp> 
 
-#include <Modules/Misc/Strings.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 #include <MyGui/MyGUI_DataManager.h>
 #include <MyGui/MyGUI_ResourceManager.h>
-
-#include <JSON/JSONObject.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -20,19 +18,19 @@
 #include <vector>
 
 bool ResolutionManager::initialize() {
-    JSONValue jsonContent;
-	if (!FilesystemManager::getInstance().readFile("$GAME_DATA/Gui/guiResolutions.json", jsonContent)) {
+    ReGuiEditor::JSONValue jsonContent;
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile("$GAME_DATA/Gui/guiResolutions.json", jsonContent)) {
 		CONSOLE_ERROR("Failed to read Resolutions.json file.");
 		return false;
 	}
 
-	const JSONObject* jsonData = jsonContent.tryGet<JSONObject>();
+	const ReGuiEditor::JSONObject* jsonData = jsonContent.tryGet<ReGuiEditor::JSONObject>();
 	if (!jsonData) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: root is not an object.");
 		return false;
 	}
 
-	const JSONArray* resolutionList = jsonData->at("resolutionList").tryGet<JSONArray>();
+	const ReGuiEditor::JSONArray* resolutionList = jsonData->at("resolutionList").tryGet<ReGuiEditor::JSONArray>();
 	if (!resolutionList) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: 'resolutionList' is not an array.");
 		return false;
@@ -41,8 +39,8 @@ bool ResolutionManager::initialize() {
 	this->resolutions_.clear();
 	this->resolutions_.reserve(resolutionList->size());
 
-	for (const JSONValue& resolutionEntry : *resolutionList) {
-		const JSONObject* resolutionObject = resolutionEntry.tryGet<JSONObject>();
+	for (const ReGuiEditor::JSONValue& resolutionEntry : *resolutionList) {
+		const ReGuiEditor::JSONObject* resolutionObject = resolutionEntry.tryGet<ReGuiEditor::JSONObject>();
 		if (!resolutionObject) {
 			CONSOLE_WARNING("Skipping invalid resolution entry in Resolutions.json: not an object.");
 			continue;
@@ -59,7 +57,7 @@ bool ResolutionManager::initialize() {
 		this->resolutions_.emplace_back(width, height, folder);
 	}
 
-	const JSONArray* resourceList = jsonData->at("resources").tryGet<JSONArray>();
+	const ReGuiEditor::JSONArray* resourceList = jsonData->at("resources").tryGet<ReGuiEditor::JSONArray>();
 	if (!resourceList) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: 'resources' is not an array.");
 		return false;
@@ -68,7 +66,7 @@ bool ResolutionManager::initialize() {
 	this->resources_.clear();
 	this->resources_.reserve(resourceList->size());
 
-	for (const JSONValue& resourceEntry : *resourceList) {
+	for (const ReGuiEditor::JSONValue& resourceEntry : *resourceList) {
 		const std::string* resourcePath = resourceEntry.tryGet<std::string>();
 		if (!resourcePath) {
 			CONSOLE_WARNING("Skipping invalid resource entry in Resolutions.json: not a string.");
@@ -130,7 +128,7 @@ bool ResolutionManager::setResolution(uint32_t width, uint32_t height) {
     for (const auto& resourcePath : this->resources_) {
         const std::string fullPath = (this->resolution_->folder / resourcePath).generic_string();
 
-        Application::getInstance().splashscreen.setStatus(L"Loading resource: " + ReGuiEditor::toWideString(resourcePath));
+		SET_SPLASH_STATUS("Loading resource: %s", resourcePath.c_str());
 
         if (!resourceManager.load(fullPath)) {
             CONSOLE_WARNING("Failed to load resource: %s", fullPath.c_str());

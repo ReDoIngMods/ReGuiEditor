@@ -1,5 +1,5 @@
 #pragma once
-#include <JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 #include <LuaJIT/lua.h>
 
@@ -8,8 +8,8 @@
 void wrap_sm_json(lua_State* L);
 
 namespace SmJson {
-	[[nodiscard]] bool toJson(lua_State* L, int index, JSONValue& output, std::string& error);
-	void pushJson(lua_State* L, const JSONValue& value);
+	[[nodiscard]] bool toJson(lua_State* L, int index, ReGuiEditor::JSONValue& output, std::string& error);
+	void pushJson(lua_State* L, const ReGuiEditor::JSONValue& value);
 
 	int raiseError(lua_State* L, std::string& error);
 }

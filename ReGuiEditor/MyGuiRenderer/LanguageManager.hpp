@@ -1,10 +1,10 @@
 #pragma once
-#include <string>
+#include <Modules/Misc/Singleton.hpp>
 
-#include <UTILS/Singleton.hpp>
+#include <string>
 #include <vector>
 
-class LanguageManager : public UTILS::Singleton<LanguageManager> {
+class LanguageManager : public ReGuiEditor::Singleton<LanguageManager> {
 	std::string currentLanguage_ = "";
 
 	struct LanguageEntry {

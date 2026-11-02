@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include "LanguageManager.hpp"
 #include "ResolutionManager.hpp"
@@ -28,7 +28,7 @@
 #include <memory>
 #include <string>
 
-class GuiSystemManager : public UTILS::Singleton<GuiSystemManager> {
+class GuiSystemManager : public ReGuiEditor::Singleton<GuiSystemManager> {
 	MyGUI::LogManager* logManager_ = nullptr;
 	MyGUI::LogSource* myGuiLogSource_ = nullptr;
 	LogListener myGuiLogListener_;

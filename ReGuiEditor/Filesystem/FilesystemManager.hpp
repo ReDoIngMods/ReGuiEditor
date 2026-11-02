@@ -1,93 +1,59 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
-
 #include <Modules/Bytestream/BytestreamReader.hpp>
 #include <Modules/Bytestream/BytestreamWriter.hpp>
-
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
-#include <JSON/JSONWriter.hpp>
+#include <Modules/JSON/JSONObject.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 
-struct FilesystemListEntry {
-	std::string name;
-	std::string formattedWriteTime = "N/A";
-	std::string fileTypename = "N/A";
-	
-	time_t writeTime = 0;
-	size_t fileSize = 0;
+namespace ReGuiEditor {
+	struct FilesystemListEntry {
+		std::string name;
+		std::string formattedWriteTime = "N/A";
+		std::string fileTypename = "N/A";
 
-	bool isDirectory = false;
-};
+		time_t writeTime = 0;
+		size_t fileSize = 0;
 
-class FilesystemManager : public UTILS::Singleton<FilesystemManager> {
-public:
-	[[nodiscard]] bool readFile(const std::string& path, std::vector<uint8_t>& outputData) const;
-	[[nodiscard]] bool readFile(const std::string& path, std::string& outputString) const {
-		std::vector<uint8_t> data;
-		if (!this->readFile(path, data))
-			return false;
+		bool isDirectory = false;
+	};
 
-		outputString.assign(data.begin(), data.end());
-		return true;
-	}
+	class FilesystemManager : public ReGuiEditor::Singleton<FilesystemManager> {
+	public:
+		[[nodiscard]] bool readFile(const std::string& path, std::vector<uint8_t>& outputData) const;
+		[[nodiscard]] bool readFile(const std::string& path, std::string& outputString) const;
 
-	[[nodiscard]] bool readFile(const std::string& path, std::vector<char>& outputData) const {
-		std::vector<uint8_t> data;
-		if (!this->readFile(path, data))
-			return false;
+		template<typename T>
+		[[nodiscard]] inline bool readFile(const std::string& path, std::vector<T>& outputData) const {
+			std::vector<uint8_t> data;
+			if (!this->readFile(path, data))
+				return false;
 
-		outputData.assign(data.begin(), data.end());
-		return true;
-	}
+			outputData.assign(reinterpret_cast<const T*>(data.data()), reinterpret_cast<const T*>(data.data() + data.size()));
+			return true;
+		}
 
-	[[nodiscard]] bool readFile(const std::string& path, ReGuiEditor::BytestreamReader& reader) const {
-		std::vector<uint8_t> data;
-		if (!this->readFile(path, data))
-			return false;
+		[[nodiscard]] bool readFile(const std::string& path, ReGuiEditor::BytestreamReader& reader) const;
+		[[nodiscard]] bool readFile(const std::string& path, ReGuiEditor::JSONValue& output) const;
 
-		reader = ReGuiEditor::BytestreamReader(data.data(), data.size());
-		return true;
-	}
+		[[nodiscard]] bool writeFile(const std::string& path, const std::vector<uint8_t>& data) const;
+		[[nodiscard]] bool writeFile(const std::string& path, const std::string& data) const;
 
-	[[nodiscard]] bool readFile(const std::string& path, JSONValue& output) const {
-		std::string content;
-		if (!this->readFile(path, content))
-			return false;
+		template<typename T>
+		[[nodiscard]] inline bool writeFile(const std::string& path, const std::vector<T>& data) const {
+			const std::vector<uint8_t> byteData(reinterpret_cast<const uint8_t*>(data.data()), reinterpret_cast<const uint8_t*>(data.data() + data.size()));
+			return this->writeFile(path, byteData);
+		}
 
-		if (!JSONParser::parseJson(content, output))
-			return false;
+		[[nodiscard]] bool writeFile(const std::string& path, const ReGuiEditor::BytestreamWriter& writer) const;
+		[[nodiscard]] bool writeFile(const std::string& path, const ReGuiEditor::JSONValue& data, bool prettyPrint = true) const;
 
-		return true;
-	}
+		[[nodiscard]] bool exists(const std::string& path) const;
+		[[nodiscard]] bool getFileWriteTime(const std::string& path, time_t& writeTime) const;
 
-	[[nodiscard]] bool writeFile(const std::string& path, const std::vector<uint8_t>& data) const;
-	[[nodiscard]] bool writeFile(const std::string& path, const std::string& data) const {
-		std::vector<uint8_t> byteData(data.begin(), data.end());
-		return this->writeFile(path, byteData);
-	}
-
-	[[nodiscard]] bool writeFile(const std::string& path, const std::vector<char>& data) const {
-		std::vector<uint8_t> byteData(data.begin(), data.end());
-		return this->writeFile(path, byteData);
-	}
-
-	[[nodiscard]] bool writeFile(const std::string& path, const ReGuiEditor::BytestreamWriter& writer) const {
-		std::vector<uint8_t> data(writer.cbegin(), writer.cend());
-		return this->writeFile(path, data);
-	}
-
-	[[nodiscard]] bool writeFile(const std::string& path, const JSONValue& data, bool prettyPrint = true) const {
-		const std::string jsonString = JSONWriter::stringify(data, prettyPrint);
-		return this->writeFile(path, jsonString);
-	}
-
-	[[nodiscard]] bool exists(const std::string& path) const;
-	[[nodiscard]] bool getFileWriteTime(const std::string& path, time_t& writeTime) const;
-
-	[[nodiscard]] std::optional<std::vector<FilesystemListEntry>> listDirectory(const std::string& directory, bool includeFiles = true, bool includeDirectories = true) const;
-};
+		[[nodiscard]] std::optional<std::vector<FilesystemListEntry>> listDirectory(const std::string& directory, bool includeFiles = true, bool includeDirectories = true) const;
+	};
+}

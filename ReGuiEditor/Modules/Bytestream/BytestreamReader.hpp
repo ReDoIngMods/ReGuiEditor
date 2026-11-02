@@ -79,6 +79,8 @@ namespace ReGuiEditor {
 		char* cend() const { return this->end_; }
 		char* rend() const { return this->begin_ - 1; }
 
+		bool isEOF() const { return this->position_ >= this->end_; }
+
 		bool readCompressableData(std::vector<char>& output);
 
 		template<typename T>

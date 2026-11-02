@@ -1,10 +1,13 @@
 #include "Splashscreen.hpp"
 
+#include <Modules/Misc/Strings.hpp>
+
 #include <FreeImage/FreeImage.h>
 
 #include <Windows.h>
 
 #include <algorithm>
+#include <cstdarg>
 #include <filesystem>
 #include <string>
 #include <utility>
@@ -16,7 +19,9 @@ constexpr int SPLASH_TEXT_SIZE = 14;
 
 constexpr double SPLASH_MAX_SCREEN_FRACTION = 0.8;
 
-bool Splashscreen::loadBitmap(const std::filesystem::path& imagePath) {
+ReGuiEditor::Splashscreen ReGuiEditor::gSplashscreen;
+
+bool ReGuiEditor::Splashscreen::loadBitmap(const std::filesystem::path& imagePath) {
 	FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeU(imagePath.c_str());
 	if (format == FIF_UNKNOWN)
 		format = FreeImage_GetFIFFromFilenameU(imagePath.c_str());
@@ -74,7 +79,7 @@ bool Splashscreen::loadBitmap(const std::filesystem::path& imagePath) {
 	return true;
 }
 
-void Splashscreen::paint() {
+void ReGuiEditor::Splashscreen::paint() {
 	PAINTSTRUCT paintStruct;
 	HDC windowDc = BeginPaint(this->hwnd_, &paintStruct);
 
@@ -118,7 +123,7 @@ void Splashscreen::paint() {
 	EndPaint(this->hwnd_, &paintStruct);
 }
 
-LRESULT CALLBACK Splashscreen::windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK ReGuiEditor::Splashscreen::windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	if (message == WM_NCCREATE) {
 		const CREATESTRUCT* createStruct = reinterpret_cast<const CREATESTRUCT*>(lParam);
 		SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(createStruct->lpCreateParams));
@@ -138,7 +143,7 @@ LRESULT CALLBACK Splashscreen::windowProc(HWND hwnd, UINT message, WPARAM wParam
 	return DefWindowProcW(hwnd, message, wParam, lParam);
 }
 
-bool Splashscreen::show(const std::filesystem::path& imagePath) {
+bool ReGuiEditor::Splashscreen::show(const std::filesystem::path& imagePath) {
 	if (this->hwnd_)
 		return true;
 
@@ -149,7 +154,7 @@ bool Splashscreen::show(const std::filesystem::path& imagePath) {
 
 	WNDCLASSW windowClass;
 	ZeroMemory(&windowClass, sizeof(windowClass));
-	windowClass.lpfnWndProc = Splashscreen::windowProc;
+	windowClass.lpfnWndProc = ReGuiEditor::Splashscreen::windowProc;
 	windowClass.hInstance = instance;
 	windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
 	windowClass.lpszClassName = SPLASH_CLASS_NAME;
@@ -178,7 +183,7 @@ bool Splashscreen::show(const std::filesystem::path& imagePath) {
 	return true;
 }
 
-void Splashscreen::close() {
+void ReGuiEditor::Splashscreen::close() {
 	if (this->hwnd_) {
 		DestroyWindow(this->hwnd_);
 		this->hwnd_ = nullptr;
@@ -197,11 +202,41 @@ void Splashscreen::close() {
 	this->statusText_.clear();
 }
 
-void Splashscreen::setStatus(const std::wstring text) {
+void ReGuiEditor::Splashscreen::setStatus(const std::wstring text, ...) {
 	if (!this->hwnd_)
 		return;
 
-	this->statusText_ = std::move(text);
+	va_list args;
+	va_start(args, text);
+
+	std::wstring formattedText = ReGuiEditor::formatStringV(text, args);
+
+	va_end(args);
+
+	this->statusText_ = std::move(formattedText);
+
+	InvalidateRect(this->hwnd_, nullptr, FALSE);
+	UpdateWindow(this->hwnd_);
+
+	MSG message;
+	while (PeekMessageW(&message, this->hwnd_, 0, 0, PM_REMOVE)) {
+		TranslateMessage(&message);
+		DispatchMessageW(&message);
+	}
+}
+
+void ReGuiEditor::Splashscreen::setStatus(const std::string text, ...) {
+	if (!this->hwnd_)
+		return;
+
+	va_list args;
+	va_start(args, text);
+
+	const std::string formattedText = ReGuiEditor::formatStringV(text, args);
+
+	va_end(args);
+
+	this->statusText_ = ReGuiEditor::toWideString(formattedText);
 
 	InvalidateRect(this->hwnd_, nullptr, FALSE);
 	UpdateWindow(this->hwnd_);

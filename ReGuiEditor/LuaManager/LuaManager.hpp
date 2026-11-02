@@ -2,7 +2,7 @@
 #include "LuaVM.hpp"
 #include "UserdataManager.hpp"
 
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <LuaJIT/lua.h>
 
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-class LuaManager : public UTILS::Singleton<LuaManager> {
+class LuaManager : public ReGuiEditor::Singleton<LuaManager> {
 	lua_State* state_ = nullptr;
 	std::vector<std::unique_ptr<LuaVM>> luaVMs_;
 

@@ -118,7 +118,7 @@ bool LuaVM::initialize(const std::string& entryScript) {
 	this->createEnvironment();
 	
 	std::string resolvedPath = entryScript;
-	if (!DirectoryManager::getInstance().resolveContentData(resolvedPath, this->modLocalId_)) {
+	if (!ReGuiEditor::DirectoryManager::getInstance().resolveContentData(resolvedPath, this->modLocalId_)) {
 		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to resolve entry script path '%s' for mod %s.", entryScript.c_str(), this->modLocalId_.c_str());
 	
 		this->cleanup();
@@ -195,7 +195,7 @@ int LuaVM::loadFile(const std::string& path) {
 	this->scriptWatcher_.watchFile(resolvedPath);
 
 	std::vector<char> content;
-	if (!FilesystemManager::getInstance().readFile(resolvedPath, content)) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile(resolvedPath, content)) {
 		lua_pushfstring(this->state_, "cannot read file '%s'", path.c_str());
 		return LUA_ERRFILE;
 	}

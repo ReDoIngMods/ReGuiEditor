@@ -2,11 +2,11 @@
 
 #include "UGCMod.hpp"
 
-#include <Application.hpp>
+#include <Window/Splashscreen.hpp>
 
 #include <Filesystem/DirectoryManager.hpp>
 
-#include <Modules/Misc/Strings.hpp>
+#include <Modules/Misc/ParallelFor.hpp>
 
 #include <steam/isteamremotestorage.h>
 #include <steam/isteamugc.h>
@@ -15,10 +15,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 inline static bool getItemInstallPath(PublishedFileId_t fileId, std::filesystem::path& itemPath) {
@@ -34,19 +36,22 @@ inline static bool isOwnApp(AppId_t appId) {
 	return appId == SteamUtils()->GetAppID();
 }
 
-bool UGCManager::registerMod(const std::filesystem::path& modPath, bool isLocal) {
-	const std::shared_ptr<UGCMod> mod = UGCMod::fromPath(modPath, isLocal);
+bool UGCManager::commitMod(ModCandidate& candidate) {
+	const std::filesystem::path& modPath = candidate.path;
+	const bool isLocal = candidate.isLocal;
+
+	const std::shared_ptr<UGCMod> mod = std::move(candidate.mod);
 	if (!mod) {
-		CONSOLE_ERROR("Failed to create UGCMod from path: %s", modPath.string().c_str());
+		CONSOLE_ERROR("Failed to create UGCMod from path: %s (%s)", modPath.string().c_str(), candidate.error.c_str());
 		return false;
 	}
 
-	if (!DirectoryManager::getInstance().addDirectory(mod->contentPath, modPath)) {
+	if (!ReGuiEditor::DirectoryManager::getInstance().addDirectory(mod->contentPath, modPath)) {
 		CONSOLE_WARNING("Mod: %s was already loaded with localId: %s", modPath.string().c_str(), mod->localId.c_str());
 		return false;
 	}
 
-	Application::getInstance().splashscreen.setStatus(ReGuiEditor::formatString(L"Loading mod: %hs (%hs)", mod->localId.c_str(), modPath.string().c_str()));
+	SET_SPLASH_STATUS("Loading mod: %s (%s)", mod->localId.c_str(), modPath.string().c_str());
 
 	this->mods_.push_back(mod);
 	if (mod->fileId != 0)
@@ -58,6 +63,33 @@ bool UGCManager::registerMod(const std::filesystem::path& modPath, bool isLocal)
 		this->workshopMods_.push_back(mod);
 
 	return true;
+}
+
+size_t UGCManager::registerMods(std::vector<ModCandidate>& candidates) {
+	ReGuiEditor::parallelFor(candidates.size(), [&candidates](size_t index) {
+		ModCandidate& candidate = candidates[index];
+		try {
+			candidate.mod = UGCMod::fromPath(candidate.path, candidate.isLocal, candidate.error);
+		} catch (const std::exception& exception) {
+			candidate.mod = nullptr;
+			candidate.error = exception.what();
+		}
+	});
+
+	size_t registered = 0;
+	for (ModCandidate& candidate : candidates) {
+		if (this->commitMod(candidate))
+			++registered;
+	}
+
+	return registered;
+}
+
+bool UGCManager::registerMod(const std::filesystem::path& modPath, bool isLocal) {
+	std::vector<ModCandidate> candidates;
+	candidates.emplace_back(modPath, isLocal);
+
+	return this->registerMods(candidates) == 1;
 }
 
 void UGCManager::registerWorkshopItem(PublishedFileId_t fileId) {
@@ -73,9 +105,47 @@ void UGCManager::registerWorkshopItem(PublishedFileId_t fileId) {
 	this->registerMod(itemPath, false);
 }
 
+void UGCManager::loadGameDirectories() {
+	struct GameDirectory {
+		const char* key;
+		const char* name;
+	};
+
+	static constexpr GameDirectory gameDirectories[] = {
+		{ "$GAME_DATA", "Game Data" },
+		{ "$SURVIVAL_DATA", "Survival Data" },
+		{ "$CHALLENGE_DATA", "Challenge Data" },
+		{ "$PARTICLE_EDITOR_DATA", "Particle Editor Data" }
+	};
+
+	this->gameDirectories_.clear();
+
+	ReGuiEditor::DirectoryManager& directoryManager = ReGuiEditor::DirectoryManager::getInstance();
+	for (const GameDirectory& gameDirectory : gameDirectories) {
+		std::filesystem::path resolvedPath;
+		if (!directoryManager.resolveDirectory(gameDirectory.key, resolvedPath))
+			continue;
+
+		std::error_code error;
+		if (!std::filesystem::is_directory(resolvedPath, error))
+			continue;
+
+		const std::shared_ptr<UGCMod> mod = std::make_shared<UGCMod>();
+		mod->name = gameDirectory.name;
+		mod->localId = gameDirectory.key + 1; // Skip the '$'
+		mod->contentPath = gameDirectory.key;
+		mod->thumbnailFilepath = "$RGE_DATA/Images/thumbnail_missing.jpg";
+		mod->path = std::move(resolvedPath);
+		mod->version = 2;
+		mod->isGameDirectory = true;
+
+		this->gameDirectories_.push_back(mod);
+	}
+}
+
 bool UGCManager::loadLocalMods() {
 	std::filesystem::path modsRoot;
-	if (!DirectoryManager::getInstance().resolveDirectory("$RGE_USER_DATA/Mods", modsRoot)) {
+	if (!ReGuiEditor::DirectoryManager::getInstance().resolveDirectory("$RGE_USER_DATA/Mods", modsRoot)) {
 		CONSOLE_ERROR("Failed to resolve the local mods folder.");
 		return false;
 	}
@@ -86,9 +156,10 @@ bool UGCManager::loadLocalMods() {
 		return true;
 	}
 
+	std::vector<ModCandidate> candidates;
 	for (std::filesystem::directory_iterator iterator(modsRoot, error), end; !error && iterator != end; iterator.increment(error)) {
 		if (iterator->is_directory(error))
-			this->registerMod(iterator->path(), true);
+			candidates.push_back({ iterator->path(), true });
 	}
 
 	if (error) {
@@ -96,6 +167,7 @@ bool UGCManager::loadLocalMods() {
 		return false;
 	}
 
+	this->registerMods(candidates);
 	return true;
 }
 
@@ -103,8 +175,23 @@ void UGCManager::loadUGCMods() {
 	std::vector<PublishedFileId_t> subscribedItems(SteamUGC()->GetNumSubscribedItems());
 	subscribedItems.resize(SteamUGC()->GetSubscribedItems(subscribedItems.data(), static_cast<uint32_t>(subscribedItems.size())));
 
-	for (const PublishedFileId_t fileId : subscribedItems)
-		this->registerWorkshopItem(fileId);
+	std::vector<ModCandidate> candidates;
+	candidates.reserve(subscribedItems.size());
+
+	for (const PublishedFileId_t fileId : subscribedItems) {
+		if (this->fileIdToLocalId_.contains(fileId))
+			continue;
+
+		std::filesystem::path itemPath;
+		if (!getItemInstallPath(fileId, itemPath)) {
+			CONSOLE_ERROR("Failed to get the installation path for Steam Workshop item: %llu", static_cast<unsigned long long>(fileId));
+			continue;
+		}
+
+		candidates.push_back({ std::move(itemPath), false });
+	}
+
+	this->registerMods(candidates);
 }
 
 void UGCManager::onItemInstalled(ItemInstalled_t* pCallback) {
@@ -139,7 +226,7 @@ void UGCManager::onItemUnsubscribed(RemoteStoragePublishedFileUnsubscribed_t* pC
 	}
 
 	const std::shared_ptr<UGCMod> mod = *iterator;
-	if (!DirectoryManager::getInstance().removeDirectory(mod->contentPath))
+	if (!ReGuiEditor::DirectoryManager::getInstance().removeDirectory(mod->contentPath))
 		CONSOLE_WARNING("Steam Workshop item: %llu with localId: %s is not in the directories map.", fileId, localId.c_str());
 
 	std::erase(this->workshopMods_, mod);
@@ -157,6 +244,7 @@ bool UGCManager::initialize() {
 	}
 
 	this->loadUGCMods();
+	this->loadGameDirectories();
 
 	this->itemInstalledCallback_.Register(this, &UGCManager::onItemInstalled);
 	this->itemUnsubscribedCallback_.Register(this, &UGCManager::onItemUnsubscribed);
@@ -172,11 +260,12 @@ void UGCManager::cleanup() {
 		this->callbacksRegistered_ = false;
 	}
 
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
+	ReGuiEditor::DirectoryManager& directoryManager = ReGuiEditor::DirectoryManager::getInstance();
 	for (const auto& mod : this->mods_)
 		directoryManager.removeDirectory(mod->contentPath);
 
 	this->fileIdToLocalId_.clear();
+	this->gameDirectories_.clear();
 	this->workshopMods_.clear();
 	this->localMods_.clear();
 	this->mods_.clear();
@@ -188,6 +277,20 @@ void UGCManager::cleanup() {
 		});
 
 	return iterator != this->mods_.end() ? *iterator : nullptr;
+}
+
+[[nodiscard]] std::shared_ptr<UGCMod> UGCManager::getModByContentPath(const std::string& contentPath) const {
+	const auto matches = [&contentPath](const std::shared_ptr<UGCMod>& mod) -> bool {
+		return mod->contentPath == contentPath;
+	};
+
+	if (const auto iterator = std::find_if(this->mods_.begin(), this->mods_.end(), matches); iterator != this->mods_.end())
+		return *iterator;
+
+	if (const auto iterator = std::find_if(this->gameDirectories_.begin(), this->gameDirectories_.end(), matches); iterator != this->gameDirectories_.end())
+		return *iterator;
+
+	return nullptr;
 }
 
 [[nodiscard]] std::shared_ptr<UGCMod> UGCManager::getModByFileId(PublishedFileId_t fileId) const {

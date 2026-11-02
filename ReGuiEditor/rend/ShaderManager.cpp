@@ -54,7 +54,7 @@ public:
 		const std::filesystem::path path = std::filesystem::path(this->baseDirectory_) / pFileName;
 		
 		std::vector<uint8_t> fileContent;
-		if (!FilesystemManager::getInstance().readFile(path.string(), fileContent)) {
+		if (!ReGuiEditor::FilesystemManager::getInstance().readFile(path.string(), fileContent)) {
 			CONSOLE_ERROR("Failed to read included shader file '%s'.", path.string().c_str());
 			return E_FAIL;
 		}
@@ -110,7 +110,7 @@ bool rend::ShaderManager::loadFromCache(const ShaderData& shaderData) {
 	}
 
 	const std::string cacheFilepath = shaderData.generateCacheFilepath(shaderInfo.type);
-	const FilesystemManager& filesystemManager = FilesystemManager::getInstance();
+	const ReGuiEditor::FilesystemManager& filesystemManager = ReGuiEditor::FilesystemManager::getInstance();
 	if (!filesystemManager.exists(cacheFilepath))
 		return false;
 
@@ -193,7 +193,7 @@ bool rend::ShaderManager::storeToCache(const ShaderData& shaderData, ID3DBlob* s
 	}
 
 	time_t shaderFileWriteTime = 0;
-	const FilesystemManager& filesystemManager = FilesystemManager::getInstance();
+	const ReGuiEditor::FilesystemManager& filesystemManager = ReGuiEditor::FilesystemManager::getInstance();
 	if (!filesystemManager.getFileWriteTime(shaderData.shaderPath, shaderFileWriteTime)) {
 		CONSOLE_ERROR("Failed to get last write time for shader '%s'.", shaderData.shaderPath.c_str());
 		return false;
@@ -236,7 +236,7 @@ bool rend::ShaderManager::createBlob(const ShaderData& shaderData, rend::RefCoun
 	}
 
 	std::string shaderSource;
-	if (!FilesystemManager::getInstance().readFile(shaderData.shaderPath, shaderSource)) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile(shaderData.shaderPath, shaderSource)) {
 		CONSOLE_ERROR("Failed to read shader file '%s'.", shaderData.shaderPath.c_str());
 		return false;
 	}

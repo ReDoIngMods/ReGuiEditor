@@ -1,18 +1,17 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
-
 #include "BlurrySubSkin.hpp"
+
+#include <Modules/Misc/Singleton.hpp>
+
+#include <rend/Resources/ShaderResourceView.hpp>
 
 #include <MyGui/MyGUI_CommonStateInfo.h>
 #include <MyGui/MyGUI_FactoryManager.h>
 
-#include <rend/Resources/ShaderResourceView.hpp>
-
-#include <algorithm>
 #include <memory>
 #include <vector>
 
-class BlurrySubSkinRegistry : public UTILS::Singleton<BlurrySubSkinRegistry> {
+class BlurrySubSkinRegistry : public ReGuiEditor::Singleton<BlurrySubSkinRegistry> {
 	std::vector<BlurrySubSkin*> instances_;
 public:
 	BlurrySubSkinRegistry() {

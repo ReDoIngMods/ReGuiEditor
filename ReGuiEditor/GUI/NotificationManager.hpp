@@ -1,9 +1,9 @@
 #pragma once
+#include <Modules/Misc/Singleton.hpp>
 
-#include <UTILS/Singleton.hpp>
+#include <cstdint>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 enum NotificationType {
 	NOTIFICATION_INFO,
@@ -11,7 +11,7 @@ enum NotificationType {
 	NOTIFICATION_ERROR
 };
 
-class NotificationManager : public UTILS::Singleton<NotificationManager> {
+class NotificationManager : public ReGuiEditor::Singleton<NotificationManager> {
 	struct Notification {
 		uint32_t id = 0;
 

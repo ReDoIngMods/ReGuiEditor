@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <MyGui/MyGUI_IResource.h>
 
@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-class ResolutionManager : public UTILS::Singleton<ResolutionManager> {
+class ResolutionManager : public ReGuiEditor::Singleton<ResolutionManager> {
 	struct Resolution {
 		uint32_t width;
 		uint32_t height;

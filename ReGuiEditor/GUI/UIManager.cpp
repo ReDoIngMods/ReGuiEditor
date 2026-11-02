@@ -166,8 +166,7 @@ bool UIManager::initialize() {
 
 	applyImGuiTheme();
 
-	Application& app = Application::getInstance();
-	if (!RGE_ImGui_ImplWin32_Init(app.window.getHwnd())) {
+	if (!RGE_ImGui_ImplWin32_Init(ReGuiEditor::getApp().window.getHwnd())) {
 		CONSOLE_ERROR(L"Failed to initialize ImGui Win32 backend");
 		return false;
 	}
@@ -199,7 +198,7 @@ bool UIManager::initialize() {
 		return false;
 	}
 
-	this->viewsManager = ViewsManager::createInstance();
+	this->viewsManager = ReGuiEditor::ViewsManager::createInstance();
 	if (!this->viewsManager) {
 		CONSOLE_ERROR("Failed to create ViewsManager.");
 		return false;
@@ -210,7 +209,7 @@ bool UIManager::initialize() {
 	this->viewsManager->registerView<PropertiesView>("Properties");
 	this->viewsManager->registerView<UIRenderView>("Render");
 
-	this->filePickerManager = FilePickerManager::createInstance();
+	this->filePickerManager = ReGuiEditor::FilePickerManager::createInstance();
 	this->filePickerManager->initialize();
 
 	if(!this->fileIconHandler.initialize()) {

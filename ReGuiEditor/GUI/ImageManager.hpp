@@ -4,7 +4,7 @@
 #include <rend/Common/RefCounter.hpp>
 #include <rend/Resources/Texture2D.hpp>
 
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <ImGui/imgui.h>
 
@@ -74,7 +74,7 @@ public:
 
 using ImagePtr = std::shared_ptr<Image>;
 
-class ImageManager : public UTILS::Singleton<ImageManager> {
+class ImageManager : public ReGuiEditor::Singleton<ImageManager> {
 	struct CacheEntry {
 		ImagePtr image;
 		uint32_t unusedFrames = 0;

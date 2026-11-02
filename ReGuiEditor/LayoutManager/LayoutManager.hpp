@@ -1,9 +1,9 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <string>
 
-class LayoutManager : public UTILS::Singleton<LayoutManager> {
+class LayoutManager : public ReGuiEditor::Singleton<LayoutManager> {
 public:
 	void initialize();
 

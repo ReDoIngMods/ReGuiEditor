@@ -81,7 +81,7 @@ bool RPTexture::loadCache(const std::string& _filename) {
 	if (sourceName.empty())
 		return false;
 
-	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
+	ReGuiEditor::FilesystemManager& filesystemManager = ReGuiEditor::FilesystemManager::getInstance();
 
 	const std::string cacheName = getCacheFilepath(_filename);
 	if (!filesystemManager.exists(cacheName))
@@ -161,7 +161,7 @@ bool RPTexture::storeCache(const std::string& _filename, const uint8_t* _pixels)
 	if (sourceName.empty())
 		return false;
 
-	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
+	ReGuiEditor::FilesystemManager& filesystemManager = ReGuiEditor::FilesystemManager::getInstance();
 
 	time_t sourceWriteTime = 0;
 	if (!filesystemManager.getFileWriteTime(sourceName, sourceWriteTime)) {
@@ -230,7 +230,7 @@ void RPTexture::loadFromFile(const std::string& _filename) {
 	}
 
 	std::vector<uint8_t> fileData;
-	if (!FilesystemManager::getInstance().readFile(filepath, fileData)) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile(filepath, fileData)) {
 		CONSOLE_ERROR("RPTexture::loadFromFile: Failed to read file: %s", _filename.c_str());
 		return;
 	}

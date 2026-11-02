@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include "ResourceManager.hpp"
 #include "ShaderManager.hpp"
@@ -9,7 +9,7 @@
 #include <memory>
 
 namespace rend {
-	class Renderer : public UTILS::Singleton<rend::Renderer> {
+	class Renderer : public ReGuiEditor::Singleton<rend::Renderer> {
 		void render();
 		bool initRenderObjects();
 

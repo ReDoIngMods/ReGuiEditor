@@ -1,10 +1,10 @@
 #pragma once
+#include <Modules/Misc/Singleton.hpp>
+
 #include <string>
 #include <vector>
 
-#include <UTILS/Singleton.hpp>
-
-class DataFileIndex : public UTILS::Singleton<DataFileIndex> {
+class DataFileIndex : public ReGuiEditor::Singleton<DataFileIndex> {
 	struct Entry {
 		std::string name;
 		std::string relativePath;

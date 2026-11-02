@@ -6,6 +6,8 @@
 #include <Filesystem/FilesystemManager.hpp>
 
 #include <GUI/FilePickerManager.hpp>
+#include <GUI/FilePickerRequest.hpp>
+#include <GUI/FilePickerResult.hpp>
 #include <GUI/ImageManager.hpp>
 #include <GUI/UIManager.hpp>
 #include <GUI/WidgetGrid.hpp>
@@ -26,7 +28,6 @@
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -50,9 +51,6 @@ constexpr const char* CANCEL_TEXT = "Cancel";
 constexpr const char* OUTDATED_MOD_TEXT = " (Outdated)";
 constexpr const char* OUTDATED_MOD_TOOLTIP = "This mod is outdated and doesn't support JsonGui's. (Don't bother looking through here)";
 constexpr ImColor OUTDATED_MOD_COLOR = IM_COL32(255, 100, 100, 255);
-
-constexpr const char* CONTENT_PREFIX = "$CONTENT_";
-constexpr size_t CONTENT_PREFIX_LENGTH = std::char_traits<char>::length(CONTENT_PREFIX);
 
 inline static bool beginChildWidgetGrid(const char* id, const WidgetGrid& grid) {
 	ImGui::SetCursorScreenPos(grid.getPosition());
@@ -92,7 +90,7 @@ inline static void drawEntryLabel(const ImVec2& cellMin, float rowHeight, float 
 	drawList->AddText(textPosition, ImGui::GetColorU32(ImGuiCol_Text), label);
 }
 
-inline static std::vector<size_t> rankEntries(const std::vector<FilesystemListEntry>& entries, const std::string& query) {
+inline static std::vector<size_t> rankEntries(const std::vector<ReGuiEditor::FilesystemListEntry>& entries, const std::string& query) {
 	std::vector<std::pair<size_t, int>> ranked;
 	ranked.reserve(entries.size());
 
@@ -305,6 +303,80 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 	clipper.End();
 }
 
+void FilePickerView::drawGameDirectoryEntries(const char* header, const std::vector<std::shared_ptr<UGCMod>>& directories) {
+	std::vector<const std::shared_ptr<UGCMod>*> visible;
+	visible.reserve(directories.size());
+
+	for (const auto& directory : directories) {
+		if (ReGuiEditor::fuzzyCalculateScore(this->searchQueryModList_, directory->name))
+			visible.push_back(&directory);
+	}
+
+	if (visible.empty())
+		return;
+
+	ImGui::SeparatorText(header);
+
+	const ImGuiStyle& style = ImGui::GetStyle();
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+	const float lineHeight = ImGui::GetTextLineHeight();
+	const float rowHeight = lineHeight * 2.f + style.FramePadding.y * 2.f;
+
+	const ImU32 textColor = ImGui::GetColorU32(ImGuiCol_Text);
+	const ImU32 subtextColor = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+	const ImU32 tileColor = ImGui::GetColorU32(ImGuiCol_FrameBg);
+
+	const uint32_t iconPixels = static_cast<uint32_t>(std::lround(rowHeight - style.FramePadding.y * 2.f));
+	const ImagePtr folderIcon = UIManager::getInstance().imageManager->findOrLoadImageSVG(UIManager::getInstance().fileIconHandler.getIconForFolder(), iconPixels, iconPixels, textColor);
+
+	for (const std::shared_ptr<UGCMod>* directory : visible) {
+		const std::shared_ptr<UGCMod>& mod = *directory;
+
+		ImGui::PushID(mod.get());
+
+		if (ImGui::Selectable("##entry", this->selectedMod_ == mod, ImGuiSelectableFlags_None, ImVec2(0.f, rowHeight))) {
+			this->selectedMod_ = mod;
+			this->currentFilePath_.clear();
+		}
+
+		WidgetGrid row = WidgetGrid::fromItemRect();
+		const ImRect clip = row.getRectangle();
+		row.pad(style.FramePadding);
+
+		const WidgetGrid tile = row.splitLeftPixels(row.getHeight(), style.ItemInnerSpacing.x);
+		const WidgetGrid nameGrid = row.splitTopPixels(lineHeight);
+		const WidgetGrid subtitleGrid = row;
+
+		drawList->AddRectFilled(tile.getPosition(), tile.getRectangle().Max, tileColor, style.FrameRounding);
+		if (folderIcon) {
+			const float inset = tile.getHeight() * 0.15f;
+			const ImVec2 iconMin(tile.getPosition().x + inset, tile.getPosition().y + inset);
+			const ImVec2 iconMax(tile.getRectangle().Max.x - inset, tile.getRectangle().Max.y - inset);
+
+			drawList->AddImage(folderIcon->getTextureId(), iconMin, iconMax);
+		}
+
+		drawList->PushClipRect(clip.Min, clip.Max, true);
+		drawList->AddText(nameGrid.getPosition(), textColor, mod->name.c_str());
+		drawList->AddText(subtitleGrid.getPosition(), subtextColor, mod->contentPath.c_str());
+		drawList->PopClipRect();
+
+		if (ImGui::BeginItemTooltip()) {
+			if (ImGui::BeginTable("##directoryInfo", 2, ImGuiTableFlags_SizingFixedFit)) {
+				tooltipRow("Path", mod->path.string());
+				tooltipRow("Root", mod->contentPath);
+
+				ImGui::EndTable();
+			}
+
+			ImGui::EndTooltip();
+		}
+
+		ImGui::PopID();
+	}
+}
+
 void FilePickerView::drawModList(const WidgetGrid& grid) {
 	if (!beginChildWidgetGrid("##modList", grid)) {
 		ImGui::EndChild();
@@ -312,6 +384,7 @@ void FilePickerView::drawModList(const WidgetGrid& grid) {
 	}
 
 	UGCManager& ugcManager = UGCManager::getInstance();
+	this->drawGameDirectoryEntries("Game Directories", ugcManager.getGameDirectories());
 	this->drawModListEntries("Local Mods", ugcManager.getLocalMods());
 	this->drawModListEntries("Workshop Mods", ugcManager.getWorkshopMods());
 
@@ -346,7 +419,7 @@ void FilePickerView::drawSearchBar(const WidgetGrid& grid) {
 
 	std::string prefix;
 	if (this->selectedMod_)
-		prefix = "$CONTENT_" + this->selectedMod_->localId;
+		prefix = this->selectedMod_->contentPath;
 
 	std::string displayedPath = prefix;
 	if (!this->currentFilePath_.empty()) {
@@ -384,17 +457,11 @@ void FilePickerView::handlePathInput() {
 
 	const std::string enteredPath = this->pathBuffer_;
 	const size_t separator = enteredPath.find_first_of("/\\");
-	const std::string enteredPrefix = enteredPath.substr(0, separator);
+	const std::string enteredRoot = enteredPath.substr(0, separator);
 
-	if (enteredPrefix.rfind(CONTENT_PREFIX, 0) != 0 || enteredPrefix.size() == CONTENT_PREFIX_LENGTH) {
-		this->pathMessage_ = "Path must start with $CONTENT_<modId>.";
-		return;
-	}
-
-	const std::string modId = enteredPrefix.substr(CONTENT_PREFIX_LENGTH);
-	std::shared_ptr<UGCMod> matchedMod = UGCManager::getInstance().getModByLocalId(modId);
+	std::shared_ptr<UGCMod> matchedMod = UGCManager::getInstance().getModByContentPath(enteredRoot);
 	if (!matchedMod) {
-		this->pathMessage_ = "No mod found for ID '" + modId + "'.";
+		this->pathMessage_ = "Path must start with $CONTENT_<modId> or a game directory such as $GAME_DATA.";
 		return;
 	}
 
@@ -406,12 +473,12 @@ void FilePickerView::handlePathInput() {
 	});
 
 	if (escapesRoot) {
-		this->pathMessage_ = "Path must stay inside the selected mod.";
+		this->pathMessage_ = "Path must stay inside the selected root.";
 		return;
 	}
 
 	const std::filesystem::path candidatePath = std::filesystem::path(matchedMod->contentPath) / relativePath;
-	if (!FilesystemManager::getInstance().listDirectory(candidatePath.string())) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().listDirectory(candidatePath.string())) {
 		this->pathMessage_ = "Folder does not exist or cannot be accessed.";
 		return;
 	}
@@ -455,9 +522,9 @@ void FilePickerView::drawFileList(const WidgetGrid& grid) {
 		this->selectedFile_.clear();
 		this->selectedVisibleFile_.clear();
 
-		auto listing = FilesystemManager::getInstance().listDirectory(currentPath.string());
+		auto listing = ReGuiEditor::FilesystemManager::getInstance().listDirectory(currentPath.string());
 		this->listingValid_ = listing.has_value();
-		this->entries_ = listing ? std::move(*listing) : std::vector<FilesystemListEntry>{};
+		this->entries_ = listing ? std::move(*listing) : std::vector<ReGuiEditor::FilesystemListEntry>{};
 	}
 
 	if (!this->listingValid_) {
@@ -508,10 +575,10 @@ void FilePickerView::drawFileList(const WidgetGrid& grid) {
 
 				const ImVec2 cellPosition = ImGui::GetCursorScreenPos();
 
-				const FilesystemListEntry& entry = this->entries_[visible[static_cast<size_t>(index)]];
+				const ReGuiEditor::FilesystemListEntry& entry = this->entries_[visible[static_cast<size_t>(index)]];
 				const bool selected = this->selectedVisibleFile_ == entry.name;
 
-				const bool allowDirs = FilePickerManager::getInstance().currentRequest_.allowDirectorySelection;
+				const bool allowDirs = ReGuiEditor::FilePickerManager::getInstance().currentRequest_.allowDirectorySelection;
 
 				if (ImGui::Selectable("##entry", selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick, { 0.f, rowHeight })) {
 					if (entry.isDirectory) {
@@ -624,7 +691,7 @@ void FilePickerView::drawFooter(const WidgetGrid& grid) {
 	ImGui::SameLine();
 
 	if (ImGui::Button(CANCEL_TEXT, { cancelWidth, 0.0f })) {
-		FilePickerManager& filePickerManager = FilePickerManager::getInstance();
+		ReGuiEditor::FilePickerManager& filePickerManager = ReGuiEditor::FilePickerManager::getInstance();
 		if (filePickerManager.currentRequest_.onCancel)
 			filePickerManager.currentRequest_.onCancel();
 
@@ -639,11 +706,11 @@ void FilePickerView::confirmSelection() {
 	if (this->selectedFile_.empty() || !this->selectedMod_)
 		return;
 
-	FilePickerManager& filePickerManager = FilePickerManager::getInstance();
+	ReGuiEditor::FilePickerManager& filePickerManager = ReGuiEditor::FilePickerManager::getInstance();
 	filePickerManager.isActive_ = false;
 
 	if (filePickerManager.currentRequest_.onSelected) {
-		FilePickerResult result;
+		ReGuiEditor::FilePickerResult result;
 		result.selectedMod = this->selectedMod_;
 		result.selectedPath = (this->currentFilePath_ / this->selectedFile_).string();
 
@@ -654,13 +721,13 @@ void FilePickerView::confirmSelection() {
 }
 
 void FilePickerView::render() {
-	FilePickerManager& filePickerManager = FilePickerManager::getInstance();
+	ReGuiEditor::FilePickerManager& filePickerManager = ReGuiEditor::FilePickerManager::getInstance();
 	if (!filePickerManager.isActive()) {
 		this->wasActive_ = false;
 		return;
 	}
 
-	FilePickerRequest& request = filePickerManager.currentRequest_;
+	ReGuiEditor::FilePickerRequest& request = filePickerManager.currentRequest_;
 
 	char buffer[256];
 	sprintf_s(buffer, "%s###FilePicker", request.title.c_str());

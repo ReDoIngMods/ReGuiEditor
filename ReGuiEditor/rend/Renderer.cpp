@@ -8,7 +8,7 @@
 #include "../Application.hpp"
 
 void rend::Renderer::render() {
-	Application::getInstance().render();
+	ReGuiEditor::getApp().render();
 }
 
 bool rend::Renderer::initRenderObjects() {

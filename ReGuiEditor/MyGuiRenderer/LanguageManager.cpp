@@ -2,7 +2,7 @@
 
 #include <Filesystem/FilesystemManager.hpp>
 
-#include <JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 #include <Modules/Misc/Strings.hpp>
 
@@ -14,20 +14,20 @@
 #include <vector>
 
 bool LanguageManager::initialize(const std::string& defaultLanguage) {
-	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
+	ReGuiEditor::FilesystemManager& filesystemManager = ReGuiEditor::FilesystemManager::getInstance();
 	
-	JSONValue jsonData;
+	ReGuiEditor::JSONValue jsonData;
 	if (!filesystemManager.readFile("$GAME_DATA/Gui/Language/languages.json", jsonData)) {
 		CONSOLE_ERROR("Failed to read languages.json");
 		return false;
 	}
 
-	if (!jsonData.is<JSONObject>()) {
+	if (!jsonData.is<ReGuiEditor::JSONObject>()) {
 		CONSOLE_ERROR("Invalid format in languages.json: root is not an object.");
 		return false;
 	}
 
-	for (const auto& [languageKey, languageValue] : jsonData.get<JSONObject>()) {
+	for (const auto& [languageKey, languageValue] : jsonData.get<ReGuiEditor::JSONObject>()) {
 		if (!languageValue.is<std::string>()) {
 			CONSOLE_WARNING("Skipping invalid language entry in languages.json: value is not a string for key '%s'", languageKey.c_str());
 			continue;

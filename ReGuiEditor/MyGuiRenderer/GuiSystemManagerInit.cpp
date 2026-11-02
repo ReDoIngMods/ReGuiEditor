@@ -1,6 +1,7 @@
 #include "GuiSystemManager.hpp"
 
-#include "../ConfigManager/ConfigManager.hpp"
+#include <Services/ConfigurationService/ConfigurationService.hpp>
+#include <Services/ServiceManager.hpp>
 
 #include "BackgroundImageHelper.hpp"
 
@@ -120,9 +121,9 @@ bool GuiSystemManager::initializeRenderManager() {
 bool GuiSystemManager::initializeRenderTarget(uint32_t& canvasWidth, uint32_t& canvasHeight) {
 	PROFILE_SCOPE("GuiSystemManager::initialize - CreateRenderTarget");
 
-	ConfigManager& configManager = ConfigManager::getInstance();
-	canvasWidth = static_cast<uint32_t>(configManager.getConfigVariableWithDefault("mygui.canvas.width", DEFAULT_CANVAS_WIDTH));
-	canvasHeight = static_cast<uint32_t>(configManager.getConfigVariableWithDefault("mygui.canvas.height", DEFAULT_CANVAS_HEIGHT));
+	ReGuiEditor::ConfigurationService& configurationService = ReGuiEditor::ServiceManager::getService<ReGuiEditor::ConfigurationService>();
+	canvasWidth = configurationService.getOrDefault<uint32_t>("mygui.canvas.width", DEFAULT_CANVAS_WIDTH);
+	canvasHeight = configurationService.getOrDefault<uint32_t>("mygui.canvas.height", DEFAULT_CANVAS_HEIGHT);
 
 	if (!this->createRenderTarget(canvasWidth, canvasHeight)) {
 		CONSOLE_ERROR("Failed to create render target for MyGUI.");

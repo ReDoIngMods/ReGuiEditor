@@ -31,7 +31,8 @@ void wrap_sm(lua_State* L) {
 
 	lua_newtable(L);
 
-	lua_pushstring(L, "1.0.6.889");
+	// TODO: Figure out how to retrieve it from ScrapMechanic.exe
+	lua_pushstring(L, "1.0.7.894");
 	lua_setfield(L, -2, "version");
 
 	static const luaL_Reg functions[] = {

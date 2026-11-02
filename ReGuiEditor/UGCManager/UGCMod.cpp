@@ -1,7 +1,7 @@
 #include "UGCMod.hpp"
 
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
+#include <Modules/JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONParser.hpp>
 
 #include <array>
 #include <cstdint>
@@ -9,9 +9,9 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <iterator>
 #include <memory>
 #include <string>
+#include <system_error>
 
 constexpr auto gUGCModTypeMap = std::to_array<const char*>({
 	"Blueprint",
@@ -42,26 +42,29 @@ UGCModType StringToUGCModType(const char* typeStr) {
 	return UGCModType::COUNT;
 }
 
-inline static std::string readFile(const std::filesystem::path& filePath) {
-	std::ifstream file(filePath);
-	if (!file) {
-		CONSOLE_ERROR("Failed to read file: %s", filePath.string().c_str());
-		return "";
-	}
+inline static bool readFile(const std::filesystem::path& filePath, std::string& output) {
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	if (!file)
+		return false;
 
-	std::string data;
-	data.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+	const std::streamsize size = file.tellg();
+	if (size <= 0)
+		return false;
 
-	return data;
+	output.resize(static_cast<size_t>(size));
+	file.seekg(0, std::ios::beg);
+
+	return static_cast<bool>(file.read(output.data(), size));
 }
 
 inline static std::string findThumbnailFilename(const std::filesystem::path& modPath) {
-	for (const auto& entry : std::filesystem::directory_iterator(modPath)) {
-		if (!entry.is_regular_file())
+	std::error_code error;
+	for (std::filesystem::directory_iterator iterator(modPath, error), end; !error && iterator != end; iterator.increment(error)) {
+		if (!iterator->is_regular_file(error))
 			continue;
-	
-		const std::string filename = entry.path().filename().string();
-		if (filename.rfind("preview", 0) == 0)
+
+		const std::string filename = iterator->path().filename().string();
+		if (filename.starts_with("preview"))
 			return filename;
 	}
 
@@ -69,28 +72,38 @@ inline static std::string findThumbnailFilename(const std::filesystem::path& mod
 }
 
 std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, bool isLocal) {
-	const std::string descriptionPath = (modPath / "description.json").string();
-	const std::string descriptionData = readFile(descriptionPath);
-	if (descriptionData.empty()) {
-		CONSOLE_ERROR("Failed to read description.json from %s", modPath.string().c_str());
+	std::string error;
+	std::shared_ptr<UGCMod> mod = fromPath(modPath, isLocal, error);
+	if (!mod)
+		CONSOLE_ERROR("%s", error.c_str());
+
+	return mod;
+}
+
+std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, bool isLocal, std::string& outputErrorMsg) {
+	const std::string pathString = modPath.string();
+
+	std::string descriptionData;
+	if (!readFile(modPath / "description.json", descriptionData)) {
+		outputErrorMsg = "Failed to read description.json";
 		return nullptr;
 	}
 
-	JSONValue json;
-	if (!JSONParser::parseJson(descriptionData, json)) {
-		CONSOLE_ERROR("Failed to parse description.json from %s", modPath.string().c_str());
+	ReGuiEditor::JSONValue json;
+	if (!ReGuiEditor::JSONParser::parseJson(descriptionData, json)) {
+		outputErrorMsg = "Failed to parse description.json";
 		return nullptr;
 	}
 
 	const std::string* namePtr = json["name"].tryGet<std::string>();
 	if (!namePtr || namePtr->empty()) {
-		CONSOLE_ERROR("description.json from %s does not contain a valid name.", modPath.string().c_str());
+		outputErrorMsg = "description.json does not contain a valid name.";
 		return nullptr;
 	}
 
 	const std::string* localIdPtr = json["localId"].tryGet<std::string>();
 	if (!localIdPtr || localIdPtr->empty()) {
-		CONSOLE_ERROR("description.json from %s does not contain a valid localId.", modPath.string().c_str());
+		outputErrorMsg = "description.json does not contain a valid localId.";
 		return nullptr;
 	}
 
@@ -103,7 +116,7 @@ std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, b
 		type = StringToUGCModType(typePtr->c_str());
 	
 		if (type == UGCModType::COUNT) {
-			CONSOLE_ERROR("description.json from %s contains an unknown type: %s", modPath.string().c_str(), typePtr->c_str());
+			outputErrorMsg = "description.json does not contain a valid type: " + *typePtr;
 			return nullptr;
 		}
 	}

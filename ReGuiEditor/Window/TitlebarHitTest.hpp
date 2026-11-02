@@ -1,19 +1,27 @@
 #pragma once
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
+
 #include <vector>
 
-namespace TitlebarHitTest {
-	inline std::vector<ImRect> gRectangles;
+namespace ReGuiEditor {
+	class TitlebarHitTest {
+		std::vector<ImRect> rectangles_;
+	public:
+		void beginFrame() {
+			this->rectangles_.clear();
+		}
 
-	inline void beginFrame() { gRectangles.clear(); }
-	inline void addRect(ImVec2 min, ImVec2 max) { gRectangles.push_back({ min, max }); }
+		void addRect(ImVec2 min, ImVec2 max) {
+			this->rectangles_.emplace_back(min, max);
+		}
 
-	inline bool isOverWidget(ImVec2 screenPoint) {
-		for (const ImRect& rectangle : gRectangles)
-			if (rectangle.Contains(screenPoint))
-				return true;
+		[[nodiscard]] bool isOverWidget(ImVec2 screenPoint) const {
+			for (const ImRect& rectangle : this->rectangles_)
+				if (rectangle.Contains(screenPoint))
+					return true;
 
-		return false;
-	}
+			return false;
+		}
+	};
 }

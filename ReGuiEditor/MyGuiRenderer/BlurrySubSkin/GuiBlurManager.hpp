@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <rend/Common/RefCounter.hpp>
 
@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string>
 
-class GuiBlurManager : public UTILS::Singleton<GuiBlurManager> {
+class GuiBlurManager : public ReGuiEditor::Singleton<GuiBlurManager> {
 	uint32_t fullWidth_ = 0;
 	uint32_t fullHeight_ = 0;
 
@@ -25,7 +25,6 @@ class GuiBlurManager : public UTILS::Singleton<GuiBlurManager> {
 	rend::RenderViewHandle pingView_;
 	rend::RenderViewHandle pongView_;
 
-	// One pass per pixel shader, each with its own BlurParameters constant buffer.
 	rend::FullscreenPass copyPass_;
 	rend::FullscreenPass blurHorizontalPass_;
 	rend::FullscreenPass blurVerticalPass_;

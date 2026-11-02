@@ -17,6 +17,7 @@ namespace ReGuiEditor {
 		~BytestreamWriter();
 
 		void writeBytes(const char* data, size_t length);
+		void writeBytes(const char* data);
 
 		template<typename T>
 		void write(const T& value) {
@@ -25,6 +26,13 @@ namespace ReGuiEditor {
 			this->ensureCapacity(sizeof(T));
 			memcpy(this->data_ + this->position_, &value, sizeof(T));
 			this->position_ += sizeof(T);
+		}
+
+		template<typename T>
+		void write() {
+			static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
+		
+			this->write<T>(T());
 		}
 
 		template<>

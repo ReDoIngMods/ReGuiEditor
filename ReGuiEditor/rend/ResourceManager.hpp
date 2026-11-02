@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include "Common/Format.hpp"
 #include "Common/RefCounter.hpp"
@@ -37,7 +37,7 @@ struct ID3D11Texture2D;
 namespace rend {
 	class Renderer;
 
-	class ResourceManager : public UTILS::Singleton<ResourceManager> {
+	class ResourceManager : public ReGuiEditor::Singleton<ResourceManager> {
 		friend class rend::Renderer;
 		friend class rend::Resource;
 

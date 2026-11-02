@@ -3,7 +3,9 @@
 
 #include <ImGui/imgui.h>
 
-class DecorationView : public View {
+
+
+class DecorationView : public ReGuiEditor::View {
 	bool isBuiltDockspace_ = false;
 
 	void buildDockspace(ImGuiID dockspaceId, ImVec2 size);

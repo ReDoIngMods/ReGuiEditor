@@ -1,9 +1,8 @@
 #pragma once
-
 #include <cassert>
 #include <memory>
 
-namespace UTILS {
+namespace ReGuiEditor {
     template <typename T>
     class Singleton {
         friend T;

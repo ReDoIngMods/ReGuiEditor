@@ -51,6 +51,13 @@ void ReGuiEditor::BytestreamWriter::writeBytes(const char* data, size_t length) 
 	this->position_ += length;
 }
 
+void ReGuiEditor::BytestreamWriter::writeBytes(const char* data) {
+	if (!data)
+		return;
+
+	this->writeBytes(data, strlen(data));
+}
+
 void ReGuiEditor::BytestreamWriter::writeCompressableData(const char* data, size_t length) {
 	if (length == 0) {
 		this->write<uint32_t>(0);

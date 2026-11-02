@@ -13,7 +13,7 @@
 #include <vector>
 
 std::vector<DataFileIndex::SearchFolder> DataManager::resolveSearchFolders() const {
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
+	ReGuiEditor::DirectoryManager& directoryManager = ReGuiEditor::DirectoryManager::getInstance();
 
 	std::vector<DataFileIndex::SearchFolder> folders;
 	folders.reserve(this->searchDirectories_.size());
@@ -46,7 +46,7 @@ MyGUI::IDataStream* DataManager::getData(const std::string& _name) const {
 		return nullptr;
 
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(filepath, resolvedPath))
+	if (!ReGuiEditor::DirectoryManager::getInstance().resolveDirectory(filepath, resolvedPath))
 		return nullptr;
 
 	return new DataStream(resolvedPath.string());

@@ -6,9 +6,9 @@
 #include <Filesystem/DirectoryManager.hpp>
 #include <Filesystem/FilesystemManager.hpp>
 
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
-#include <JSON/JSONWriter.hpp>
+#include <Modules/JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONParser.hpp>
+#include <Modules/JSON/JSONWriter.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
@@ -27,10 +27,10 @@ inline static int raiseError(lua_State* L, std::string& error) {
 	return lua_error(L);
 }
 
-inline static void pushJson(lua_State* L, const JSONValue& value) {
+inline static void pushJson(lua_State* L, const ReGuiEditor::JSONValue& value) {
 	switch (value.getType()) {
-	case JSONType::Object: {
-		const JSONObject& object = value.get<JSONObject>();
+	case ReGuiEditor::JSONType::Object: {
+		const ReGuiEditor::JSONObject& object = value.get<ReGuiEditor::JSONObject>();
 
 		lua_createtable(L, 0, static_cast<int>(object.size()));
 
@@ -45,8 +45,8 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 
 		break;
 	}
-	case JSONType::Array: {
-		const JSONArray& array = value.get<JSONArray>();
+	case ReGuiEditor::JSONType::Array: {
+		const ReGuiEditor::JSONArray& array = value.get<ReGuiEditor::JSONArray>();
 
 		lua_createtable(L, static_cast<int>(array.size()), 0);
 		for (size_t index = 0; index < array.size(); ++index) {
@@ -56,23 +56,23 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 
 		break;
 	}
-	case JSONType::String:
+	case ReGuiEditor::JSONType::String:
 		lua_pushstring(L, value.get<std::string>().c_str());
 		break;
-	case JSONType::Boolean:
+	case ReGuiEditor::JSONType::Boolean:
 		lua_pushboolean(L, value.get<bool>());
 		break;
-	case JSONType::Number:
+	case ReGuiEditor::JSONType::Number:
 		lua_pushnumber(L, value.get<double>());
 		break;
-	case JSONType::Null:
+	case ReGuiEditor::JSONType::Null:
 	default:
 		lua_pushnil(L);
 		break;
 	}
 }
 
-[[nodiscard]] static bool toJson(lua_State* L, int index, JSONValue& output, std::string& error) {
+[[nodiscard]] static bool toJson(lua_State* L, int index, ReGuiEditor::JSONValue& output, std::string& error) {
 	if (index < 0 && index > LUA_REGISTRYINDEX)
 		index = lua_gettop(L) + index + 1;
 
@@ -108,7 +108,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 	}
 
 	if (entries == length) {
-		JSONArray array;
+		ReGuiEditor::JSONArray array;
 		array.reserve(length);
 
 		for (size_t objectIndex = 1; objectIndex <= length; ++objectIndex) {
@@ -126,7 +126,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 		return true;
 	}
 
-	JSONObject object;
+	ReGuiEditor::JSONObject object;
 
 	lua_pushnil(L);
 	while (lua_next(L, index) != 0) {
@@ -134,7 +134,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 			size_t keyLength = 0;
 			const char* key = lua_tolstring(L, -2, &keyLength);
 
-			JSONValue child;
+			ReGuiEditor::JSONValue child;
 			if (!toJson(L, -1, child, error)) {
 				lua_pop(L, 2);
 				return false;
@@ -151,11 +151,11 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 }
 
 [[nodiscard]] inline static bool stringifyJson(lua_State* L, int index, bool pretty, std::string& output, std::string& error) {
-	JSONValue document;
+	ReGuiEditor::JSONValue document;
 	if (!toJson(L, index, document, error))
 		return false;
 
-	output = JSONWriter::stringify(document, pretty);
+	output = ReGuiEditor::JSONWriter::stringify(document, pretty);
 	return true;
 }
 
@@ -166,8 +166,8 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 		return false;
 	}
 
-	JSONValue document;
-	if (!FilesystemManager::getInstance().readFile(resolvedPath, document)) {
+	ReGuiEditor::JSONValue document;
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile(resolvedPath, document)) {
 		error = "Failed to read or parse JSON file '" + resolvedPath + "'.";
 		return false;
 	}
@@ -187,7 +187,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 	if (!stringifyJson(L, index, false, output, error))
 		return false;
 
-	if (!FilesystemManager::getInstance().writeFile(resolvedPath, output)) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().writeFile(resolvedPath, output)) {
 		error = "Failed to write file '" + resolvedPath + "'.";
 		return false;
 	}
@@ -205,7 +205,7 @@ static int sm_json_fileExists(lua_State* L) {
 	}
 
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
+	if (!ReGuiEditor::DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
 		lua_pushboolean(L, false);
 		return 1;
 	}
@@ -228,8 +228,8 @@ static int sm_json_parseJsonString(lua_State* L) {
 	size_t length = 0;
 	const char* str = luaL_checklstring(L, 1, &length);
 
-	JSONValue document;
-	if (!JSONParser::parseJson(str, length, document)) {
+	ReGuiEditor::JSONValue document;
+	if (!ReGuiEditor::JSONParser::parseJson(str, length, document)) {
 		std::string error = "Failed to parse JSON string.";
 		return raiseError(L, error);
 	}
@@ -264,11 +264,11 @@ static int sm_json_save(lua_State* L) {
 	return 0;
 }
 
-bool SmJson::toJson(lua_State* L, int index, JSONValue& output, std::string& error) {
+bool SmJson::toJson(lua_State* L, int index, ReGuiEditor::JSONValue& output, std::string& error) {
 	return ::toJson(L, index, output, error);
 }
 
-void SmJson::pushJson(lua_State* L, const JSONValue& value) {
+void SmJson::pushJson(lua_State* L, const ReGuiEditor::JSONValue& value) {
 	::pushJson(L, value);
 }
 

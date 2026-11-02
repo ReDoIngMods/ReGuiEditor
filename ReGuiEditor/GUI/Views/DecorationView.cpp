@@ -71,7 +71,7 @@ void DecorationView::drawProgamName(const char*) {
 
 bool DecorationView::drawWindowButton(const char* id, ImTextureID icon, ImVec2 size) {
 	const bool click = ImGui::ImageButton(id, icon, size);
-	TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+	ReGuiEditor::getApp().window.getTitlebarHitTest().addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
 	return click;
 }
@@ -99,20 +99,20 @@ void DecorationView::drawWindowButtons() {
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { padding, padding });
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
 
-	Application& app = Application::getInstance();
+	ReGuiEditor::MainApp& app = ReGuiEditor::getApp();
 	if (this->drawWindowButton("#minimizeButton", minimizeIcon, iconExtent))
-		app.window.minimize();
+		app.window.setShowState(ReGuiEditor::WindowShowState::Minimize);
 
 	if (app.window.isMaximized()) {
 		if (this->drawWindowButton("#restoreButton", restoreIcon, iconExtent))
-			app.window.restore();
+			app.window.setShowState(ReGuiEditor::WindowShowState::Restore);
 	} else {
 		if (this->drawWindowButton("#maximizeButton", maximizeIcon, iconExtent))
-			app.window.maximize();
+			app.window.setShowState(ReGuiEditor::WindowShowState::Maximize);
 	}
 
 	if (this->drawWindowButton("#closeButton", closeIcon, iconExtent))
-		app.isRunning = false;
+		app.stop();
 
 	ImGui::PopStyleVar(2);
 	ImGui::PopStyleColor();
@@ -120,7 +120,7 @@ void DecorationView::drawWindowButtons() {
 
 bool DecorationView::beginMenu(const char* label, bool enabled) {
 	const bool isOpened = ImGui::BeginMenu(label, enabled);
-	TitlebarHitTest::addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+	ReGuiEditor::getApp().window.getTitlebarHitTest().addRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
 	return isOpened;
 }
@@ -139,7 +139,7 @@ void DecorationView::renderMenubar() {
 		ImGui::EndMenu();
 	}
 
-	ViewsManager::getInstance().renderMenu();
+	ReGuiEditor::ViewsManager::getInstance().renderMenu();
 
 	this->drawWindowButtons();
 
@@ -147,7 +147,7 @@ void DecorationView::renderMenubar() {
 }
 
 void DecorationView::render() {
-	TitlebarHitTest::beginFrame();
+	ReGuiEditor::getApp().window.getTitlebarHitTest().beginFrame();
 
 	ImGuiWindowClass windowClass;
 	windowClass.ViewportFlagsOverrideSet = ImGuiViewportFlags_NoDecoration | ImGuiViewportFlags_NoTaskBarIcon | ImGuiViewportFlags_NoFocusOnAppearing;

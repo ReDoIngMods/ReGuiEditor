@@ -1,38 +1,54 @@
 #pragma once
+#include "TitlebarHitTest.hpp"
+
 #include <Windows.h>
 
 #include <functional>
 #include <utility>
 
-class Window {
-	HWND hwnd_ = nullptr;
-	std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)> windowProc_;
-	std::function<void(int, int)> onResize_;
-	std::function<bool()> onCloseRequest_;
+namespace ReGuiEditor {
+	enum class WindowShowState {
+		Show,
+		Hide,
 
-	bool wantsExit_ = false;
+		Minimize,
+		Maximize,
+		Restore,
+	};
 
-	friend LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-public:
-	Window() = default;
-	~Window() { this->cleanup(); }
+	class Window {
+		HWND hwnd_ = nullptr;
+		std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)> windowProc_;
+		std::function<void(int, int)> onResize_;
+		std::function<bool()> onCloseRequest_;
 
-	bool create(const wchar_t* title, int width, int height);
-	void cleanup();
+		bool wantsExit_ = false;
 
-	void update();
+		ReGuiEditor::TitlebarHitTest titlebarHitTest_;
 
-	void maximize() const;
-	void minimize() const;
-	void restore() const;
-	void show() const;
+		friend LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+	public:
+		Window() = default;
+		~Window() { this->cleanup(); }
 
-	bool isMaximized() const;
+		bool create(const wchar_t* title, int width, int height);
+		void cleanup();
 
-	void setWindowProc(std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)> windowProc) { this->windowProc_ = std::move(windowProc); }
-	void setOnCloseRequest(std::function<bool()> onCloseRequest) { this->onCloseRequest_ = std::move(onCloseRequest); }
-	void setOnResize(std::function<void(int, int)> onResize) { this->onResize_ = std::move(onResize); }
+		void update();
 
-	HWND getHwnd() const { return this->hwnd_; }
-	bool wantsExit() const { return this->wantsExit_; }
-};
+		void setShowState(ReGuiEditor::WindowShowState state) const;
+
+		bool isMaximized() const;
+		bool isMinimized() const;
+
+		void setWindowProc(std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)> windowProc) { this->windowProc_ = std::move(windowProc); }
+		void setOnCloseRequest(std::function<bool()> onCloseRequest) { this->onCloseRequest_ = std::move(onCloseRequest); }
+		void setOnResize(std::function<void(int, int)> onResize) { this->onResize_ = std::move(onResize); }
+
+		HWND getHwnd() const { return this->hwnd_; }
+		bool wantsExit() const { return this->wantsExit_; }
+
+		ReGuiEditor::TitlebarHitTest& getTitlebarHitTest() { return this->titlebarHitTest_; }
+		const ReGuiEditor::TitlebarHitTest& getTitlebarHitTest() const { return this->titlebarHitTest_; }
+	};
+}

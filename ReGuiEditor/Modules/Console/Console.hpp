@@ -16,6 +16,7 @@ enum ConsoleLogLevel {
 	LEVEL_ERROR,
 	LEVEL_DEBUG,
 
+	LEVEL_SERVICE,
 	LEVEL_CACHE,
 	LEVEL_LUA,
 

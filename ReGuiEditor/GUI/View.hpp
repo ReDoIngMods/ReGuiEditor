@@ -1,15 +1,17 @@
 #pragma once
 
-class View {
-public:
-	virtual ~View() = default;
+namespace ReGuiEditor {
+	class View {
+	public:
+		virtual ~View() = default;
 
-	virtual bool initialize() { return true; }
-	virtual void deinitialize() {}
+		virtual bool initialize() { return true; }
+		virtual void deinitialize() {}
 
-	virtual void render() {}
-	virtual void renderMenu() {}
+		virtual void render() {}
+		virtual void renderMenu() {}
 
-	virtual void update(double deltaTime) {}
-	virtual void tick() {}
-};
+		virtual void update(double deltaTime) {}
+		virtual void tick() {}
+	};
+}

@@ -12,16 +12,16 @@
 constexpr int BORDER_THICKNESS = 8;
 constexpr const wchar_t* CLASS_NAME = L"REGUI_EDITOR_WINDOW_CLASS";
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK ReGuiEditor::WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	if (message == WM_NCCREATE) {
 		CREATESTRUCT* createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
 
-		Window* window = static_cast<Window*>(createStruct->lpCreateParams);
+		ReGuiEditor::Window* window = static_cast<ReGuiEditor::Window*>(createStruct->lpCreateParams);
 		SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
 	}
 
-	Window* window = reinterpret_cast<Window*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
-	if (!window)
+	ReGuiEditor::Window* self = reinterpret_cast<ReGuiEditor::Window*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+	if (!self)
 		return DefWindowProcW(hwnd, message, wParam, lParam);
 
 	switch (message) {
@@ -47,7 +47,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		if (isHit != HTCLIENT)
 			return isHit;
 
-		POINT screenPoint{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+		POINT screenPoint;
+		ZeroMemory(&screenPoint, sizeof(POINT));
+		screenPoint.x = GET_X_LPARAM(lParam);
+		screenPoint.y = GET_Y_LPARAM(lParam);
 
 		POINT cursorPosition = screenPoint;
 		ScreenToClient(hwnd, &cursorPosition);
@@ -55,30 +58,40 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		RECT clientRectangle;
 		GetClientRect(hwnd, &clientRectangle);
 
-		bool isOnLeftBorder = cursorPosition.x < BORDER_THICKNESS;
-		bool isOnRightBorder = cursorPosition.x >= clientRectangle.right - BORDER_THICKNESS;
-		bool isOnTopBorder = cursorPosition.y < BORDER_THICKNESS;
-		bool isOnBottomBorder = cursorPosition.y >= clientRectangle.bottom - BORDER_THICKNESS;
+		const bool isOnLeftBorder   = cursorPosition.x <  BORDER_THICKNESS;
+		const bool isOnTopBorder    = cursorPosition.y <  BORDER_THICKNESS;
+		const bool isOnRightBorder  = cursorPosition.x >= clientRectangle.right - BORDER_THICKNESS;
+		const bool isOnBottomBorder = cursorPosition.y >= clientRectangle.bottom - BORDER_THICKNESS;
 
-		if (isOnLeftBorder && isOnTopBorder) return HTTOPLEFT;
-		if (isOnRightBorder && isOnTopBorder) return HTTOPRIGHT;
-		if (isOnLeftBorder && isOnBottomBorder) return HTBOTTOMLEFT;
+		if (isOnLeftBorder  && isOnTopBorder   ) return HTTOPLEFT;
+		if (isOnRightBorder && isOnTopBorder   ) return HTTOPRIGHT;
+		if (isOnLeftBorder  && isOnBottomBorder) return HTBOTTOMLEFT;
 		if (isOnRightBorder && isOnBottomBorder) return HTBOTTOMRIGHT;
 
-		if (isOnLeftBorder) return HTLEFT;
-		if (isOnRightBorder) return HTRIGHT;
-		if (isOnTopBorder) return HTTOP;
+		if (isOnLeftBorder  ) return HTLEFT;
+		if (isOnRightBorder ) return HTRIGHT;
+		if (isOnTopBorder   ) return HTTOP;
 		if (isOnBottomBorder) return HTBOTTOM;
 
-		// NCHITTEST arrives during window creation, before the ImGui context exists.
-		if (ImGui::GetCurrentContext() && cursorPosition.y < ImGui::GetFrameHeightWithSpacing() && !TitlebarHitTest::isOverWidget({ (float)screenPoint.x, (float)screenPoint.y }))
-			return HTCAPTION;
+		if (!ImGui::GetCurrentContext()) 
+			return HTCLIENT;
 
-		return HTCLIENT;
+		if (cursorPosition.y >= ImGui::GetFrameHeightWithSpacing())
+			return HTCLIENT;
+
+		const ImVec2 screenPosition = {
+			static_cast<float>(screenPoint.x),
+			static_cast<float>(screenPoint.y)
+		};	
+
+		if (self->titlebarHitTest_.isOverWidget(screenPosition))
+			return HTCLIENT;
+
+		return HTCAPTION;
 	}
 	case WM_CLOSE:
-		if (window->onCloseRequest_) {
-			if (window->onCloseRequest_()) {
+		if (self->onCloseRequest_) {
+			if (self->onCloseRequest_()) {
 				CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, L"WM_CLOSE: Close request approved by application");
 			} else {
 				CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, L"WM_CLOSE: Close request denied by application");
@@ -94,13 +107,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		if (wParam == SIZE_MINIMIZED || LOWORD(lParam) == 0 || HIWORD(lParam) == 0)
 			return 0;
 
-		if (window->onResize_)
-			window->onResize_(LOWORD(lParam), HIWORD(lParam));
+		if (self->onResize_)
+			self->onResize_(LOWORD(lParam), HIWORD(lParam));
 
 		return 0;
 	case WM_DPICHANGED: {
-		const RECT* suggested = reinterpret_cast<const RECT*>(lParam);
-		SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left, suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
+		const RECT* newRect = reinterpret_cast<const RECT*>(lParam);
+
+		const int width  = newRect->right  - newRect->left;
+		const int height = newRect->bottom - newRect->top;
+
+		SetWindowPos(hwnd, nullptr, newRect->left, newRect->top, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
 		break;
 	}
 	case WM_ERASEBKGND:
@@ -110,16 +127,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		break;
 	}
 
-	if (window->windowProc_)
-		return window->windowProc_(hwnd, message, wParam, lParam);
+	if (self->windowProc_)
+		return self->windowProc_(hwnd, message, wParam, lParam);
 
 	return DefWindowProcW(hwnd, message, wParam, lParam);
 }
 
-bool Window::create(const wchar_t* title, int width, int height) {
+bool ReGuiEditor::Window::create(const wchar_t* title, int width, int height) {
 	WNDCLASSW wc;
 	ZeroMemory(&wc, sizeof(wc));
-	wc.lpfnWndProc = WindowProc;
+	wc.lpfnWndProc = ReGuiEditor::WindowProc;
 	wc.hInstance = GetModuleHandle(NULL);
 	wc.lpszClassName = CLASS_NAME;
 	wc.hIcon = LoadIconW(wc.hInstance, IDI_APPLICATION);
@@ -152,14 +169,14 @@ bool Window::create(const wchar_t* title, int width, int height) {
 	return true;
 }
 
-void Window::cleanup() {
+void ReGuiEditor::Window::cleanup() {
 	if (this->hwnd_) {
 		DestroyWindow(this->hwnd_);
 		this->hwnd_ = nullptr;
 	}
 }
 
-void Window::update() {
+void ReGuiEditor::Window::update() {
 	MSG message;
 	while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
 		TranslateMessage(&message);
@@ -170,12 +187,35 @@ void Window::update() {
 	}
 }
 
-void Window::maximize() const { ShowWindowAsync(this->hwnd_, SW_MAXIMIZE); }
-void Window::minimize() const { ShowWindowAsync(this->hwnd_, SW_MINIMIZE); }
+void ReGuiEditor::Window::setShowState(ReGuiEditor::WindowShowState state) const {
+	switch (state) {
+	case ReGuiEditor::WindowShowState::Show:     ShowWindowAsync(this->hwnd_, SW_SHOW); break;
+	case ReGuiEditor::WindowShowState::Hide:     ShowWindowAsync(this->hwnd_, SW_HIDE); break;
+	case ReGuiEditor::WindowShowState::Minimize: ShowWindowAsync(this->hwnd_, SW_MINIMIZE); break;
+	case ReGuiEditor::WindowShowState::Maximize: ShowWindowAsync(this->hwnd_, SW_MAXIMIZE); break;
+	case ReGuiEditor::WindowShowState::Restore:  ShowWindowAsync(this->hwnd_, SW_RESTORE); break;
+	default:
+		CONSOLE_WARNING(L"Unknown WindowShowState: %d", static_cast<int>(state));
+		break;
+	}
+}
 
-void Window::restore() const { ShowWindowAsync(this->hwnd_, SW_RESTORE); }
-void Window::show() const { ShowWindowAsync(this->hwnd_, SW_SHOW); }
+bool ReGuiEditor::Window::isMaximized() const {
+	WINDOWPLACEMENT placement;
+	ZeroMemory(&placement, sizeof(WINDOWPLACEMENT));
+	placement.length = sizeof(WINDOWPLACEMENT);
 
-bool Window::isMaximized() const {
-	return IsZoomed(this->hwnd_) != FALSE;
+	GetWindowPlacement(this->hwnd_, &placement);
+	
+	return placement.showCmd == SW_SHOWMAXIMIZED;
+}
+
+bool ReGuiEditor::Window::isMinimized() const {
+	WINDOWPLACEMENT placement;
+	ZeroMemory(&placement, sizeof(WINDOWPLACEMENT));
+	placement.length = sizeof(WINDOWPLACEMENT);
+
+	GetWindowPlacement(this->hwnd_, &placement);
+
+	return placement.showCmd == SW_SHOWMINIMIZED;
 }

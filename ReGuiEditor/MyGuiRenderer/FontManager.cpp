@@ -2,22 +2,27 @@
 
 #include "FontCache.hpp"
 
-#include <Application.hpp>
+#include <Window/Splashscreen.hpp>
 
 #include <Filesystem/DirectoryManager.hpp>
 
-#include <Modules/Misc/Strings.hpp>
+#include <Modules/Misc/ParallelFor.hpp>
 
 #include <MyGui/MyGUI_FactoryManager.h>
+#include <MyGui/MyGUI_IObject.h>
 #include <MyGui/MyGUI_ResourceManager.h>
 #include <MyGui/MyGUI_ResourceTrueTypeFont.h>
 #include <MyGui/MyGUI_Version.h>
 #include <MyGui/MyGUI_XmlDocument.h>
 
+#include <exception>
 #include <filesystem>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
-constexpr float FONT_SIZE_SCALE = 1.33f;
+constexpr float FONT_SIZE_SCALE = 1.66f;
 
 static void scaleFontSize(MyGUI::xml::ElementPtr element) {
 	MyGUI::xml::ElementEnumerator properties = element->getElementEnumerator();
@@ -39,23 +44,36 @@ static void scaleFontSize(MyGUI::xml::ElementPtr element) {
 	}
 }
 
-void FontManager::loadFont(MyGUI::xml::ElementPtr element, const std::string& xmlFilePath) {
-	const std::string fontName = element->findAttribute("name");
-	if (fontName.empty()) {
-		CONSOLE_WARNING("Font XML file has a Resource element without a name attribute: %s", xmlFilePath.c_str());
-		return;
-	}
+static void readCachesParallel(std::vector<FontManager::Job>& jobs) {
+	ReGuiEditor::parallelFor(jobs.size(), [&jobs](size_t index) {
+		FontManager::Job& job = jobs[index];
+		try {
+			job.cacheData = FontCache::read(job.cacheFilePath, job.cacheError);
+		} catch (const std::exception& exception) {
+			job.cacheData.reset();
+			job.cacheError = exception.what();
+		}
+	});
+}
 
-	Application::getInstance().splashscreen.setStatus(L"Loading font: " + ReGuiEditor::toWideString(fontName));
+void FontManager::loadFont(Job& job, const std::string& xmlFilePath) {
+	MyGUI::xml::ElementPtr element = job.element;
+	const std::string& fontName = job.fontName;
+
+	SET_SPLASH_STATUS("Loading font: %s", fontName.c_str());
 
 	MyGUI::ResourceManager& resourceManager = MyGUI::ResourceManager::getInstance();
 	if (resourceManager.isExist(fontName))
 		resourceManager.removeByName(fontName);
 
-	const std::string cacheFilePath = FontCache::getFilepath(fontName, FontCache::hashElement(element));
+	if (!job.cacheError.empty())
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "%s", job.cacheError.c_str());
 
 	MyGUI::ResourceTrueTypeFont* fontResource = nullptr;
-	if (FontCache::load(cacheFilePath, element, &fontResource)) {
+	if (job.cacheData)
+		fontResource = FontCache::create(std::move(*job.cacheData), fontName);
+
+	if (fontResource) {
 		this->loadedFonts_.push_back(fontResource);
 
 		CONSOLE_LOG(LEVEL_RENDER, COLOR_DARK_BLUE, "Loaded font: %s from XML file: %s", fontName.c_str(), xmlFilePath.c_str());
@@ -65,7 +83,8 @@ void FontManager::loadFont(MyGUI::xml::ElementPtr element, const std::string& xm
 	CONSOLE_LOG(LEVEL_CACHE, COLOR_DARK_GRAY, "Cache miss! Loading font & generating cache from: %s", fontName.c_str());
 
 	MyGUI::FactoryManager& factoryManager = MyGUI::FactoryManager::getInstance();
-	fontResource = factoryManager.createObject("Resource", "ResourceTrueTypeFont")->castType<MyGUI::ResourceTrueTypeFont>();
+	MyGUI::IObject* fontObject = factoryManager.createObject("Resource", "ResourceTrueTypeFont");
+	fontResource = fontObject ? fontObject->castType<MyGUI::ResourceTrueTypeFont>() : nullptr;
 	if (!fontResource) {
 		CONSOLE_ERROR("FontManager::loadFont: Failed to create ResourceTrueTypeFont object for font: %s", fontName.c_str());
 		return;
@@ -78,7 +97,7 @@ void FontManager::loadFont(MyGUI::xml::ElementPtr element, const std::string& xm
 
 	resourceManager.addResource(fontResource);
 
-	if (!FontCache::save(cacheFilePath, fontName, fontResource))
+	if (!FontCache::save(job.cacheFilePath, fontName, fontResource))
 		CONSOLE_WARNING("Failed to generate cache file for font: %s", fontName.c_str());
 
 	this->loadedFonts_.push_back(fontResource);
@@ -92,7 +111,7 @@ bool FontManager::loadFontXML(const std::string& xmlFilePath) {
 	this->clearFonts();
 
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(xmlFilePath, resolvedPath)) {
+	if (!ReGuiEditor::DirectoryManager::getInstance().resolveDirectory(xmlFilePath, resolvedPath)) {
 		CONSOLE_ERROR("FontManager::loadFontXML: Failed to resolve font XML file path: %s", xmlFilePath.c_str());
 		return false;
 	}
@@ -114,6 +133,8 @@ bool FontManager::loadFontXML(const std::string& xmlFilePath) {
 		return false;
 	}
 
+	std::vector<Job> jobs;
+
 	MyGUI::xml::ElementEnumerator resourceElement = root->getElementEnumerator();
 	while (resourceElement.next()) {
 		if (resourceElement->getName() != "Resource")
@@ -122,8 +143,23 @@ bool FontManager::loadFontXML(const std::string& xmlFilePath) {
 		if (resourceElement->findAttribute("type") != "ResourceTrueTypeFont")
 			continue;
 
-		this->loadFont(resourceElement.current(), xmlFilePath);
+		Job& job = jobs.emplace_back();
+		job.element = resourceElement.current();
+		job.fontName = job.element->findAttribute("name");
+
+		if (job.fontName.empty()) {
+			CONSOLE_WARNING("Font XML file has a Resource element without a name attribute: %s", xmlFilePath.c_str());
+			jobs.pop_back();
+			continue;
+		}
+
+		job.cacheFilePath = FontCache::getFilepath(job.fontName, FontCache::hashElement(job.element));
 	}
+
+	readCachesParallel(jobs);
+
+	for (Job& job : jobs)
+		this->loadFont(job, xmlFilePath);
 
 	return true;
 }

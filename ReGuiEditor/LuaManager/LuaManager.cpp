@@ -34,7 +34,7 @@ static int luaPanic(lua_State* L) {
 
 static bool defineEnvironment(lua_State* L) {
 	std::vector<char> content;
-	if (!FilesystemManager::getInstance().readFile(ENV_SCRIPT_PATH, content)) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile(ENV_SCRIPT_PATH, content)) {
 		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to read environment script %s.", ENV_SCRIPT_PATH);
 		return false;
 	}

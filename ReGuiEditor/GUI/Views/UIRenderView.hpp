@@ -8,7 +8,7 @@
 
 #include <ImGui/imgui.h>
 
-class UIRenderView : public View {
+class UIRenderView : public ReGuiEditor::View {
 	RenderCamera camera_;
 
 	rend::FullscreenPass gridPass_;

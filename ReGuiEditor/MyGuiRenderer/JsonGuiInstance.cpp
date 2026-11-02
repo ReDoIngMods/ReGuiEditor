@@ -6,7 +6,7 @@
 #include "JsonGui/JsonGuiOverlay.hpp"
 #include "JsonGui/JsonGuiParsing.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 #include <MyGui/MyGUI_Align.h>
 #include <MyGui/MyGUI_Gui.h>
@@ -22,7 +22,7 @@
 
 constexpr int MAX_BUILD_DEPTH = 128;
 
-using EventBinding = std::pair<std::string_view, const JSONValue*>;
+using EventBinding = std::pair<std::string_view, const ReGuiEditor::JSONValue*>;
 
 [[nodiscard]] static MyGUI::Widget* createWidget(MyGUI::Widget* parent, const std::string& layer, const std::string& type, const std::string& skin, const MyGUI::IntCoord& coord, const std::string& name) {
 	try {
@@ -36,16 +36,16 @@ using EventBinding = std::pair<std::string_view, const JSONValue*>;
 	}
 }
 
-static void applyAlignment(MyGUI::Widget* widget, const JSONValue& node) {
-	const JSONValue& horizontalAlign = node.at("HorizontalAlign");
-	const JSONValue& verticalAlign = node.at("VerticalAlign");
+static void applyAlignment(MyGUI::Widget* widget, const ReGuiEditor::JSONValue& node) {
+	const ReGuiEditor::JSONValue& horizontalAlign = node.at("HorizontalAlign");
+	const ReGuiEditor::JSONValue& verticalAlign = node.at("VerticalAlign");
 	if (!horizontalAlign.is<std::string>() && !verticalAlign.is<std::string>())
 		return;
 
 	widget->setAlign(JsonGui::toAlign(JsonGui::getString(node, "HorizontalAlign"), JsonGui::getString(node, "VerticalAlign")));
 }
 
-static void applyNodeAnchor(MyGUI::Widget* widget, const JSONValue& node, MyGUI::Widget* parent, const MyGUI::IntCoord& coord) {
+static void applyNodeAnchor(MyGUI::Widget* widget, const ReGuiEditor::JSONValue& node, MyGUI::Widget* parent, const MyGUI::IntCoord& coord) {
 	const std::string* anchor = node.at("Anchor").tryGet<std::string>();
 	if (!anchor)
 		return;
@@ -54,9 +54,9 @@ static void applyNodeAnchor(MyGUI::Widget* widget, const JSONValue& node, MyGUI:
 	JsonGui::applyAnchor(widget, *anchor, parentSize, coord.point());
 }
 
-static void applyProperties(MyGUI::Widget* widget, const JSONValue& node, const std::string& name, std::vector<EventBinding>& events) {
+static void applyProperties(MyGUI::Widget* widget, const ReGuiEditor::JSONValue& node, const std::string& name, std::vector<EventBinding>& events) {
 	std::string propertyValue;
-	for (const auto& [key, value] : node.get<JSONObject>()) {
+	for (const auto& [key, value] : node.get<ReGuiEditor::JSONObject>()) {
 		if (JsonGui::isReservedKey(key) || JsonGui::isHandledKey(key))
 			continue;
 
@@ -76,7 +76,7 @@ static void applyProperties(MyGUI::Widget* widget, const JSONValue& node, const 
 	}
 }
 
-bool JsonGuiInstance::loadSubLayout(const std::string& path, int depth, JSONValue& output) {
+bool JsonGuiInstance::loadSubLayout(const std::string& path, int depth, ReGuiEditor::JSONValue& output) {
 	if (path.empty()) {
 		CONSOLE_WARNING("JsonGui: SubLayout has no 'SubLayoutPath'.");
 		return false;
@@ -87,7 +87,7 @@ bool JsonGuiInstance::loadSubLayout(const std::string& path, int depth, JSONValu
 		return false;
 	}
 
-	if (!FilesystemManager::getInstance().readFile(path, output)) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile(path, output)) {
 		CONSOLE_ERROR("JsonGui: failed to load SubLayout '%s'.", path.c_str());
 		return false;
 	}
@@ -95,8 +95,8 @@ bool JsonGuiInstance::loadSubLayout(const std::string& path, int depth, JSONValu
 	return true;
 }
 
-MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* parent, int depth) {
-	if (!node.is<JSONObject>()) {
+MyGUI::Widget* JsonGuiInstance::build(const ReGuiEditor::JSONValue& node, MyGUI::Widget* parent, int depth) {
+	if (!node.is<ReGuiEditor::JSONObject>()) {
 		CONSOLE_ERROR("JsonGui: widget node is not an object.");
 		return nullptr;
 	}
@@ -133,18 +133,19 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 	for (const auto& [key, value] : events)
 		this->bindEvent(widget, name, key, *value, depth == 0);
 
-	std::vector<const JSONValue*> childNodes;
-	if (const JSONArray* childs = node.at("Childs").tryGet<JSONArray>()) {
-		for (const JSONValue& child : *childs)
+
+	std::vector<const ReGuiEditor::JSONValue*> childNodes;
+	if (const ReGuiEditor::JSONArray* childs = node.at("Childs").tryGet<ReGuiEditor::JSONArray>()) {
+		for (const ReGuiEditor::JSONValue& child : *childs)
 			childNodes.push_back(&child);
 	}
 
-	JSONValue subLayout;
+	ReGuiEditor::JSONValue subLayout;
 	if (type == "SubLayout" && loadSubLayout(JsonGui::getString(node, "SubLayoutPath"), depth, subLayout))
 		childNodes.push_back(&subLayout);
 
 	std::vector<JsonGui::FlowItem> flow;
-	for (const JSONValue* child : childNodes) {
+	for (const ReGuiEditor::JSONValue* child : childNodes) {
 		MyGUI::Widget* built = this->build(*child, widget, depth + 1);
 		if (!built || child->at("Anchor").is<std::string>())
 			continue;
@@ -152,7 +153,7 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 		flow.emplace_back(built, MyGUI::IntPoint(child->at("x").getOrDefault(0), child->at("y").getOrDefault(0)));
 	}
 
-	const JSONValue& gridItemSize = node.at("GridItemSize");
+	const ReGuiEditor::JSONValue& gridItemSize = node.at("GridItemSize");
 	JsonGui::applyLayout(widget, JsonGui::toLayoutRule(JsonGui::getString(node, "LayoutRule")), flow, MyGUI::IntSize(gridItemSize.at("width").getOrDefault(0), gridItemSize.at("height").getOrDefault(0)));
 
 	return widget;
@@ -166,7 +167,7 @@ void JsonGuiInstance::destroyRoot() {
 	this->root_ = nullptr;
 }
 
-bool JsonGuiInstance::render(const JSONValue& document) {
+bool JsonGuiInstance::render(const ReGuiEditor::JSONValue& document) {
 	this->destroyRoot();
 
 	this->closeHandler_.clear();

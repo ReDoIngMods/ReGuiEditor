@@ -3,20 +3,22 @@
 #include "LayoutManager.hpp"
 
 #include <GUI/FilePickerManager.hpp>
+#include <GUI/FilePickerRequest.hpp>
+#include <GUI/FilePickerResult.hpp>
 
 #include <ImGui/imgui.h>
 
-void LayoutManagerView::openLayout(bool force) {
-	FilePickerManager& filePickerManager = FilePickerManager::getInstance();
+void ReGuiEditor::LayoutManagerView::openLayout(bool force) {
+	ReGuiEditor::FilePickerManager& filePickerManager = ReGuiEditor::FilePickerManager::getInstance();
 	if (filePickerManager.isActive())
 		return;
 
-	FilePickerRequest request;
+	ReGuiEditor::FilePickerRequest request;
 	request.title = "Open Layout";
 	request.allowedExtensions = { ".layout" };
 	request.defaultPath = this->lastOpenedLayoutPath.parent_path().string();
 	request.defaultMod = this->lastOpenedLayoutMod;
-	request.onSelected = [this](const FilePickerResult& result) {
+	request.onSelected = [this](const ReGuiEditor::FilePickerResult& result) {
 		CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Selected layout: %s", result.getFullPath().c_str());
 
 		if (!result.isValid()) {
@@ -34,7 +36,7 @@ void LayoutManagerView::openLayout(bool force) {
 	filePickerManager.sendRequest(request);
 }
 
-void LayoutManagerView::renderMenu() {
+void ReGuiEditor::LayoutManagerView::renderMenu() {
 	if (ImGui::BeginMenu("File")) {
 		if (ImGui::MenuItem("Open Layout"))
 			this->openLayout(false);

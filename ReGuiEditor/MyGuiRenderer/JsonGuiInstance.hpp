@@ -1,7 +1,7 @@
 #pragma once
 #include "JsonGui/JsonGuiTypes.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 #include <MyGui/MyGUI_EditBox.h>
 #include <MyGui/MyGUI_MouseButton.h>
@@ -32,11 +32,11 @@ class JsonGuiInstance {
 	std::string rootName_;
 	bool closeCallbackCleared_ = false;
 
-	[[nodiscard]] MyGUI::Widget* build(const JSONValue& node, MyGUI::Widget* parent, int depth);
-	[[nodiscard]] static bool loadSubLayout(const std::string& path, int depth, JSONValue& output);
+	[[nodiscard]] MyGUI::Widget* build(const ReGuiEditor::JSONValue& node, MyGUI::Widget* parent, int depth);
+	[[nodiscard]] static bool loadSubLayout(const std::string& path, int depth, ReGuiEditor::JSONValue& output);
 	void destroyRoot();
 
-	void bindEvent(MyGUI::Widget* widget, const std::string& name, std::string_view key, const JSONValue& value, bool isRoot);
+	void bindEvent(MyGUI::Widget* widget, const std::string& name, std::string_view key, const ReGuiEditor::JSONValue& value, bool isRoot);
 	void queueEvent(MyGUI::Widget* sender, GuiEventType type, int x = 0, int y = 0, std::string text = {});
 
 	void onMouseClick(MyGUI::Widget* sender);
@@ -56,7 +56,7 @@ public:
 	JsonGuiInstance& operator=(JsonGuiInstance&) = delete;
 	JsonGuiInstance& operator=(JsonGuiInstance&&) = delete;
 
-	bool render(const JSONValue& document);
+	bool render(const ReGuiEditor::JSONValue& document);
 	void close();
 
 	void closeByUser();

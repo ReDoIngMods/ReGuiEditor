@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
@@ -57,7 +57,7 @@ public:
 	[[nodiscard]] int getTypeId() const { return this->typeId_; }
 };
 
-class UserdataManager : public UTILS::Singleton<UserdataManager> {
+class UserdataManager : public ReGuiEditor::Singleton<UserdataManager> {
 	std::vector<std::unique_ptr<UserdataDefinition>> definitions_;
 
 	static int indexDispatch(lua_State* L);

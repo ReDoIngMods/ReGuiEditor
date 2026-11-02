@@ -124,7 +124,7 @@ bool LuaUtils::resolveContentDataPath(lua_State* L, std::string& path) {
 	if (!luaVM)
 		return false;
 
-	return DirectoryManager::getInstance().resolveContentData(path, luaVM->getModLocalId().c_str());
+	return ReGuiEditor::DirectoryManager::getInstance().resolveContentData(path, luaVM->getModLocalId().c_str());
 }
 
 LuaVM* LuaUtils::getLuaVM(lua_State* L) {

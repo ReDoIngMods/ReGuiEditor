@@ -1,5 +1,5 @@
 #pragma once
-#include <UTILS/Singleton.hpp>
+#include <Modules/Misc/Singleton.hpp>
 
 #include <rend/Common/RefCounter.hpp>
 
@@ -9,7 +9,7 @@
 #include <utility>
 
 namespace rend {
-	class D3D11Device : public UTILS::Singleton<D3D11Device> {
+	class D3D11Device : public ReGuiEditor::Singleton<D3D11Device> {
 		rend::RefCountPtr<ID3D11Device1> device1_;
 		rend::RefCountPtr<ID3D11DeviceContext1> deviceContext1_;
 

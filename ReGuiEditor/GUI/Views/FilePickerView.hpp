@@ -11,7 +11,7 @@
 
 struct WidgetGrid;
 
-class FilePickerView : public View {
+class FilePickerView : public ReGuiEditor::View {
 	bool wasActive_ = false;
 
 	std::string searchQueryModList_;
@@ -27,7 +27,7 @@ class FilePickerView : public View {
 
 	std::filesystem::path listedPath_;
 
-	std::vector<FilesystemListEntry> entries_;
+	std::vector<ReGuiEditor::FilesystemListEntry> entries_;
 	std::string selectedFile_;
 	std::string selectedVisibleFile_;
 	bool listingValid_ = false;
@@ -61,6 +61,7 @@ class FilePickerView : public View {
 	bool drawImageIconButton(const char* imagePath, const char* fallback, bool isDisabled = false);
 
 	void drawModListEntries(const char* header, const std::vector<std::shared_ptr<UGCMod>>& mods);
+	void drawGameDirectoryEntries(const char* header, const std::vector<std::shared_ptr<UGCMod>>& directories);
 	void drawModSearchBar(const WidgetGrid& grid);
 	void drawModList(const WidgetGrid& grid);
 

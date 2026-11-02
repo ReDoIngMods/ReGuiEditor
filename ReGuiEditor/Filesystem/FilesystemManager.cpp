@@ -2,6 +2,12 @@
 
 #include "DirectoryManager.hpp"
 
+#include <Modules/Bytestream/BytestreamReader.hpp>
+#include <Modules/Bytestream/BytestreamWriter.hpp>
+#include <Modules/JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONParser.hpp>
+#include <Modules/JSON/JSONWriter.hpp>
+
 #include <Windows.h>
 #pragma comment(lib, "shell32.lib")
 
@@ -28,7 +34,7 @@ inline static std::optional<time_t> getFileWriteTime(const std::filesystem::path
 	return ftime.time_since_epoch().count() / 10000000 - 11644473600; // Convert to time_t
 }
 
-inline static void updateEntryData(FilesystemListEntry& entry, const std::filesystem::path& path) {
+inline static void updateEntryData(ReGuiEditor::FilesystemListEntry& entry, const std::filesystem::path& path) {
 	auto writeTimeOpt = getFileWriteTime(path);
 	if (!writeTimeOpt) {
 		entry.writeTime = 0;
@@ -66,7 +72,7 @@ inline static void updateEntryData(FilesystemListEntry& entry, const std::filesy
 	}
 }
 
-bool FilesystemManager::readFile(const std::string& path, std::vector<uint8_t>& outputData) const {
+bool ReGuiEditor::FilesystemManager::readFile(const std::string& path, std::vector<uint8_t>& outputData) const {
 	std::filesystem::path resolvedPath;
 	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
@@ -118,7 +124,38 @@ bool FilesystemManager::readFile(const std::string& path, std::vector<uint8_t>& 
 	return true;
 }
 
-bool FilesystemManager::writeFile(const std::string& path, const std::vector<uint8_t>& data) const {
+bool ReGuiEditor::FilesystemManager::readFile(const std::string& path, std::string& outputString) const {
+	std::vector<uint8_t> data;
+	if (!this->readFile(path, data))
+		return false;
+
+	outputString.assign(data.begin(), data.end());
+	return true;
+}
+
+bool ReGuiEditor::FilesystemManager::readFile(const std::string& path, ReGuiEditor::BytestreamReader& reader) const {
+	std::vector<uint8_t> data;
+	if (!this->readFile(path, data))
+		return false;
+
+	reader = ReGuiEditor::BytestreamReader(data.data(), data.size());
+	return true;
+}
+
+bool ReGuiEditor::FilesystemManager::readFile(const std::string& path, ReGuiEditor::JSONValue& output) const {
+	std::string fileContent;
+	if (!this->readFile(path, fileContent))
+		return false;
+
+	if (!ReGuiEditor::JSONParser::parseJson(fileContent, output)) {
+		CONSOLE_ERROR("Failed to parse JSON from file: %s", path.c_str());
+		return false;
+	}
+
+	return true;
+}
+
+bool ReGuiEditor::FilesystemManager::writeFile(const std::string& path, const std::vector<uint8_t>& data) const {
 	std::filesystem::path resolvedPath;
 	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
@@ -182,7 +219,22 @@ bool FilesystemManager::writeFile(const std::string& path, const std::vector<uin
 	return true;
 }
 
-bool FilesystemManager::exists(const std::string& path) const {
+bool ReGuiEditor::FilesystemManager::writeFile(const std::string& path, const std::string& data) const {
+	std::vector<uint8_t> byteData(data.begin(), data.end());
+	return this->writeFile(path, byteData);
+}
+
+bool ReGuiEditor::FilesystemManager::writeFile(const std::string& path, const ReGuiEditor::BytestreamWriter& writer) const {
+	std::vector<uint8_t> data(writer.cbegin(), writer.cend());
+	return this->writeFile(path, data);
+}
+
+bool ReGuiEditor::FilesystemManager::writeFile(const std::string& path, const ReGuiEditor::JSONValue& data, bool prettyPrint) const {
+	const std::string jsonString = ReGuiEditor::JSONWriter::stringify(data, prettyPrint);
+	return this->writeFile(path, jsonString);
+}
+
+bool ReGuiEditor::FilesystemManager::exists(const std::string& path) const {
 	std::filesystem::path resolvedPath;
 	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
@@ -190,7 +242,7 @@ bool FilesystemManager::exists(const std::string& path) const {
 	return std::filesystem::exists(resolvedPath);
 }
 
-bool FilesystemManager::getFileWriteTime(const std::string& path, time_t& writeTime) const {
+bool ReGuiEditor::FilesystemManager::getFileWriteTime(const std::string& path, time_t& writeTime) const {
 	std::filesystem::path resolvedPath;
 	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath))
 		return false;
@@ -206,38 +258,45 @@ bool FilesystemManager::getFileWriteTime(const std::string& path, time_t& writeT
 	return true;
 }
 
-std::optional<std::vector<FilesystemListEntry>> FilesystemManager::listDirectory(const std::string& directory, bool includeFiles, bool includeDirectories) const {
+std::optional<std::vector<ReGuiEditor::FilesystemListEntry>> ReGuiEditor::FilesystemManager::listDirectory(const std::string& directory, bool includeFiles, bool includeDirectories) const {
 	if (!includeFiles && !includeDirectories)
-		return {};
-	
+		return std::vector<FilesystemListEntry>{};
+
 	std::filesystem::path resolvedPath;
 	if (!DirectoryManager::getInstance().resolveDirectory(directory, resolvedPath))
 		return std::nullopt;
 
-	if (!std::filesystem::exists(resolvedPath) || !std::filesystem::is_directory(resolvedPath)) {
+	std::error_code error;
+	if (!std::filesystem::is_directory(resolvedPath, error)) {
 		CONSOLE_ERROR("Directory does not exist or is not a directory: %s", resolvedPath.string().c_str());
 		return std::nullopt;
 	}
 
+	std::filesystem::directory_iterator iterator(resolvedPath, std::filesystem::directory_options::skip_permission_denied, error);
+	if (error) {
+		CONSOLE_ERROR("Failed to open directory '%s': %s", resolvedPath.string().c_str(), error.message().c_str());
+		return std::nullopt;
+	}
+
 	std::vector<FilesystemListEntry> entries;
-	for (const auto& entry : std::filesystem::directory_iterator(resolvedPath)) {
-		if ((!includeFiles && !entry.is_directory()) || (!includeDirectories && entry.is_directory()))
+	for (const std::filesystem::directory_entry& entry : iterator) {
+		const bool isDirectory = entry.is_directory(error);
+		if (error || isDirectory ? !includeDirectories : !includeFiles)
 			continue;
 
 		FilesystemListEntry listEntry;
 		listEntry.name = entry.path().filename().string();
-		listEntry.isDirectory = entry.is_directory();
+		listEntry.isDirectory = isDirectory;
 		updateEntryData(listEntry, entry.path());
 
 		entries.push_back(std::move(listEntry));
 	}
 
-	std::sort(entries.begin(), entries.end(), [](const FilesystemListEntry& a, const FilesystemListEntry& b) -> bool {
+	std::sort(entries.begin(), entries.end(), [](const FilesystemListEntry& a, const FilesystemListEntry& b) {
 		if (a.isDirectory != b.isDirectory)
 			return a.isDirectory;
 
-		const int comparison = _stricmp(a.name.c_str(), b.name.c_str());
-		if (comparison != 0)
+		if (const int comparison = _stricmp(a.name.c_str(), b.name.c_str()); comparison != 0)
 			return comparison < 0;
 
 		return a.name < b.name;

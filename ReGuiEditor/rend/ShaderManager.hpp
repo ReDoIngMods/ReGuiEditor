@@ -5,9 +5,8 @@
 #include "Common/RefCounter.hpp"
 
 #include <Modules/Math/Hashing.hpp>
+#include <Modules/Misc/Singleton.hpp>
 #include <Modules/Misc/Strings.hpp>
-
-#include <UTILS/Singleton.hpp>
 
 #include <cstdint>
 #include <string>
@@ -16,7 +15,7 @@
 #include <d3dcommon.h>
 
 namespace rend {
-	class ShaderManager : public UTILS::Singleton<ShaderManager> {
+	class ShaderManager : public ReGuiEditor::Singleton<ShaderManager> {
 		struct ShaderData {
 			std::string shaderPath;
 			std::string entrypoint;

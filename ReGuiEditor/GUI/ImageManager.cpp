@@ -89,7 +89,7 @@ inline static rend::Texture2DHandle createTextureFromBGRA(const void* pixels, ui
 
 static FIBITMAP* decodeBitmap(const std::string& path) {
 	std::vector<uint8_t> fileContent;
-	if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile(path, fileContent)) {
 		CONSOLE_ERROR("Failed to read image file '%s'.", path.c_str());
 		return nullptr;
 	}
@@ -401,7 +401,7 @@ ImagePtr ImageManager::findOrLoadImageSVG(const std::string& path, uint32_t widt
 
 	this->enqueue([this, image, path, width, height, color]() mutable -> void {
 		std::vector<char> fileContent;
-		if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
+		if (!ReGuiEditor::FilesystemManager::getInstance().readFile(path, fileContent)) {
 			CONSOLE_ERROR("Failed to read SVG file '%s'.", path.c_str());
 			return image->fail();
 		}

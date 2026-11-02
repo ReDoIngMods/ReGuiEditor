@@ -9,7 +9,7 @@
 
 bool ImGuiFontManager::addFont(const std::string& fontPath, float fontSize) {	
 	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(fontPath, resolvedPath)) {
+	if (!ReGuiEditor::DirectoryManager::getInstance().resolveDirectory(fontPath, resolvedPath)) {
 		CONSOLE_ERROR("Failed to resolve font path: %s", fontPath.c_str());
 		return false;
 	}

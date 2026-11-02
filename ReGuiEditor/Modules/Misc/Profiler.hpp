@@ -72,5 +72,5 @@ namespace ReGuiEditor {
 #define PROFILE_CONCAT_IMPL(a, b) a##b
 #define PROFILE_CONCAT(a, b) PROFILE_CONCAT_IMPL(a, b)
 
-#define PROFILE_SCOPE(name) ReGuiEditor::ScopedProfiler PROFILE_CONCAT(profiler, __LINE__)(name)
+#define PROFILE_SCOPE(name, ...) ReGuiEditor::ScopedProfiler PROFILE_CONCAT(profiler, __LINE__)(ReGuiEditor::formatString(name, ##__VA_ARGS__))
 #define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCTION__)

@@ -2,7 +2,7 @@
 
 #include "JsonGuiTypes.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 #include <algorithm>
 #include <array>
@@ -55,15 +55,15 @@ bool JsonGui::toEventType(std::string_view key, GuiEventType& type) {
 	return false;
 }
 
-bool JsonGui::toPropertyValue(const JSONValue& value, std::string& output) {
+bool JsonGui::toPropertyValue(const ReGuiEditor::JSONValue& value, std::string& output) {
 	switch (value.getType()) {
-	case JSONType::String:
+	case ReGuiEditor::JSONType::String:
 		output = value.get<std::string>();
 		return true;
-	case JSONType::Boolean:
+	case ReGuiEditor::JSONType::Boolean:
 		output = value.get<bool>() ? "true" : "false";
 		return true;
-	case JSONType::Number:
+	case ReGuiEditor::JSONType::Number:
 		output = std::format("{}", value.get<double>());
 		return true;
 	default:
@@ -71,7 +71,7 @@ bool JsonGui::toPropertyValue(const JSONValue& value, std::string& output) {
 	}
 }
 
-std::string JsonGui::getString(const JSONValue& node, std::string_view key, std::string_view fallback) {
+std::string JsonGui::getString(const ReGuiEditor::JSONValue& node, std::string_view key, std::string_view fallback) {
 	const std::string* value = node.at(key).tryGet<std::string>();
 	return value ? *value : std::string(fallback);
 }

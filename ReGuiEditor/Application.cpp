@@ -1,7 +1,11 @@
 #include "Application.hpp"
 
-#include "ConfigManager/ConfigManager.hpp"
-#include "LuaManager/LuaManager.hpp"
+#include <Services/ConfigurationService/ConfigurationService.hpp>
+#include <Services/LuaService/LuaService.hpp>
+
+#include <Services/Service.hpp>
+#include <Services/ServiceManager.hpp>
+
 #include "UGCManager/UGCManager.hpp"
 
 #include "Filesystem/DirectoryManager.hpp"
@@ -13,6 +17,9 @@
 
 #include "LayoutManager/LayoutManager.hpp"
 
+#include "Window/Splashscreen.hpp"
+
+#include <Modules/Application/ApplicationBase.hpp>
 #include <Modules/Misc/Profiler.hpp>
 
 #include <rend/Renderer.hpp>
@@ -27,33 +34,13 @@
 
 #include <Windows.h>
 
+#include "Window/Window.hpp"
 #include <filesystem>
 #include <functional>
 
-bool Application::initialize() {
-	PROFILE_FUNCTION();
+bool ReGuiEditor::MainApp::initializeRenderer() {
+	SET_SPLASH_STATUS("Initializing renderer...");
 
-	QueryPerformanceFrequency(&this->frequency);
-	QueryPerformanceCounter(&this->counter);
-
-	this->window.setOnCloseRequest(std::bind(&Application::onCloseRequest, this));
-	this->window.setOnResize(std::bind(&Application::onWindowResize, this, std::placeholders::_1, std::placeholders::_2));
-	this->window.setWindowProc(std::bind(&Application::windowProc, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-
-	if (!this->window.create(L"ReGui Layout Editor", 1920, 1080))
-		return false;
-
-	this->directoryManager = DirectoryManager::createInstance();
-	if (!this->directoryManager->initialize())
-		return false;
-
-	this->filesystemManager = FilesystemManager::createInstance();
-
-	std::filesystem::path splashImagePath;
-	if (this->directoryManager->resolveDirectory("$RGE_DATA/Images/splash.png", splashImagePath))
-		this->splashscreen.show(splashImagePath);
-
-	this->splashscreen.setStatus(L"Initializing renderer...");
 	this->renderer = rend::Renderer::createInstance();
 	if (!this->renderer->init())
 		return false;
@@ -62,77 +49,116 @@ bool Application::initialize() {
 	if (!this->swapChain)
 		return false;
 
-	this->splashscreen.setStatus(L"Loading workshop content...");
-	this->ugcManager = UGCManager::createInstance();
-	if (!this->ugcManager->initialize())
-		return false;
+	return true;
+}
 
-	this->configManager = ConfigManager::createInstance();
+bool ReGuiEditor::MainApp::initializeUI() {
+	SET_SPLASH_STATUS("Initializing UI interface...");
 
-	this->splashscreen.setStatus(L"Initializing interface...");
 	this->uiManager = UIManager::createInstance();
 	if (!this->uiManager->initialize())
 		return false;
 
-	this->splashscreen.setStatus(L"Loading GUI resources...");
+	this->layoutManager = LayoutManager::createInstance();
+	this->layoutManager->initialize();
+
+	return true;
+}
+
+bool ReGuiEditor::MainApp::initializeUGC() {
+	SET_SPLASH_STATUS("Loading workshop content...");
+
+	this->ugcManager = UGCManager::createInstance();
+	if (!this->ugcManager->initialize())
+		return false;
+
+	return true;
+}
+
+bool ReGuiEditor::MainApp::initializeMyGui() {
+	SET_SPLASH_STATUS("Initializing MyGUI...");
+
 	this->guiSystemManager = GuiSystemManager::createInstance();
 	if (!this->guiSystemManager->initialize())
 		return false;
 
-	this->splashscreen.setStatus(L"Loading Layout manager...");
-	this->layoutManager = LayoutManager::createInstance();
-	this->layoutManager->initialize();
+	return true;
+}
 
-	this->splashscreen.setStatus(L"Starting Lua Engine...");
-	this->luaManager = LuaManager::createInstance();
-	if (!this->luaManager->initialize())
+bool ReGuiEditor::MainApp::initializeServices() {
+	SET_SPLASH_STATUS("Initializing services...");
+
+	this->serviceManager = ServiceManager::createInstance();
+	this->serviceManager->registerService<ConfigurationService>();
+	this->serviceManager->registerService<LuaService>();
+	if (!this->serviceManager->initializeServices(ReGuiEditor::ServiceInitStage::PreInit))
+		return false;
+	
+	return true;
+
+}
+
+bool ReGuiEditor::MainApp::initialize() {
+	PROFILE_FUNCTION();
+	
+	this->window.setOnCloseRequest(std::bind(&ReGuiEditor::MainApp::onCloseRequest, this));
+	this->window.setOnResize(std::bind(&ReGuiEditor::MainApp::onWindowResize, this, std::placeholders::_1, std::placeholders::_2));
+	this->window.setWindowProc(std::bind(&ReGuiEditor::MainApp::windowProc, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+
+	if (!this->window.create(L"ReGui Layout Editor", 1920, 1080))
 		return false;
 
-	this->splashscreen.setStatus(L"Starting...");
+	this->directoryManager = ReGuiEditor::DirectoryManager::createInstance();
+	if (!this->directoryManager->initialize())
+		return false;
+
+	this->filesystemManager = ReGuiEditor::FilesystemManager::createInstance();
+
+	std::filesystem::path splashImagePath;
+	if (this->directoryManager->resolveDirectory("$RGE_DATA/Images/splash.png", splashImagePath))
+		ReGuiEditor::gSplashscreen.show(splashImagePath);
+
+	if (!this->initializeRenderer()) return false;
+	if (!this->initializeServices()) return false;
+	if (!this->initializeUGC()) return false;
+	if (!this->initializeUI()) return false;
+	if (!this->initializeMyGui()) return false;
+
+	if (!this->serviceManager->initializeServices(ReGuiEditor::ServiceInitStage::PostInit))
+		return false;
+
+	SET_SPLASH_STATUS("Starting...");
 
 	this->isInitialized = true;
 	return true;
 }
 
-void Application::update() {
+void ReGuiEditor::MainApp::update() {
 	PROFILE_FUNCTION();
 
+	if (!this->isInitialized)
+		return;
+
 	if (this->window.wantsExit()) {
-		this->isRunning = false;
+		this->isRunning_ = false;
 		return;
 	}
 
-	LARGE_INTEGER currentCounter;
-	QueryPerformanceCounter(&currentCounter);
-
-	this->deltaTime = static_cast<double>(currentCounter.QuadPart - this->counter.QuadPart) / static_cast<double>(this->frequency.QuadPart);
-	this->counter = currentCounter;
-
 	this->window.update();
 
-	this->uiManager->viewsManager->update(this->deltaTime);
-
-	this->fixedUpdateTimeAccumulator += this->deltaTime;
-	while (this->fixedUpdateTimeAccumulator >= 1.0 / 40.0) {
-		this->fixedUpdate();
-		this->fixedUpdateTimeAccumulator -= 1.0 / 40.0;
-	}
+	this->serviceManager->callUpdate();
+	this->uiManager->viewsManager->update(this->deltaTime_);
 }
 
-void Application::fixedUpdate() {
+void ReGuiEditor::MainApp::tick() {
 	PROFILE_FUNCTION();
 
-	this->luaManager->update(static_cast<float>(this->deltaTime));
+	this->serviceManager->callTick();
 	this->uiManager->viewsManager->tick();
 }
 
-void Application::render(bool vsyncEnabled) {
+void ReGuiEditor::MainApp::render() {
 	PROFILE_FUNCTION();
-
-	{
-		PROFILE_SCOPE("Application::luaTick");
-		this->luaManager->tick();
-	}
 
 	if(!this->swapChain->clearRenderTarget(rend::Color::darkGray()))
 		CONSOLE_ERROR(L"Failed to clear render target");
@@ -145,6 +171,7 @@ void Application::render(bool vsyncEnabled) {
 	RGE_ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
+	this->serviceManager->callRender();
 	{
 		PROFILE_SCOPE("Application::viewsRender");
 		this->uiManager->viewsManager->render();
@@ -162,30 +189,30 @@ void Application::render(bool vsyncEnabled) {
 	{
 		PROFILE_SCOPE("Application::present");
 
-		if(!this->swapChain->present(vsyncEnabled))
+		if(!this->swapChain->present(true))
 			CONSOLE_ERROR(L"Failed to main present swap chain");
 	}
 
-	// The window stays hidden until the first frame is on screen, so it never opens blank.
 	if (!this->isWindowShown) {
-		this->window.show();
-		this->splashscreen.close();
+		this->window.setShowState(ReGuiEditor::WindowShowState::Show);
+		ReGuiEditor::gSplashscreen.close();
+
 		this->isWindowShown = true;
 	}
 }
 
-LRESULT Application::windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+LRESULT ReGuiEditor::MainApp::windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	if (RGE_ImGui_ImplWin32_WndProcHandler(hwnd, message, wParam, lParam))
 		return true;
 
 	return DefWindowProcW(hwnd, message, wParam, lParam);
 }
 
-bool Application::onCloseRequest() {
+bool ReGuiEditor::MainApp::onCloseRequest() {
 	return true;
 }
 
-void Application::onWindowResize(int width, int height) {
+void ReGuiEditor::MainApp::onWindowResize(int width, int height) {
 	if (!this->isInitialized || !this->swapChain || width <= 0 || height <= 0)
 		return;
 
@@ -194,12 +221,7 @@ void Application::onWindowResize(int width, int height) {
 		return;
 	}
 
-	this->render(false);
+	this->render();
 }
 
-void Application::onResize(int width, int height) {
-	if (!this->isInitialized)
-		return;
-
-	this->render(false);
-}
+REGUIEDITOR_CREATE_APPLICATION_DEFINITION(ReGuiEditor::MainApp)

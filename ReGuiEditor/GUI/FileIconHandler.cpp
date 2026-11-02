@@ -3,16 +3,16 @@
 
 #include <Filesystem/FilesystemManager.hpp>
 
-#include <JSON/JSONObject.hpp>
+#include <Modules/JSON/JSONObject.hpp>
 
 bool FileIconHandler::initialize() {
-	JSONValue jsonContent;
-	if (!FilesystemManager::getInstance().readFile("$RGE_DATA/Icons/IconTranslation.json", jsonContent)) {
+	ReGuiEditor::JSONValue jsonContent;
+	if (!ReGuiEditor::FilesystemManager::getInstance().readFile("$RGE_DATA/Icons/IconTranslation.json", jsonContent)) {
 		CONSOLE_ERROR("Failed to read file icons configuration.");
 		return false;
 	}
 
-	const JSONObject* jsonObject = jsonContent.tryGet<JSONObject>();
+	const ReGuiEditor::JSONObject* jsonObject = jsonContent.tryGet<ReGuiEditor::JSONObject>();
 	if (!jsonObject) {
 		CONSOLE_ERROR("File icons configuration is not a valid JSON object.");
 		return false;
@@ -33,14 +33,14 @@ bool FileIconHandler::initialize() {
 	this->folderIconPath_ = *folderIconValue;
 	this->defaultFileIconPath_ = *defaultFileIconValue;
 
-	const JSONArray* entriesArray = jsonObject->at("entries").tryGet<JSONArray>();
+	const ReGuiEditor::JSONArray* entriesArray = jsonObject->at("entries").tryGet<ReGuiEditor::JSONArray>();
 	if (!entriesArray) {
 		CONSOLE_ERROR("Missing 'entries' in file icons configuration or it is not a valid array.");
 		return false;
 	}
 
-	for (const JSONValue& entryValue : *entriesArray) {
-		const JSONObject* entryObject = entryValue.tryGet<JSONObject>();
+	for (const ReGuiEditor::JSONValue& entryValue : *entriesArray) {
+		const ReGuiEditor::JSONObject* entryObject = entryValue.tryGet<ReGuiEditor::JSONObject>();
 		if (!entryObject) {
 			CONSOLE_ERROR("Invalid entry in file icons configuration.");
 			continue;
@@ -52,13 +52,13 @@ bool FileIconHandler::initialize() {
 			continue;
 		}
 
-		const JSONArray* extensionsArray = entryObject->at("extensions").tryGet<JSONArray>();
+		const ReGuiEditor::JSONArray* extensionsArray = entryObject->at("extensions").tryGet<ReGuiEditor::JSONArray>();
 		if (!extensionsArray) {
 			CONSOLE_ERROR("Missing 'extensions' in an entry of file icons configuration or it is not a valid array.");
 			continue;
 		}
 
-		for (const JSONValue& extensionValue : *extensionsArray) {
+		for (const ReGuiEditor::JSONValue& extensionValue : *extensionsArray) {
 			const std::string* extension = extensionValue.tryGet<std::string>();
 			if (!extension) {
 				CONSOLE_ERROR("Invalid extension in an entry of file icons configuration.");

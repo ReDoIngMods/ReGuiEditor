@@ -34,6 +34,10 @@ struct UGCMod {
 	UGCModType type = UGCModType::COUNT;
 	
 	bool isLocal = false;
+
+	// Built-in game directory ($GAME_DATA, $SURVIVAL_DATA, ...) exposed through the same interface as a mod.
+	bool isGameDirectory = false;
+
 	bool hasTriedLoadingThumbnail = false;
 private:
 	ImagePtr thumbnail = nullptr;
@@ -65,4 +69,7 @@ public:
 	}
 
 	[[nodiscard]] static std::shared_ptr<UGCMod> fromPath(const std::filesystem::path& modPath, bool isLocal);
+
+	// Thread-safe (no logging, no shared state); the failure reason is returned in outputErrorMsg.
+	[[nodiscard]] static std::shared_ptr<UGCMod> fromPath(const std::filesystem::path& modPath, bool isLocal, std::string& outputErrorMsg);
 };
