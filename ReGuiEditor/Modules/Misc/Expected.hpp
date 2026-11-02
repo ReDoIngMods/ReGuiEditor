@@ -26,7 +26,7 @@ namespace ReGuiEditor {
 
         Expected(T value) {
             new (&this->storage_) T(std::move(value));
-            this->errorMessage_.clear();
+            this->errorMessage_.message_.clear();
         }
 
 		Expected(ReGuiEditor::ExpectedError error) : errorMessage_(std::move(error)) {}
@@ -45,7 +45,7 @@ namespace ReGuiEditor {
                 this->errorMessage_ = std::move(other.errorMessage_);
         }
 
-        ReGuiEditor::Expected& operator=(const ReGuiEditor::Expected& other) {
+        ReGuiEditor::Expected<T>& operator=(const ReGuiEditor::Expected<T>& other) {
             if (this == &other)
                 return *this;
 
@@ -62,7 +62,7 @@ namespace ReGuiEditor {
             return *this;
         }
 
-        ReGuiEditor::Expected& operator=(ReGuiEditor::Expected&& other) noexcept(std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_move_assignable_v<T>) {
+        ReGuiEditor::Expected<T>& operator=(ReGuiEditor::Expected<T>&& other) noexcept(std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_move_assignable_v<T>) {
 			if (this == &other)
 				return *this;
 
@@ -84,7 +84,7 @@ namespace ReGuiEditor {
                 reinterpret_cast<T*>(&this->storage_)->~T();
         }
 
-        const bool hasValue() const { return this->errorMessage_.empty(); }
+        const bool hasValue() const { return this->errorMessage_.message_.empty(); }
         std::string_view getErrorMessage() const { return this->errorMessage_.message_; }
 		const ReGuiEditor::ExpectedError& getError() const { return this->errorMessage_; }
 

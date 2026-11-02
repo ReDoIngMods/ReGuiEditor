@@ -13,7 +13,7 @@
 #include <Modules/JSON/JSONParser.hpp>
 #include <Modules/UniqueIdentifiers/Uuid.hpp>
 
-inline static bool readFileDirectly(const std::string& filePath, std::string& output) {
+inline static bool readFileDirectly(const std::filesystem::path& filePath, std::string& output) {
 	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
 	if (!file)
 		return false;
@@ -28,7 +28,7 @@ inline static bool readFileDirectly(const std::string& filePath, std::string& ou
 	return static_cast<bool>(file.read(output.data(), size));
 }
 
-inline static ReGuiEditor::Expected<std::string> findThumbnailFilenameDirectly(const std::string& modPath) {
+inline static ReGuiEditor::Expected<std::string> findThumbnailFilenameDirectly(const std::filesystem::path& modPath) {
 	std::error_code error;
 	for (const auto& entry : std::filesystem::directory_iterator(modPath, error)) {
 		if (error)
@@ -45,13 +45,13 @@ inline static ReGuiEditor::Expected<std::string> findThumbnailFilenameDirectly(c
 	return ReGuiEditor::ExpectedError("No thumbnail file found in mod directory");
 }
 
-ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> ReGuiEditor::UgcMod::createFromPath(const std::filesystem::path modPath) {
+ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> ReGuiEditor::UgcMod::createFromPath(std::filesystem::path modPath) {
 	modPath.make_preferred();
 
 	const std::filesystem::path descriptionPath = modPath / "description.json";
 
 	std::string descriptionData;
-	if (!readFileDirectly(modPath + "/description.json", descriptionData))
+	if (!readFileDirectly(modPath / "description.json", descriptionData))
 		return ReGuiEditor::ExpectedError("Failed to read description.json");
 
 	ReGuiEditor::JSONValue json;
@@ -79,12 +79,18 @@ ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> ReGuiEditor::UgcMod:
 	if (!thumbnailFilename)
 		return thumbnailFilename.getError();
 
-	// Check if it isn't in C:/Users, if so then its a workshop mod, otherwise its a local mod
-
 	std::shared_ptr<ReGuiEditor::UgcMod> mod = std::make_shared<ReGuiEditor::UgcMod>();
 	mod->type_ = type;
 	mod->version_ = static_cast<ReGuiEditor::UgcModVersion>(json["version"].getOrDefault(0));
 	mod->isLocal_ = !std::filesystem::path(modPath).string().starts_with("C:/Users");
+	
+	mod->name_ = *name;
+	if (!ReGuiEditor::Uuid::fromString(*localIdPtr, mod->localId_))
+		return ReGuiEditor::ExpectedError("description.json has an invalid 'localId' field");
+
+	mod->contentPath_ = "$CONTENT_" + mod->localId_.toString();
+	mod->fileId_ = json["fileId"].getOrDefault(0);
+	mod->thumbnail_.path_ = (modPath / *thumbnailFilename).string();
 
 	return mod;
 }

@@ -38,21 +38,21 @@ namespace ReGuiEditor {
 		}
 	}
 
-	inline UgcModType stringToUgcModType(const char* typeStr) {
-		if (strncmp(typeStr, "Blueprint", 9) == 0) return ReGuiEditor::UgcModType::Blueprint;
+	inline ReGuiEditor::UgcModType stringToUgcModType(const char* typeStr) {
+		if (strncmp(typeStr, "Blueprint",         9) == 0) return ReGuiEditor::UgcModType::Blueprint;
 		if (strncmp(typeStr, "Blocks and Parts", 16) == 0) return ReGuiEditor::UgcModType::BlocksAndParts;
-		if (strncmp(typeStr, "Tile", 4) == 0) return ReGuiEditor::UgcModType::Tile;
-		if (strncmp(typeStr, "World", 5) == 0) return ReGuiEditor::UgcModType::World;
-		if (strncmp(typeStr, "Terrain Assets", 14) == 0) return ReGuiEditor::UgcModType::TerrainAssets;
-		if (strncmp(typeStr, "Challenge Pack", 14) == 0) return ReGuiEditor::UgcModType::ChallengePack;
-		if (strncmp(typeStr, "Challenge Level", 15) == 0) return ReGuiEditor::UgcModType::ChallengeLevel;
-		if (strncmp(typeStr, "Custom Game", 11) == 0) return ReGuiEditor::UgcModType::CustomGame;
+		if (strncmp(typeStr, "Tile",              4) == 0) return ReGuiEditor::UgcModType::Tile;
+		if (strncmp(typeStr, "World",             5) == 0) return ReGuiEditor::UgcModType::World;
+		if (strncmp(typeStr, "Terrain Assets",   14) == 0) return ReGuiEditor::UgcModType::TerrainAssets;
+		if (strncmp(typeStr, "Challenge Pack",   14) == 0) return ReGuiEditor::UgcModType::ChallengePack;
+		if (strncmp(typeStr, "Challenge Level",  15) == 0) return ReGuiEditor::UgcModType::ChallengeLevel;
+		if (strncmp(typeStr, "Custom Game",      11) == 0) return ReGuiEditor::UgcModType::CustomGame;
 		return ReGuiEditor::UgcModType::COUNT;
 	}
 
 	typedef enum class UgcModVersion : uint16_t {
-		PreSurvival = 0,
-		Survival = 1,
+		PreSurvival     = 0,
+		Survival        = 1,
 		DrillingThunder = 2,
 		COUNT
 	} UgcModVersion;
