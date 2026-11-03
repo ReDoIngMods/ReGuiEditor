@@ -6,7 +6,6 @@
 #include "GUI/UIManager.hpp"
 #include "LayoutManager/LayoutManager.hpp"
 #include "MyGuiRenderer/GuiSystemManager.hpp"
-#include "UGCManager/UGCManager.hpp"
 
 #include "Services/ServiceManager.hpp"
 
@@ -23,7 +22,6 @@ namespace ReGuiEditor {
 	class MainApp : public ReGuiEditor::ApplicationBase {
 		bool initializeRenderer();
 		bool initializeUI();
-		bool initializeUGC();
 		bool initializeMyGui();
 		bool initializeServices();
 	public:
@@ -39,7 +37,6 @@ namespace ReGuiEditor {
 
 		std::shared_ptr<ReGuiEditor::DirectoryManager> directoryManager = nullptr;
 		std::shared_ptr<ReGuiEditor::FilesystemManager> filesystemManager = nullptr;
-		std::shared_ptr<UGCManager> ugcManager = nullptr;
 		
 		std::shared_ptr<GuiSystemManager> guiSystemManager = nullptr;
 		std::shared_ptr<LayoutManager> layoutManager = nullptr;

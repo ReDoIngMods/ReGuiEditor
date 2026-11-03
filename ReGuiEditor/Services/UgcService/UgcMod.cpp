@@ -28,7 +28,7 @@ inline static bool readFileDirectly(const std::filesystem::path& filePath, std::
 	return static_cast<bool>(file.read(output.data(), size));
 }
 
-inline static ReGuiEditor::Expected<std::string> findThumbnailFilenameDirectly(const std::filesystem::path& modPath) {
+inline static std::string findThumbnailFilenameDirectly(const std::filesystem::path& modPath, const std::string& modName) {
 	std::error_code error;
 	for (const auto& entry : std::filesystem::directory_iterator(modPath, error)) {
 		if (error)
@@ -38,17 +38,15 @@ inline static ReGuiEditor::Expected<std::string> findThumbnailFilenameDirectly(c
 			continue;
 
 		const std::string filename = entry.path().filename().string();
-		if (filename.starts_with("preview"))
+		if (filename.starts_with("preview") || filename.starts_with("icon") || filename.starts_with(modName))
 			return filename;
 	}
 
-	return ReGuiEditor::ExpectedError("No thumbnail file found in mod directory");
+	return "$RGE_DATA/Images/thumbnail_missing.jpg";
 }
 
-ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> ReGuiEditor::UgcMod::createFromPath(std::filesystem::path modPath) {
+ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> ReGuiEditor::UgcMod::createFromPath(std::filesystem::path modPath, bool isLocal) {
 	modPath.make_preferred();
-
-	const std::filesystem::path descriptionPath = modPath / "description.json";
 
 	std::string descriptionData;
 	if (!readFileDirectly(modPath / "description.json", descriptionData))
@@ -75,14 +73,10 @@ ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> ReGuiEditor::UgcMod:
 			return ReGuiEditor::ExpectedError("description.json has an invalid 'type' field");
 	}
 
-	auto thumbnailFilename = findThumbnailFilenameDirectly(modPath);
-	if (!thumbnailFilename)
-		return thumbnailFilename.getError();
-
 	std::shared_ptr<ReGuiEditor::UgcMod> mod = std::make_shared<ReGuiEditor::UgcMod>();
 	mod->type_ = type;
 	mod->version_ = static_cast<ReGuiEditor::UgcModVersion>(json["version"].getOrDefault(0));
-	mod->isLocal_ = !std::filesystem::path(modPath).string().starts_with("C:/Users");
+	mod->isLocal_ = isLocal;
 	
 	mod->name_ = *name;
 	if (!ReGuiEditor::Uuid::fromString(*localIdPtr, mod->localId_))
@@ -90,7 +84,7 @@ ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> ReGuiEditor::UgcMod:
 
 	mod->contentPath_ = "$CONTENT_" + mod->localId_.toString();
 	mod->fileId_ = json["fileId"].getOrDefault(0);
-	mod->thumbnail_.path_ = (modPath / *thumbnailFilename).string();
+	mod->thumbnail_.path_ = mod->contentPath_ + "/" + findThumbnailFilenameDirectly(modPath, *name);
 
 	return mod;
 }

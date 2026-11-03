@@ -2,11 +2,10 @@
 
 #include <Services/ConfigurationService/ConfigurationService.hpp>
 #include <Services/LuaService/LuaService.hpp>
+#include <Services/UgcService/UgcService.hpp>
 
 #include <Services/Service.hpp>
 #include <Services/ServiceManager.hpp>
-
-#include "UGCManager/UGCManager.hpp"
 
 #include "Filesystem/DirectoryManager.hpp"
 #include "Filesystem/FilesystemManager.hpp"
@@ -65,16 +64,6 @@ bool ReGuiEditor::MainApp::initializeUI() {
 	return true;
 }
 
-bool ReGuiEditor::MainApp::initializeUGC() {
-	SET_SPLASH_STATUS("Loading workshop content...");
-
-	this->ugcManager = UGCManager::createInstance();
-	if (!this->ugcManager->initialize())
-		return false;
-
-	return true;
-}
-
 bool ReGuiEditor::MainApp::initializeMyGui() {
 	SET_SPLASH_STATUS("Initializing MyGUI...");
 
@@ -89,8 +78,9 @@ bool ReGuiEditor::MainApp::initializeServices() {
 	SET_SPLASH_STATUS("Initializing services...");
 
 	this->serviceManager = ServiceManager::createInstance();
-	this->serviceManager->registerService<ConfigurationService>();
-	this->serviceManager->registerService<LuaService>();
+	this->serviceManager->registerService<ReGuiEditor::ConfigurationService>();
+	this->serviceManager->registerService<ReGuiEditor::LuaService>();
+	this->serviceManager->registerService<ReGuiEditor::UgcService>();
 	if (!this->serviceManager->initializeServices(ReGuiEditor::ServiceInitStage::PreInit))
 		return false;
 	
@@ -120,7 +110,6 @@ bool ReGuiEditor::MainApp::initialize() {
 
 	if (!this->initializeRenderer()) return false;
 	if (!this->initializeServices()) return false;
-	if (!this->initializeUGC()) return false;
 	if (!this->initializeUI()) return false;
 	if (!this->initializeMyGui()) return false;
 

@@ -25,8 +25,10 @@ static std::array<const wchar_t*, LEVEL_COUNT> gConsoleLogLevelNames = {
 	L"ERROR:",
 	L"DEBUG:",
 
+	L"[Service]",
 	L"[Cache]",
 	L"[Lua]",
+	L"[UGC]",
 
 	L"[MyGUI]",
 	L"[Shader]",

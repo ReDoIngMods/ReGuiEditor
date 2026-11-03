@@ -54,9 +54,13 @@ bool ReGuiEditor::ServiceManager::initializeServices(ReGuiEditor::ServiceInitSta
 			}
 
 			CONSOLE_LOG(LEVEL_SERVICE, COLOR_GRAY, "Initializing service: %s", service->getServiceName());
-			if (!service->initialize()) {
-				CONSOLE_ERROR("Failed to initialize service: %s", service->getServiceName());
-				return false;
+			
+			{
+				PROFILE_SCOPE("%s::initialize", service->getServiceName());
+				if (!service->initialize()) {
+					CONSOLE_ERROR("Failed to initialize service: %s", service->getServiceName());
+					return false;
+				}
 			}
 			
 			this->services_.push_back(std::move(*iterator));

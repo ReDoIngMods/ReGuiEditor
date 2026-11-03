@@ -279,6 +279,7 @@ exit /b 0</Command>
     <ClCompile Include="Modules\Misc\Strings.cpp" />
     <ClCompile Include="Modules\UniqueIdentifiers\Uuid.cpp" />
     <ClCompile Include="Services\UgcService\UgcMod.cpp" />
+    <ClCompile Include="Services\UgcService\UgcService.cpp" />
     <ClCompile Include="Window\Splashscreen.cpp" />
     <ClCompile Include="Window\Window.cpp" />
   </ItemGroup>

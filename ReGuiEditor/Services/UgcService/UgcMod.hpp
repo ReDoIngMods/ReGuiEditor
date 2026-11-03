@@ -116,6 +116,6 @@ namespace ReGuiEditor {
 
 		[[nodiscard]] bool isOutdated() const { return this->version_ <= ReGuiEditor::UgcModVersion::Survival; }
 
-		static ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> createFromPath(std::filesystem::path modPath);
+		static ReGuiEditor::Expected<std::shared_ptr<ReGuiEditor::UgcMod>> createFromPath(std::filesystem::path modPath, bool isLocal);
 	};
 }

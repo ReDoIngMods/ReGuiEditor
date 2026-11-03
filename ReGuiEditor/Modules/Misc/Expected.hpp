@@ -32,14 +32,14 @@ namespace ReGuiEditor {
 		Expected(ReGuiEditor::ExpectedError error) : errorMessage_(std::move(error)) {}
 
         Expected(const ReGuiEditor::Expected<T>& other) {
-            if (other.hasValue())
+            if (other.has_value())
                 new (&this->storage_) T(other.value());
             else
                 this->errorMessage_ = other.errorMessage_;
         }
 
         Expected(ReGuiEditor::Expected<T>&& other) noexcept(std::is_nothrow_move_constructible_v<T>) {
-            if (other.hasValue())
+            if (other.has_value())
                 new (&this->storage_) T(std::move(other.value()));
             else
                 this->errorMessage_ = std::move(other.errorMessage_);
@@ -49,10 +49,10 @@ namespace ReGuiEditor {
             if (this == &other)
                 return *this;
 
-            if (this->hasValue())
+            if (this->has_value())
                 reinterpret_cast<T*>(&this->storage_)->~T();
 
-            if (other.hasValue()) {
+            if (other.has_value()) {
                 new (&this->storage_) T(other.value());
                 this->errorMessage_.clear();
             } else {
@@ -66,10 +66,10 @@ namespace ReGuiEditor {
 			if (this == &other)
 				return *this;
 
-			if (this->hasValue())
+			if (this->has_value())
 				reinterpret_cast<T*>(&this->storage_)->~T();
 
-			if (other.hasValue()) {
+			if (other.has_value()) {
 				new (&this->storage_) T(std::move(other.value()));
 				this->errorMessage_.clear();
             } else {
@@ -80,29 +80,29 @@ namespace ReGuiEditor {
         }
 
         ~Expected() {
-            if (this->hasValue())
+            if (this->has_value())
                 reinterpret_cast<T*>(&this->storage_)->~T();
         }
 
-        const bool hasValue() const { return this->errorMessage_.message_.empty(); }
-        std::string_view getErrorMessage() const { return this->errorMessage_.message_; }
-		const ReGuiEditor::ExpectedError& getError() const { return this->errorMessage_; }
+        const bool has_value() const { return this->errorMessage_.message_.empty(); }
+        std::string_view get_error_message() const { return this->errorMessage_.message_; }
+		const ReGuiEditor::ExpectedError& get_error() const { return this->errorMessage_; }
 
         T& value() {
-            if (!this->hasValue())
+            if (!this->has_value())
                 throw std::runtime_error("Expected<T> has no value: " + this->errorMessage_.message_);
 
             return *reinterpret_cast<T*>(&this->storage_);
         }
 
         const T& value() const {
-            if (!this->hasValue())
+            if (!this->has_value())
                 throw std::runtime_error("Expected<T> has no value: " + this->errorMessage_.message_);
 
             return *reinterpret_cast<const T*>(&this->storage_);
         }
 
-        explicit operator bool() const { return this->hasValue(); }
+        explicit operator bool() const { return this->has_value(); }
         explicit operator T& () { return this->value(); }
         explicit operator const T& () const { return this->value(); }
 
