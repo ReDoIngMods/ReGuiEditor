@@ -12,7 +12,7 @@ namespace ReGuiEditor {
 		std::filesystem::path rawFilePath_;
 		std::function<void()> onReloadCallback_;
 
-		time_t lastWriteTime_;
+		time_t lastWriteTime_ = 0;
 		bool pendingReload_ = false;
 
 		bool updateLastWriteTime();

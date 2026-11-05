@@ -19,7 +19,7 @@ namespace ReGuiEditor {
 
     template<typename T>
     class Expected {
-        std::aligned_storage_t<sizeof(T), alignof(T)> storage_;
+        std::aligned_storage_t<sizeof(T), alignof(T)> storage_{};
         ReGuiEditor::ExpectedError errorMessage_;
     public:
         Expected() = default;
