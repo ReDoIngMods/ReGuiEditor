@@ -268,6 +268,8 @@ exit /b 0</Command>
     <ClCompile Include="rend\Resources\RasterizerState.cpp" />
     <ClCompile Include="rend\Resources\SamplerState.cpp" />
     <ClCompile Include="Services\ConfigurationService\ConfigurationService.cpp" />
+    <ClCompile Include="Services\HotReloadService\HotReloadable.cpp" />
+    <ClCompile Include="Services\HotReloadService\HotReloadService.cpp" />
     <ClCompile Include="Services\LuaService\LuaModManifest.cpp" />
     <ClCompile Include="Services\LuaService\LuaService.cpp" />
     <ClCompile Include="Services\LuaService\LuaState.cpp" />
@@ -616,6 +618,8 @@ exit /b 0</Command>
     <ClInclude Include="rend\Common\StencilOperand.hpp" />
     <ClInclude Include="rend\Common\Viewport.hpp" />
     <ClInclude Include="Services\ConfigurationService\ConfigurationService.hpp" />
+    <ClInclude Include="Services\HotReloadService\HotReloadable.hpp" />
+    <ClInclude Include="Services\HotReloadService\HotReloadService.hpp" />
     <ClInclude Include="Services\LuaService\LuaModManifest.hpp" />
     <ClInclude Include="Services\LuaService\LuaResult.hpp" />
     <ClInclude Include="Services\LuaService\LuaScriptError.hpp" />

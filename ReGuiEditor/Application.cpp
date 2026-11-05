@@ -3,6 +3,7 @@
 #include <Services/ConfigurationService/ConfigurationService.hpp>
 #include <Services/LuaService/LuaService.hpp>
 #include <Services/UgcService/UgcService.hpp>
+#include <Services/HotReloadService/HotReloadService.hpp>
 
 #include <Services/Service.hpp>
 #include <Services/ServiceManager.hpp>
@@ -79,6 +80,7 @@ bool ReGuiEditor::MainApp::initializeServices() {
 
 	this->serviceManager = ServiceManager::createInstance();
 	this->serviceManager->registerService<ReGuiEditor::ConfigurationService>();
+	this->serviceManager->registerService<ReGuiEditor::HotReloadService>();
 	this->serviceManager->registerService<ReGuiEditor::LuaService>();
 	this->serviceManager->registerService<ReGuiEditor::UgcService>();
 	if (!this->serviceManager->initializeServices(ReGuiEditor::ServiceInitStage::PreInit))
