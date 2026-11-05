@@ -15,6 +15,7 @@ namespace ReGuiEditor {
         ExpectedError(std::string message) : message_(std::move(message)) {}
 
 		std::string_view message() const { return this->message_; }
+		void clear() { this->message_ = "Unknown error"; }
     };
 
     template<typename T>
