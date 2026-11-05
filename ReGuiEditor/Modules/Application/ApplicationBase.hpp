@@ -12,8 +12,8 @@ namespace ReGuiEditor {
 		bool isSteamInitialized_ = false;
 		bool isFreeImageInitialized_ = false;
 
-		LARGE_INTEGER counter_;
-		LARGE_INTEGER frequency_;
+		LARGE_INTEGER counter_{};
+		LARGE_INTEGER frequency_{};
 
 		int runStart(const wchar_t* commandLine);
 		void runLoop();
@@ -22,8 +22,7 @@ namespace ReGuiEditor {
 		virtual ~ApplicationBase() = default;
 
 		// NOLINTNEXTLINE
-		template <typename T>
-		static T& getInstance();
+		template <typename T> static T& getInstance();
 		
 		int run(const wchar_t* commandLine);
 
@@ -52,6 +51,6 @@ namespace ReGuiEditor {
 		static klass instance; \
 		return instance; \
 	} \
-	int WINAPI wWinMain(HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nShowCmd) { \
+	int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPWSTR lpCmdLine, _In_ int) { \
 		return ReGuiEditor::ApplicationBase::getInstance<klass>().run(lpCmdLine); \
 	}

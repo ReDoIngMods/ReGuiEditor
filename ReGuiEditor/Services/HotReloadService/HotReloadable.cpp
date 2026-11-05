@@ -8,19 +8,20 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 
 bool ReGuiEditor::HotReloadable::updateLastWriteTime() {
 	ReGuiEditor::FilesystemManager& filesystemManager = ReGuiEditor::FilesystemManager::getInstance();
-	
+
 	time_t currentWriteTime;
 	if (!filesystemManager.getFileWriteTime(this->filePath_, currentWriteTime))
 		return false;
-	
+
 	if (currentWriteTime != this->lastWriteTime_) {
 		this->lastWriteTime_ = currentWriteTime;
 		return true;
 	}
-	
+
 	return false;
 }
 

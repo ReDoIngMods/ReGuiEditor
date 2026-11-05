@@ -1,9 +1,9 @@
 #include "Application.hpp"
 
 #include <Services/ConfigurationService/ConfigurationService.hpp>
+#include <Services/HotReloadService/HotReloadService.hpp>
 #include <Services/LuaService/LuaService.hpp>
 #include <Services/UgcService/UgcService.hpp>
-#include <Services/HotReloadService/HotReloadService.hpp>
 
 #include <Services/Service.hpp>
 #include <Services/ServiceManager.hpp>
