@@ -1,9 +1,11 @@
 #pragma once
 #if defined(__cplusplus)
-#include <Modules/Misc/Strings.hpp>
+#include "Strings.hpp"
 
 #include <Windows.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -46,7 +48,7 @@ enum ConsoleLogColor {
 	COLOR_WHITE
 };
 
-namespace ReGuiEditor {
+namespace UTILS {
 	class Console {
 		bool consoleAllocated_ = false;
 
@@ -77,19 +79,19 @@ namespace ReGuiEditor {
 		void log(ConsoleLogLevel level, ConsoleLogColor color, const std::wstring& message);
 
 		void log(ConsoleLogLevel level, ConsoleLogColor color, const std::string& message) {
-			std::wstring wideMessage = ReGuiEditor::toWideString(message);
+			std::wstring wideMessage = UTILS::toWideString(message);
 			this->log(level, color, wideMessage);
 		}
 
 		template<typename ...Arguments>
 		void log(ConsoleLogLevel level, ConsoleLogColor color, const std::wstring& format, Arguments... args) {
-			std::wstring message = ReGuiEditor::formatString(format, args...);
+			std::wstring message = UTILS::formatString(format, args...);
 			this->log(level, color, message);
 		}
 
 		template<typename ...Arguments>
 		void log(ConsoleLogLevel level, ConsoleLogColor color, const std::string& format, Arguments... args) {
-			std::wstring wideMessage = ReGuiEditor::toWideString(ReGuiEditor::formatString(format, args...));
+			std::wstring wideMessage = UTILS::toWideString(UTILS::formatString(format, args...));
 			this->log(level, color, wideMessage);
 		}
 
@@ -100,7 +102,7 @@ namespace ReGuiEditor {
 	};
 }
 
-#define CONSOLE_LOG ReGuiEditor::Console::getInstance().log
+#define CONSOLE_LOG UTILS::Console::getInstance().log
 
 #define WIDEN_IMPL(x) L##x
 #define WIDEN(x) WIDEN_IMPL(x)
@@ -109,13 +111,13 @@ namespace ReGuiEditor {
 	if constexpr (std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(*(x))>>, wchar_t>) { \
 		const wchar_t* file = WIDEN(__FILE__); \
 		if (const wchar_t* lastSlash = wcsrchr(file, L'\\')) file = lastSlash + 1; \
-		auto formattedMessage = ReGuiEditor::formatString(x, ##__VA_ARGS__); \
-		ReGuiEditor::Console::getInstance().log(LEVEL_ERROR, COLOR_RED, L"%ls:%d %ls", file, __LINE__, formattedMessage.c_str()); \
+		auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+		UTILS::Console::getInstance().log(LEVEL_ERROR, COLOR_RED, L"%ls:%d %ls", file, __LINE__, formattedMessage.c_str()); \
 	} else { \
 		const char* file = __FILE__; \
 		if (const char* lastSlash = strrchr(file, '\\')) file = lastSlash + 1; \
-		auto formattedMessage = ReGuiEditor::formatString(x, ##__VA_ARGS__); \
-		ReGuiEditor::Console::getInstance().log(LEVEL_ERROR, COLOR_RED, "%s:%d %s", file, __LINE__, formattedMessage.c_str()); \
+		auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+		UTILS::Console::getInstance().log(LEVEL_ERROR, COLOR_RED, "%s:%d %s", file, __LINE__, formattedMessage.c_str()); \
 	} \
 } while (0)
 
@@ -123,13 +125,13 @@ namespace ReGuiEditor {
 	if constexpr (std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(*(x))>>, wchar_t>) { \
 		const wchar_t* file = WIDEN(__FILE__); \
 		if (const wchar_t* lastSlash = wcsrchr(file, L'\\')) file = lastSlash + 1; \
-		auto formattedMessage = ReGuiEditor::formatString(x, ##__VA_ARGS__); \
-		ReGuiEditor::Console::getInstance().log(LEVEL_WARNING, COLOR_YELLOW, L"%ls:%d %ls", file, __LINE__, formattedMessage.c_str()); \
+		auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+		UTILS::Console::getInstance().log(LEVEL_WARNING, COLOR_YELLOW, L"%ls:%d %ls", file, __LINE__, formattedMessage.c_str()); \
 	} else { \
 		const char* file = __FILE__; \
 		if (const char* lastSlash = strrchr(file, '\\')) file = lastSlash + 1; \
-		auto formattedMessage = ReGuiEditor::formatString(x, ##__VA_ARGS__); \
-		ReGuiEditor::Console::getInstance().log(LEVEL_WARNING, COLOR_YELLOW, "%s:%d %s", file, __LINE__, formattedMessage.c_str()); \
+		auto formattedMessage = UTILS::formatString(x, ##__VA_ARGS__); \
+		UTILS::Console::getInstance().log(LEVEL_WARNING, COLOR_YELLOW, "%s:%d %s", file, __LINE__, formattedMessage.c_str()); \
 	} \
 } while (0)
 

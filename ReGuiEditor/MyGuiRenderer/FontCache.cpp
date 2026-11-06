@@ -4,17 +4,18 @@
 
 #include <Filesystem/FilesystemManager.hpp>
 
-#include <Modules/Bytestream/BytestreamReader.hpp>
-#include <Modules/Bytestream/BytestreamWriter.hpp>
-#include <Modules/Math/Hashing.hpp>
-#include <Modules/Misc/Strings.hpp>
+#include <UTILS/ByteStreamReader.hpp>
+#include <UTILS/ByteStreamWriter.hpp>
+#include <UTILS/Hashing.hpp>
+#include <UTILS/Strings.hpp>
 
 #include <rend/ResourceManager.hpp>
 #include <rend/Resources/Texture2D.hpp>
 
+#include <LZ4/lz4.h>
+
 #include <MyGui/MyGUI_FactoryManager.h>
 #include <MyGui/MyGUI_FontData.h>
-#include <MyGui/MyGUI_IObject.h>
 #include <MyGui/MyGUI_RenderFormat.h>
 #include <MyGui/MyGUI_RenderManager.h>
 #include <MyGui/MyGUI_ResourceManager.h>
@@ -26,12 +27,12 @@
 
 #include <cstdint>
 #include <cstring>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-constexpr uint32_t CACHE_VERSION = 3;
+constexpr uint32_t CACHE_VERSION = 2;
+constexpr uint64_t HASH_SEED = 14695981039346656037ULL;
 
 struct FontCacheHeader {
 	char magic[4] = { 'M', 'G', 'F', 'C' }; // MyGui Font Cache
@@ -59,15 +60,15 @@ static void hashElementRecursive(MyGUI::xml::ElementPtr element, uint64_t& hash)
 	if (!element)
 		return;
 
-	ReGuiEditor::hashCombine(hash, element->getName());
+	UTILS::hashCombine(hash, element->getName());
 
 	MyGUI::xml::VectorAttributes attributes = element->getAttributes();
 	for (const auto& attribute : attributes) {
-		ReGuiEditor::hashCombine(hash, attribute.first);
-		ReGuiEditor::hashCombine(hash, attribute.second);
+		UTILS::hashCombine(hash, attribute.first);
+		UTILS::hashCombine(hash, attribute.second);
 	}
 
-	ReGuiEditor::hashCombine(hash, element->getContent());
+	UTILS::hashCombine(hash, element->getContent());
 
 	MyGUI::xml::ElementEnumerator childElements = element->getElementEnumerator();
 	while (childElements.next())
@@ -78,14 +79,14 @@ uint64_t FontCache::hashElement(MyGUI::xml::ElementPtr element) {
 	if (!element)
 		return 0;
 
-	uint64_t hash = ReGuiEditor::HASH_SEED;
+	uint64_t hash = HASH_SEED;
 	hashElementRecursive(element, hash);
 
 	return hash;
 }
 
 std::string FontCache::getFilepath(const std::string& fontName, uint64_t hash) {
-	return ReGuiEditor::formatString("$RGE_CACHE_DATA/Fonts/%s_%016llx.mgfc", fontName.c_str(), hash);
+	return UTILS::formatString("$RGE_CACHE_DATA/Fonts/%s_%016llx.mgfc", fontName.c_str(), hash);
 }
 
 bool FontCache::load(const std::string& filePath, MyGUI::xml::ElementPtr element, MyGUI::ResourceTrueTypeFont** outputFontResource) {
@@ -93,15 +94,15 @@ bool FontCache::load(const std::string& filePath, MyGUI::xml::ElementPtr element
 	if (!filesystemManager.exists(filePath))
 		return false;
 
-	ReGuiEditor::BytestreamReader reader;
+	UTILS::ByteStreamReader reader;
 	if (!filesystemManager.readFile(filePath, reader)) {
-		CONSOLE_WARNING("Failed to read cache file: %s", filePath.c_str());
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to read cache file: %s", filePath.c_str());
 		return false;
 	}
 
 	FontCacheHeader header = reader.read<FontCacheHeader>();
 	if (!header.isValid()) {
-		CONSOLE_WARNING("Invalid cache header in file: %s", filePath.c_str());
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Invalid cache header in file: %s", filePath.c_str());
 		return false;
 	}
 
@@ -110,16 +111,14 @@ bool FontCache::load(const std::string& filePath, MyGUI::xml::ElementPtr element
 		return false;
 
 	MyGUI::FactoryManager& factoryManager = MyGUI::FactoryManager::getInstance();
-	MyGUI::IObject* fontObject = factoryManager.createObject("Resource", "ResourceTrueTypeFont");
-	std::unique_ptr<MyGUI::ResourceTrueTypeFont> fontResource(fontObject ? fontObject->castType<MyGUI::ResourceTrueTypeFont>() : nullptr);
+	MyGUI::ResourceTrueTypeFont* fontResource = factoryManager.createObject("Resource", "ResourceTrueTypeFont")->castType<MyGUI::ResourceTrueTypeFont>();
 	if (!fontResource) {
 		CONSOLE_ERROR("Failed to create ResourceTrueTypeFont object for cached font: %s", fontName.c_str());
-		delete fontObject;
 		return false;
 	}
 
-	fontResource->mResourceName = reader.read<std::string>();
-	fontResource->mSource = reader.read<std::string>();
+	fontResource->mResourceName = reader.readString();
+	fontResource->mSource = reader.readString();
 	fontResource->mSize = reader.read<float>();
 	fontResource->mResolution = reader.read<uint32_t>();
 	fontResource->mAntialias = reader.read<bool>();
@@ -137,12 +136,6 @@ bool FontCache::load(const std::string& filePath, MyGUI::xml::ElementPtr element
 	for (uint32_t index = 0; index < totalCodeRanges; ++index) {
 		const MyGUI::Char first = reader.read<MyGUI::Char>();
 		const MyGUI::Char second = reader.read<MyGUI::Char>();
-
-		const uint64_t glyphCount = static_cast<uint64_t>(second) - first + 1;
-		if (second < first || glyphCount * sizeof(FontCacheGlyphInfo) > reader.remaining()) {
-			CONSOLE_WARNING("Corrupt glyph range in cache file: %s", filePath.c_str());
-			return false;
-		}
 
 		for (uint64_t value = first; value <= second; ++value) {
 			const MyGUI::Char codePoint = static_cast<MyGUI::Char>(value);
@@ -169,41 +162,40 @@ bool FontCache::load(const std::string& filePath, MyGUI::xml::ElementPtr element
 		}
 	}
 
-	std::vector<char> uncompressedData;
-	if (!reader.readCompressableData(uncompressedData)) {
-		CONSOLE_WARNING("Failed to read compressed font data for font: %s", fontName.c_str());
-		return false;
-	}
-
-	const uint64_t expectedSize = static_cast<uint64_t>(header.width) * header.height * 4;
-	if (header.width == 0 || header.height == 0 || uncompressedData.size() != expectedSize) {
-		CONSOLE_WARNING("Font texture size mismatch in cache file: %s", filePath.c_str());
-		return false;
-	}
-
 	RPTexture* texture = dynamic_cast<RPTexture*>(MyGUI::RenderManager::getInstance().createTexture("FontTexture_" + fontName));
-	if (!texture)
-		return false;
-
 	texture->createManual(static_cast<int>(header.width), static_cast<int>(header.height), MyGUI::TextureUsage::Static, MyGUI::PixelFormat::R8G8B8A8);
 
-	void* textureData = texture->lock(MyGUI::TextureUsage::Write);
-	if (!textureData) {
-		CONSOLE_WARNING("Failed to lock texture for font: %s", fontName.c_str());
+	const size_t uncompressedDataSize = reader.read<size_t>();
+	const size_t compressedDataSize = reader.read<size_t>();
+
+	std::vector<char> compressedData(compressedDataSize);
+	reader.readBytes(compressedData.data(), compressedDataSize);
+
+	std::vector<char> uncompressedData(uncompressedDataSize);
+
+	int decompressedSize = LZ4_decompress_safe(compressedData.data(), uncompressedData.data(), static_cast<int>(compressedDataSize), static_cast<int>(uncompressedDataSize));
+	if (decompressedSize < 0 || static_cast<size_t>(decompressedSize) != uncompressedDataSize) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to decompress font data for font: %s", fontName.c_str());
 		texture->destroy();
 		return false;
 	}
 
-	memcpy(textureData, uncompressedData.data(), uncompressedData.size());
+	void* textureData = texture->lock(MyGUI::TextureUsage::Write);
+	if (!textureData) {
+		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to lock texture for font: %s", fontName.c_str());
+		texture->destroy();
+		return false;
+	}
+
+	memcpy(textureData, uncompressedData.data(), uncompressedDataSize);
 	texture->unlock();
 
 	fontResource->mTexture = texture;
 
-	MyGUI::ResourceTrueTypeFont* releasedResource = fontResource.release();
-	MyGUI::ResourceManager::getInstance().addResource(releasedResource);
+	MyGUI::ResourceManager::getInstance().addResource(fontResource);
 
 	if (outputFontResource)
-		*outputFontResource = releasedResource;
+		*outputFontResource = fontResource;
 
 	return true;
 }
@@ -245,15 +237,15 @@ bool FontCache::save(const std::string& filePath, const std::string& fontName, M
 		return false;
 	}
 
-	ReGuiEditor::BytestreamWriter writer;
+	UTILS::ByteStreamWriter writer;
 
 	FontCacheHeader header;
 	header.width = width;
 	header.height = height;
 	writer.write(header);
 
-	writer.write<std::string>(fontResource->mResourceName);
-	writer.write<std::string>(fontResource->mSource);
+	writer.writeString(fontResource->mResourceName);
+	writer.writeString(fontResource->mSource);
 	writer.write<float>(fontResource->mSize);
 	writer.write<uint32_t>(fontResource->mResolution);
 	writer.write<bool>(fontResource->mAntialias);
@@ -275,9 +267,7 @@ bool FontCache::save(const std::string& filePath, const std::string& fontName, M
 
 			const MyGUI::GlyphInfo* glyphInfo = fontResource->getGlyphInfo(codePoint);
 			if (!glyphInfo) {
-				CONSOLE_WARNING("Failed to retrieve glyph info for code point: %u in font: %s", codePoint, fontName.c_str());
-
-				writer.write(FontCacheGlyphInfo{});
+				CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to retrieve glyph info for code point: %u in font: %s", codePoint, fontName.c_str());
 				continue;
 			}
 
@@ -297,7 +287,19 @@ bool FontCache::save(const std::string& filePath, const std::string& fontName, M
 		}
 	}
 
-	writer.writeCompressableData(pixelData);
+	writer.write<size_t>(dataSize);
+
+	const int maxCompressedSize = LZ4_compressBound(static_cast<int>(dataSize));
+	std::vector<char> compressedData(static_cast<size_t>(maxCompressedSize));
+
+	const int compressedSize = LZ4_compress_default(reinterpret_cast<const char*>(pixelData.data()), compressedData.data(), static_cast<int>(dataSize), maxCompressedSize);
+	if (compressedSize <= 0) {
+		CONSOLE_ERROR("FontCache::save: Failed to compress font data: %s", fontName.c_str());
+		return false;
+	}
+
+	writer.write<size_t>(static_cast<size_t>(compressedSize));
+	writer.writeBytes(compressedData.data(), static_cast<size_t>(compressedSize));
 
 	if (!FilesystemManager::getInstance().writeFile(filePath, writer)) {
 		CONSOLE_ERROR("FontCache::save: Failed to write cache file: %s", filePath.c_str());

@@ -1,10 +1,9 @@
 #pragma once
 #include "View.hpp"
 
-#include <Modules/Misc/Profiler.hpp>
-#include <Modules/Misc/Strings.hpp>
-
+#include <UTILS/Profiler.hpp>
 #include <UTILS/Singleton.hpp>
+#include <UTILS/Strings.hpp>
 
 #include <type_traits>
 #include <vector>
@@ -61,7 +60,7 @@ public:
 
 	void render() {
 		for (auto& viewInstance : this->views_) {
-			PROFILE_SCOPE(ReGuiEditor::formatString("View - %s", viewInstance.name));
+			PROFILE_SCOPE(UTILS::formatString("View - %s", viewInstance.name));
 			viewInstance.view->render();
 		}
 	}

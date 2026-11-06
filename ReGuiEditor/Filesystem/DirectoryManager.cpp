@@ -1,18 +1,13 @@
 #include "DirectoryManager.hpp"
 
-#include <Modules/Misc/Strings.hpp>
-
-#pragma comment(lib, "shell32.lib")
+#include <UTILS/EnvVars.hpp>
+#include <UTILS/Strings.hpp>
 
 #include <cstdint>
 #include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <KnownFolders.h>
-#include <ShlObj_core.h>
-#include <Windows.h>
 
 #include <steam/isteamapps.h>
 #include <steam/isteamuser.h>
@@ -40,16 +35,16 @@ inline static bool getAppInstallPath(std::filesystem::path& installPath) {
 	return true;
 }
 
-inline static bool getUserProfilePath(std::filesystem::path& output) {
-	PWSTR userProfilePath = nullptr;
-	const HRESULT result = SHGetKnownFolderPath(FOLDERID_RoamingAppData, KF_FLAG_DEFAULT, nullptr, &userProfilePath);
-	if (FAILED(result) || userProfilePath == nullptr) {
-		CONSOLE_ERROR("Failed to get the user profile path. HRESULT: 0x%08X", result);
+inline static bool getUserProfilePath(std::filesystem::path& userProfilePath) {
+	std::string appDataPath;
+	if (!UTILS::readEnvVar("APPDATA", appDataPath)) {
+		CONSOLE_ERROR("Failed to read APPDATA environment variable.");
 		return false;
 	}
 
-	output = std::filesystem::path(userProfilePath) / "Axolot Games" / "Scrap Mechanic" / "User" / ReGuiEditor::formatString("User_%llu", SteamUser()->GetSteamID().ConvertToUint64());
-	CoTaskMemFree(userProfilePath);
+	const uint64_t steamId = SteamUser()->GetSteamID().ConvertToUint64();
+	userProfilePath = UTILS::formatString("%s\\Axolot Games\\Scrap Mechanic\\User\\User_%llu", appDataPath.c_str(), steamId);
+	userProfilePath.make_preferred();
 
 	return true;
 }
