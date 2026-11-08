@@ -26,16 +26,17 @@ static void scaleFontSize(MyGUI::xml::ElementPtr element) {
 			continue;
 
 		std::string key;
-		if (!properties->findAttribute("key", key) || key != "Size")
+		if (!properties->findAttribute("key", key))
 			continue;
 
 		std::string value;
-		if (properties->findAttribute("value", value) && !value.empty()) {
+		if (!properties->findAttribute("value", value) || value.empty())
+			continue;
+
+		if (key == "Size" || key == "LetterSpacing") {
 			const float size = std::stof(value) * FONT_SIZE_SCALE;
 			properties->setAttribute("value", std::to_string(size));
 		}
-
-		break;
 	}
 }
 
@@ -52,35 +53,29 @@ void FontManager::loadFont(MyGUI::xml::ElementPtr element, const std::string& xm
 	if (resourceManager.isExist(fontName))
 		resourceManager.removeByName(fontName);
 
+	scaleFontSize(element);
+
 	const std::string cacheFilePath = FontCache::getFilepath(fontName, FontCache::hashElement(element));
 
 	MyGUI::ResourceTrueTypeFont* fontResource = nullptr;
-	if (FontCache::load(cacheFilePath, element, &fontResource)) {
-		this->loadedFonts_.push_back(fontResource);
+	if (!FontCache::load(cacheFilePath, element, &fontResource)) {
+		CONSOLE_LOG(LEVEL_CACHE, COLOR_DARK_GRAY, "Cache miss! Loading font & generating cache from: %s", fontName.c_str());
 
-		CONSOLE_LOG(LEVEL_RENDER, COLOR_DARK_BLUE, "Loaded font: %s from XML file: %s", fontName.c_str(), xmlFilePath.c_str());
-		return;
+		MyGUI::FactoryManager& factoryManager = MyGUI::FactoryManager::getInstance();
+		fontResource = factoryManager.createObject("Resource", "ResourceTrueTypeFont")->castType<MyGUI::ResourceTrueTypeFont>();
+		if (!fontResource) {
+			CONSOLE_ERROR("FontManager::loadFont: Failed to create ResourceTrueTypeFont object for font: %s", fontName.c_str());
+			return;
+		}
+
+		static const MyGUI::Version currentVersion(1, 1, 0);
+		fontResource->deserialization(element, currentVersion);
+
+		if (!FontCache::save(cacheFilePath, fontName, fontResource))
+			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to generate cache file for font: %s", fontName.c_str());
 	}
-
-	CONSOLE_LOG(LEVEL_CACHE, COLOR_DARK_GRAY, "Cache miss! Loading font & generating cache from: %s", fontName.c_str());
-
-	MyGUI::FactoryManager& factoryManager = MyGUI::FactoryManager::getInstance();
-	fontResource = factoryManager.createObject("Resource", "ResourceTrueTypeFont")->castType<MyGUI::ResourceTrueTypeFont>();
-	if (!fontResource) {
-		CONSOLE_ERROR("FontManager::loadFont: Failed to create ResourceTrueTypeFont object for font: %s", fontName.c_str());
-		return;
-	}
-
-	scaleFontSize(element);
-
-	static const MyGUI::Version currentVersion(1, 1, 0);
-	fontResource->deserialization(element, currentVersion);
 
 	resourceManager.addResource(fontResource);
-
-	if (!FontCache::save(cacheFilePath, fontName, fontResource))
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to generate cache file for font: %s", fontName.c_str());
-
 	this->loadedFonts_.push_back(fontResource);
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_DARK_BLUE, "Loaded font: %s from XML file: %s", fontName.c_str(), xmlFilePath.c_str());
 }
@@ -129,7 +124,7 @@ bool FontManager::loadFontXML(const std::string& xmlFilePath) {
 }
 
 void FontManager::clearFonts() {
-	for (MyGUI::ResourceTrueTypeFont* font : this->loadedFonts_)
+	for (auto* font : this->loadedFonts_)
 		MyGUI::ResourceManager::getInstance().removeResource(font);
 
 	this->loadedFonts_.clear();

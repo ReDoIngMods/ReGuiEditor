@@ -4,6 +4,7 @@
 #include <rend/Common/RefCounter.hpp>
 
 #include <d3d11_1.h>
+#include <dxgi1_4.h>
 
 #include <functional>
 #include <utility>
@@ -12,6 +13,7 @@ namespace rend {
 	class D3D11Device : public UTILS::Singleton<D3D11Device> {
 		rend::RefCountPtr<ID3D11Device1> device1_;
 		rend::RefCountPtr<ID3D11DeviceContext1> deviceContext1_;
+		rend::RefCountPtr<IDXGIAdapter3> adapter3_;
 
 		bool isInitialized_ = false;
 
@@ -27,6 +29,7 @@ namespace rend {
 
 		rend::RefCountPtr<ID3D11Device1> getDevice1() const { return this->device1_; }
 		rend::RefCountPtr<ID3D11DeviceContext1> getDeviceContext1() const { return this->deviceContext1_; }
+		rend::RefCountPtr<IDXGIAdapter3> getAdapter3() const { return this->adapter3_; }
 
 		void setRenderCallback(std::function<void()> callback) { this->renderCallback_ = std::move(callback); }
 		void setInitCallback(std::function<bool()> callback) { this->initCallback_ = std::move(callback); }

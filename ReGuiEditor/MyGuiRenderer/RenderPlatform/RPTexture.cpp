@@ -4,7 +4,6 @@
 
 #include <Filesystem/FilesystemManager.hpp>
 
-#include <rend/Common/Alignment.hpp>
 #include <rend/Common/Format.hpp>
 
 #include <rend/ResourceManager.hpp>
@@ -29,6 +28,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 constexpr uint32_t BYTES_PER_PIXEL = 4;
@@ -37,11 +37,9 @@ constexpr uint32_t MAX_CACHED_TEXTURE_SIZE = 8192;
 struct TextureCacheHeader {
 	char magic[4] = { 'M', 'G', 'T', 'C' }; // MyGui Texture Cache
 
-	uint32_t version = 4;
+	uint32_t version = 5;
 	uint32_t width = 0;
 	uint32_t height = 0;
-	uint32_t textureWidth = 0;
-	uint32_t textureHeight = 0;
 	int64_t sourceWriteTime = 0;
 };
 
@@ -62,12 +60,9 @@ std::string RPTexture::getCacheFilepath(const std::string& _filename) {
 bool RPTexture::createBacking(int _width, int _height, rend::Texture2DFlags _flags) {
 	this->destroy();
 
-	const int textureWidth = rend::alignPower2(_width);
-	const int textureHeight = rend::alignPower2(_height);
-
-	this->texture_ = rend::ResourceManager::getInstance().createTexture2D(static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight), rend::Format::R8G8B8A8_UNORM, _flags);
+	this->texture_ = rend::ResourceManager::getInstance().createTexture2D(static_cast<uint32_t>(_width), static_cast<uint32_t>(_height), rend::Format::R8G8B8A8_UNORM, _flags);
 	if (!this->texture_) {
-		CONSOLE_ERROR("RPTexture: Failed to create %dx%d texture '%s'.", textureWidth, textureHeight, this->name_.c_str());
+		CONSOLE_ERROR("RPTexture: Failed to create %dx%d texture '%s'.", _width, _height, this->name_.c_str());
 		return false;
 	}
 
@@ -75,8 +70,6 @@ bool RPTexture::createBacking(int _width, int _height, rend::Texture2DFlags _fla
 
 	this->width_ = _width;
 	this->height_ = _height;
-	this->textureWidth_ = textureWidth;
-	this->textureHeight_ = textureHeight;
 
 	return true;
 }
@@ -129,7 +122,7 @@ bool RPTexture::loadCache(const std::string& _filename) {
 		return false;
 	}
 
-	if (header.width == 0 || header.height == 0 || header.textureWidth < header.width || header.textureHeight < header.height) {
+	if (header.width == 0 || header.height == 0) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Invalid texture dimensions in cache file: %s", _filename.c_str());
 		return false;
 	}
@@ -153,12 +146,12 @@ bool RPTexture::loadCache(const std::string& _filename) {
 		return false;
 	}
 
-	std::vector<char> compressedData(static_cast<size_t>(compressedDataSize));
-	reader.readBytes(compressedData.data(), compressedData.size());
-
+	// The compressed block starts right after the two size fields and runs to the end of the buffer.
+	const char* compressedData = reinterpret_cast<const char*>(buffer.data() + (buffer.size() - reader.getRemaining()));
 	std::vector<uint8_t> pixelData(static_cast<size_t>(uncompressedDataSize));
 
-	const int decompressedSize = LZ4_decompress_safe(compressedData.data(), reinterpret_cast<char*>(pixelData.data()), static_cast<int>(compressedDataSize), static_cast<int>(uncompressedDataSize));
+	const int decompressedSize = LZ4_decompress_safe(compressedData, reinterpret_cast<char*>(pixelData.data()), static_cast<int>(compressedDataSize), static_cast<int>(uncompressedDataSize));
+	std::vector<uint8_t>().swap(buffer);
 	if (decompressedSize < 0 || static_cast<size_t>(decompressedSize) != pixelData.size()) {
 		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Failed to decompress cached texture data: %s", _filename.c_str());
 		return false;
@@ -166,13 +159,6 @@ bool RPTexture::loadCache(const std::string& _filename) {
 
 	if (!this->createBacking(static_cast<int>(header.width), static_cast<int>(header.height), rend::Texture2DFlags::ShaderResource))
 		return false;
-
-	if (static_cast<uint32_t>(this->textureWidth_) != header.textureWidth || static_cast<uint32_t>(this->textureHeight_) != header.textureHeight) {
-		CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "RPTexture::loadCache: Texture dimensions in cache file do not match expected size: %s", _filename.c_str());
-
-		this->destroy();
-		return false;
-	}
 
 	if (!this->upload(pixelData.data(), pixelData.size())) {
 		CONSOLE_ERROR("RPTexture::loadCache: Failed to upload cached texture: %s", _filename.c_str());
@@ -226,8 +212,6 @@ bool RPTexture::storeCache(const std::string& _filename, const uint8_t* _pixels)
 	TextureCacheHeader header;
 	header.width = width;
 	header.height = height;
-	header.textureWidth = static_cast<uint32_t>(this->textureWidth_);
-	header.textureHeight = static_cast<uint32_t>(this->textureHeight_);
 	header.sourceWriteTime = sourceWriteTime;
 
 	UTILS::ByteStreamWriter writer;
@@ -286,20 +270,23 @@ void RPTexture::loadFromFile(const std::string& _filename) {
 	FREE_IMAGE_FORMAT fif = FreeImage_GetFileTypeFromMemory(fiMemory, 0);
 	if (fif == FIF_UNKNOWN) {
 		CONSOLE_ERROR("RPTexture::loadFromFile: Unknown image format for file: %s", _filename.c_str());
-	
+
 		FreeImage_CloseMemory(fiMemory);
 		return;
 	}
 
 	FIBITMAP* bitmap = FreeImage_LoadFromMemory(fif, fiMemory);
 	FreeImage_CloseMemory(fiMemory);
+	std::vector<uint8_t>().swap(fileData);
 
-	FIBITMAP* convertedBitmap = FreeImage_ConvertTo32Bits(bitmap);
-	FreeImage_Unload(bitmap);
-	bitmap = convertedBitmap;
+	if (bitmap && (FreeImage_GetImageType(bitmap) != FIT_BITMAP || FreeImage_GetBPP(bitmap) != 32)) {
+		FIBITMAP* convertedBitmap = FreeImage_ConvertTo32Bits(bitmap);
+		FreeImage_Unload(bitmap);
+		bitmap = convertedBitmap;
+	}
 
 	if (!bitmap) {
-		CONSOLE_ERROR("RPTexture::loadFromFile: Failed to convert image to 32-bit: %s", _filename.c_str());
+		CONSOLE_ERROR("RPTexture::loadFromFile: Failed to load or convert image to 32-bit: %s", _filename.c_str());
 		return;
 	}
 
@@ -312,42 +299,29 @@ void RPTexture::loadFromFile(const std::string& _filename) {
 
 	const int srcWidth = static_cast<int>(FreeImage_GetWidth(bitmap));
 	const int srcHeight = static_cast<int>(FreeImage_GetHeight(bitmap));
-	const size_t srcPitch = FreeImage_GetPitch(bitmap);
-	const uint8_t* srcBits = FreeImage_GetBits(bitmap);
+
+	// 32bpp FreeImage scanlines are tightly packed (pitch == width * 4), so the bitmap can be used as-is.
+	uint8_t* bits = FreeImage_GetBits(bitmap);
+	const size_t byteCount = static_cast<size_t>(srcWidth) * srcHeight * BYTES_PER_PIXEL;
 
 	if (!this->createBacking(srcWidth, srcHeight, rend::Texture2DFlags::ShaderResource)) {
 		FreeImage_Unload(bitmap);
 		return;
 	}
 
-	const size_t dstPitch = static_cast<size_t>(this->width_) * BYTES_PER_PIXEL;
-	std::vector<uint8_t> pixels(dstPitch * static_cast<size_t>(this->height_));
+	for (size_t i = 0; i < byteCount; i += BYTES_PER_PIXEL) // BGRA -> RGBA in place
+		std::swap(bits[i], bits[i + 2]);
 
-	for (int row = 0; row < srcHeight; ++row) {
-		const uint8_t* source = srcBits + static_cast<size_t>(row) * srcPitch;
-		uint8_t* destination = pixels.data() + static_cast<size_t>(row) * dstPitch;
-
-		for (int column = 0; column < srcWidth; ++column) {
-			destination[0] = source[2];
-			destination[1] = source[1];
-			destination[2] = source[0];
-			destination[3] = source[3];
-
-			source += BYTES_PER_PIXEL;
-			destination += BYTES_PER_PIXEL;
-		}
-	}
-
-	FreeImage_Unload(bitmap);
-
-	if (!this->upload(pixels.data(), pixels.size())) {
+	if (!this->upload(bits, byteCount)) {
 		CONSOLE_ERROR("RPTexture::loadFromFile: Failed to upload texture: %s", _filename.c_str());
 
+		FreeImage_Unload(bitmap);
 		this->destroy();
 		return;
 	}
 
-	(void)this->storeCache(_filename, pixels.data());
+	(void)this->storeCache(_filename, bits);
+	FreeImage_Unload(bitmap);
 }
 
 void RPTexture::saveToFile(const std::string& _filename) {
@@ -363,8 +337,6 @@ void RPTexture::destroy() {
 
 	this->width_ = 0;
 	this->height_ = 0;
-	this->textureWidth_ = 0;
-	this->textureHeight_ = 0;
 	this->isLocked_ = false;
 	this->usage_ = MyGUI::TextureUsage::Default;
 }

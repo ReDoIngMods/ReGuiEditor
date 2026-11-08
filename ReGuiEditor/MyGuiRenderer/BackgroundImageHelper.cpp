@@ -16,7 +16,8 @@
 #include <string>
 
 struct alignas(16) ConstantBufferData {
-	float uvScale[2] = { 1.0f, 1.0f };
+	float screenResolution[2];
+	float imageResolution[2];
 };
 
 bool BackgroundImageHelper::initialize() {
@@ -70,14 +71,16 @@ void BackgroundImageHelper::render(rend::RenderView* renderView, float width, fl
 	if (!this->backgroundTexture_ || !this->fullscreenPass_.isValid())
 		return;
 
-	ConstantBufferData data;
-	data.uvScale[0] = this->backgroundTexture_->getWidth() / static_cast<float>(this->backgroundTexture_->getTextureWidth());
-	data.uvScale[1] = this->backgroundTexture_->getHeight() / static_cast<float>(this->backgroundTexture_->getTextureHeight());
+	ConstantBufferData cbData = {};
+	cbData.screenResolution[0] = width;
+	cbData.screenResolution[1] = height;
+	cbData.imageResolution[0] = static_cast<float>(this->backgroundTexture_->getWidth());
+	cbData.imageResolution[1] = static_cast<float>(this->backgroundTexture_->getHeight());
 
 	rend::FullscreenDrawParams params;
 	params.target = renderView;
 	params.viewport = rend::Viewport(0.0f, 0.0f, width, height, 0.0f, 1.0f);
-	params.constants = &data;
+	params.constants = &cbData;
 	params.shaderResourceViews = { this->backgroundTexture_->getTexture().get() };
 	params.samplerStates = { this->samplerState_.get() };
 

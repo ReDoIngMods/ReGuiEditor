@@ -33,22 +33,16 @@ VertexOutput vsMain(VertexInput input) {
 #if defined(PIXEL_SHADER)
 
 #if defined(TEXTURED)
-cbuffer ConstantBuffer : register(b0) {
-    float2 uvScale;
-};
-
 Texture2D<float4> sampleTexture : register(t0);
 SamplerState sampleSampler : register(s0);
 #endif
 
 float4 psMain(VertexOutput input) : SV_TARGET {
-    float4 color = input.color;
-
 #if defined(TEXTURED)
-    color *= sampleTexture.Sample(sampleSampler, input.uv * uvScale);
+    return input.color * sampleTexture.Sample(sampleSampler, input.uv);
+#else
+    return input.color;
 #endif
-
-    return color;
 }
 
 #endif

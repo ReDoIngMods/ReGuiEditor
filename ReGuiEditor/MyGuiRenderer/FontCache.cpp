@@ -31,7 +31,7 @@
 #include <utility>
 #include <vector>
 
-constexpr uint32_t CACHE_VERSION = 2;
+constexpr uint32_t CACHE_VERSION = 3;
 constexpr uint64_t HASH_SEED = 14695981039346656037ULL;
 
 struct FontCacheHeader {
@@ -191,8 +191,6 @@ bool FontCache::load(const std::string& filePath, MyGUI::xml::ElementPtr element
 	texture->unlock();
 
 	fontResource->mTexture = texture;
-
-	MyGUI::ResourceManager::getInstance().addResource(fontResource);
 
 	if (outputFontResource)
 		*outputFontResource = fontResource;

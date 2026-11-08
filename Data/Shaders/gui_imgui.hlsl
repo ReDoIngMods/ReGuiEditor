@@ -7,8 +7,8 @@ struct VertexOutput {
 #if defined(VERTEX_SHADER)
 
 cbuffer ConstantBuffer : register(b0) {
-    float2 displayPosition;
-    float2 displayResolution;
+    float2 displayPosition;     // The display position (viewport offset) in screen space coordinates)
+    float2 displayResolution;   // The display resolution (viewport size) in screen space coordinates
 };
 
 struct VertexInput {
@@ -18,6 +18,10 @@ struct VertexInput {
 };
 
 VertexOutput vsMain(VertexInput input) {
+    // In the default ImGui backend, it uses a entire Matrix just to transform the position. However
+    // we can just simplify it to this, does the exact same thing but with simple math!
+    //
+    // Is it faster? We don't know!
     float2 normalizedPosition = ((input.position - displayPosition) / displayResolution) * 2.0 - 1.0;
     normalizedPosition.y *= -1.0;
 

@@ -4,7 +4,6 @@
 #include <rend/Common/RefCounter.hpp>
 
 #include <rend/Resources/BlendState.hpp>
-#include <rend/Resources/Buffers/ConstantBuffer.hpp>
 #include <rend/Resources/DepthStencilState.hpp>
 #include <rend/Resources/RasterizerState.hpp>
 #include <rend/Resources/SamplerState.hpp>
@@ -39,9 +38,6 @@ class RPRenderManager : public MyGUI::RenderManager, public MyGUI::IRenderTarget
 	rend::RefCountPtr<rend::DepthStencilState> depthStencilState_;
 
 	rend::RefCountPtr<rend::PipelineContext> pipelineContext_;
-
-	// Scales MyGUI's logical-size UVs down to the power-of-two GPU texture.
-	rend::ConstantBufferHandle uvScaleBuffer_;
 
 	struct Shader {
 		rend::RefCountPtr<rend::VertexShader> vertexShader;
@@ -106,15 +102,12 @@ public:
 
 	virtual void doRender(MyGUI::IVertexBuffer* _buffer, MyGUI::ITexture* _texture, size_t _count) override;
 
-	// Entry points are vsMain / psMain. Registering "Default" replaces the shader used for textures without one.
 	virtual void registerShader(const std::string& _shaderName, const std::string& _vertexProgramFile, const std::string& _fragmentProgramFile) override;
 	virtual const MyGUI::RenderTargetInfo& getInfo() const override { return this->info; }
 
-	// Binds the pipeline state shared by every MyGUI target (shaders are chosen per batch).
 	void setupContext(rend::PipelineContext& context, rend::RenderView* renderView, float width, float height);
 	void drawBatch(rend::PipelineContext& context, MyGUI::IVertexBuffer* _buffer, MyGUI::ITexture* _texture, size_t _count);
 
-	// Target the main GUI layer is drawn to.
 	void setRenderView(rend::RenderView* renderView) { this->renderView_ = renderView; }
 
 	void drawOneFrame();

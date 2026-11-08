@@ -6,6 +6,7 @@
 #include <d3d11.h>
 #include <d3d11sdklayers.h>
 #include <d3dcommon.h>
+#include <dxgi.h>
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -48,6 +49,26 @@ bool rend::D3D11Device::createDevice() {
 	result = deviceContext->QueryInterface(IID_PPV_ARGS(&this->deviceContext1_));
 	if (FAILED(result)) {
 		CONSOLE_ERROR("Failed to query ID3D11DeviceContext1 interface! HRESULT: 0x%08X", result);
+		return false;
+	}
+
+	rend::RefCountPtr<IDXGIDevice> dxgiDevice = nullptr;
+	result = this->device1_->QueryInterface(IID_PPV_ARGS(&dxgiDevice));
+	if (FAILED(result)) {
+		CONSOLE_ERROR("Failed to query IDXGIDevice interface! HRESULT: 0x%08X", result);
+		return false;
+	}
+
+	rend::RefCountPtr<IDXGIAdapter> dxgiAdapter = nullptr;
+	result = dxgiDevice->GetAdapter(dxgiAdapter.getAddressOf());
+	if (FAILED(result)) {
+		CONSOLE_ERROR("Failed to get IDXGIAdapter from IDXGIDevice! HRESULT: 0x%08X", result);
+		return false;
+	}
+
+	result = dxgiAdapter->QueryInterface(IID_PPV_ARGS(&this->adapter3_));
+	if (FAILED(result)) {
+		CONSOLE_ERROR("Failed to query IDXGIAdapter3 interface! HRESULT: 0x%08X", result);
 		return false;
 	}
 

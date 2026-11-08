@@ -24,9 +24,6 @@ class RPTexture : public MyGUI::ITexture {
 	int width_ = 0;
 	int height_ = 0;
 
-	int textureWidth_ = 0;
-	int textureHeight_ = 0;
-
 	MyGUI::TextureUsage usage_ = MyGUI::TextureUsage::Default;
 	std::string name_;
 	std::string shaderName_;
@@ -56,9 +53,6 @@ public:
 
 	int getWidth() const override { return this->width_; }
 	int getHeight() const override { return this->height_; }
-
-	int getTextureWidth() const { return this->textureWidth_; }
-	int getTextureHeight() const { return this->textureHeight_; }
 
 	MyGUI::PixelFormat getFormat() const override { return MyGUI::PixelFormat::R8G8B8A8; }
 	MyGUI::TextureUsage getUsage() const override { return this->usage_; }

@@ -3,127 +3,100 @@
 #include <JSON/JSONObject.hpp>
 #include <JSON/JSONParser.hpp>
 
-#include <array>
-#include <cstdint>
-#include <cstring>
+#include <UTILS/Uuid.hpp>
+
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <iterator>
 #include <memory>
 #include <string>
+#include <system_error>
 
-constexpr auto gUGCModTypeMap = std::to_array<const char*>({
-	"Blueprint",
-	"Blocks and Parts",
-	"Tile",
-	"World",
-	"Terrain Assets",
-	"Challenge Pack",
-	"Challenge Level",
-	"Custom Game",
-	"Unknown"
-});
+inline static bool readFileDirectly(const std::filesystem::path& filePath, std::string& output) {
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	if (!file)
+		return false;
 
-const char* UGCModTypeToString(UGCModType type) {
-	const size_t index = static_cast<size_t>(type);
-	if (index >= gUGCModTypeMap.size())
-		return gUGCModTypeMap.back();
+	const std::streamsize size = file.tellg();
+	if (size <= 0)
+		return false;
 
-	return gUGCModTypeMap[index];
+	output.resize(static_cast<size_t>(size));
+	file.seekg(0, std::ios::beg);
+
+	return static_cast<bool>(file.read(output.data(), size));
 }
 
-UGCModType StringToUGCModType(const char* typeStr) {
-	for (size_t index = 0; index < gUGCModTypeMap.size(); ++index) {
-		if (strcmp(gUGCModTypeMap[index], typeStr) == 0)
-			return static_cast<UGCModType>(index);
-	}
-
-	return UGCModType::COUNT;
-}
-
-inline static std::string readFile(const std::filesystem::path& filePath) {
-	std::ifstream file(filePath);
-	if (!file) {
-		CONSOLE_ERROR("Failed to read file: %s", filePath.string().c_str());
-		return "";
-	}
-
-	std::string data;
-	data.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-
-	return data;
-}
-
-inline static std::string findThumbnailFilename(const std::filesystem::path& modPath) {
-	for (const auto& entry : std::filesystem::directory_iterator(modPath)) {
-		if (!entry.is_regular_file())
+inline static std::string findThumbnailFilenameDirectly(const std::filesystem::path& modPath, const std::string& modName) {
+	std::error_code error;
+	for (const auto& entry : std::filesystem::directory_iterator(modPath, error)) {
+		if (error)
 			continue;
-	
+
+		if (!entry.is_regular_file(error))
+			continue;
+
 		const std::string filename = entry.path().filename().string();
-		if (filename.rfind("preview", 0) == 0)
+		if (filename.starts_with("preview") || filename.starts_with("icon") || filename.starts_with(modName))
 			return filename;
 	}
 
-	return "";
+	return "$RGE_DATA/Images/thumbnail_missing.jpg";
 }
 
-std::shared_ptr<UGCMod> UGCMod::fromPath(const std::filesystem::path& modPath, bool isLocal) {
-	const std::string descriptionPath = (modPath / "description.json").string();
-	const std::string descriptionData = readFile(descriptionPath);
-	if (descriptionData.empty()) {
-		CONSOLE_ERROR("Failed to read description.json from %s", modPath.string().c_str());
+std::shared_ptr<UgcMod> UgcMod::createFromPath(std::filesystem::path modPath, bool isLocal) {
+	modPath.make_preferred();
+
+	std::string descriptionData;
+	if (!readFileDirectly(modPath / "description.json", descriptionData)) {
+		CONSOLE_ERROR("Failed to read description.json for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
 	JSONValue json;
 	if (!JSONParser::parseJson(descriptionData, json)) {
-		CONSOLE_ERROR("Failed to parse description.json from %s", modPath.string().c_str());
+		CONSOLE_ERROR("Failed to parse description.json for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
-	const std::string* namePtr = json["name"].tryGet<std::string>();
-	if (!namePtr || namePtr->empty()) {
-		CONSOLE_ERROR("description.json from %s does not contain a valid name.", modPath.string().c_str());
+	const std::string* name = json["name"].tryGet<std::string>();
+	if (!name) {
+		CONSOLE_ERROR("description.json is missing the 'name' field for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
 	const std::string* localIdPtr = json["localId"].tryGet<std::string>();
-	if (!localIdPtr || localIdPtr->empty()) {
-		CONSOLE_ERROR("description.json from %s does not contain a valid localId.", modPath.string().c_str());
+	if (!localIdPtr) {
+		CONSOLE_ERROR("description.json is missing the 'localId' field for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
-	// On old versions of Scrap Mechanic, the "type" field is missing as all workshop items were blueprints. We have to do
-	// it a little more differently to support older versions of Scrap Mechanic.
-	UGCModType type = UGCModType::Blueprint;
-	
-	const std::string* typePtr = json["type"].tryGet<std::string>();
-	if (typePtr) {
-		type = StringToUGCModType(typePtr->c_str());
-	
-		if (type == UGCModType::COUNT) {
-			CONSOLE_ERROR("description.json from %s contains an unknown type: %s", modPath.string().c_str(), typePtr->c_str());
+	UgcModType type = UgcModType::Blueprint;
+
+	const std::string* typeStr = json["type"].tryGet<std::string>();
+	if (typeStr) {
+		type = stringToUgcModType(typeStr->c_str());
+
+		if (type == UgcModType::COUNT) {
+			CONSOLE_ERROR("description.json has an invalid 'type' field for mod at path '%s'.", modPath.string().c_str());
 			return nullptr;
 		}
 	}
 
-	std::string thumbnailFilepath = findThumbnailFilename(modPath);
-	if (thumbnailFilepath.empty())
-		thumbnailFilepath = "$RGE_DATA/Images/thumbnail_missing.jpg";
-	else
-		thumbnailFilepath = "$CONTENT_" + *localIdPtr + "/" + thumbnailFilepath;
+	std::shared_ptr<UgcMod> mod = std::make_shared<UgcMod>();
+	mod->type_ = type;
+	mod->version_ = static_cast<UgcModVersion>(json["version"].getOrDefault(0));
+	mod->isLocal_ = isLocal;
 
-	std::shared_ptr<UGCMod> mod = std::make_shared<UGCMod>();
-	mod->name = *namePtr;
-	mod->localId = *localIdPtr;
-	mod->thumbnailFilepath = thumbnailFilepath;
-	mod->contentPath = "$CONTENT_" + *localIdPtr;
-	mod->path = modPath;
-	mod->fileId = json["fileId"].getOrDefault<uint64_t>(0);
-	mod->type = type;
-	mod->isLocal = isLocal;
-	mod->version = json["version"].getOrDefault<int>(0);
+	mod->name_ = *name;
+	if (!UTILS::UUID::fromString(*localIdPtr, mod->localId_)) {
+		CONSOLE_ERROR("description.json has an invalid 'localId' field for mod at path '%s'.", modPath.string().c_str());
+		return nullptr;
+	}
+
+	mod->contentPath_ = "$CONTENT_" + mod->localId_.toString();
+	mod->fileId_ = json["fileId"].getOrDefault(0);
+	mod->thumbnail_.path_ = mod->contentPath_ + "/" + findThumbnailFilenameDirectly(modPath, *name);
 
 	return mod;
 }

@@ -9,6 +9,7 @@ cbuffer ConstantBuffer : register(b0) {
     float2 texelSize;
 };
 
+// The weights for the Gaussian blur kernel. These are pulled from pre-chapter2 Scrap Mechanic's blur shader.
 static const float weights[5] = { 0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216 };
 
 float4 psMainHorizontal(VertexOutput input) : SV_TARGET {

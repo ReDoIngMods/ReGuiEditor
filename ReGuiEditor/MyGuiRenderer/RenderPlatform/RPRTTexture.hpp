@@ -13,8 +13,10 @@ class RPTexture;
 
 class RPRTTexture : public MyGUI::IRenderTarget {
 	RPTexture* texture_ = nullptr;
+	
 	rend::RefCountPtr<rend::PipelineContext> pipelineContext_;
 	rend::RefCountPtr<rend::RenderView> renderView_;
+
 	MyGUI::RenderTargetInfo renderTargetInfo_{};
 	bool isActive_ = false;
 public:

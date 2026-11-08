@@ -1,11 +1,15 @@
 #include "DebugTextHandler.hpp"
 
+#include <rend/Common/RefCounter.hpp>
+#include <rend/D3D11Device.hpp>
+
 #include <ImGui/imgui.h>
 
 #include <UTILS/Profiler.hpp>
 #include <UTILS/ValueAverager.hpp>
 
 #include <Windows.h>
+#include <dxgi1_4.h>
 
 #include <Psapi.h>
 #pragma comment(lib, "psapi.lib")
@@ -18,15 +22,32 @@ struct FrameStats {
 
 	float minFrameTime = FLT_MAX;
 	float maxFrameTime = -FLT_MAX;
-	float workingSetMegabytes = 0.0f;
-private:
-	[[nodiscard]] static float queryWorkingSetMb() {
-		PROCESS_MEMORY_COUNTERS counters;
-		ZeroMemory(&counters, sizeof(counters));
-		if (!GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)))
-			return 0.0f;
 
-		return static_cast<float>(counters.WorkingSetSize) / (1024.0f * 1024.0f);
+	float cpuMemoryMb = 0.0f;
+	float gpuMemoryMb = 0.0f;
+	float gpuBudgetMb = 0.0f;
+private:
+	static constexpr float BYTES_TO_MB = 1.0f / (1024.0f * 1024.0f);
+	static constexpr float MEMORY_QUERY_INTERVAL = 0.5f;
+	float memoryQueryTimer = MEMORY_QUERY_INTERVAL;
+
+	void updateMemoryUsage() {
+		PROCESS_MEMORY_COUNTERS_EX2 counters;
+		ZeroMemory(&counters, sizeof(counters));
+		if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters), sizeof(counters)))
+			this->cpuMemoryMb = counters.PrivateUsage * BYTES_TO_MB;
+
+		rend::D3D11Device& device = rend::D3D11Device::getInstance();
+		rend::RefCountPtr<IDXGIAdapter3> adapter3 = device.getAdapter3();
+
+		DXGI_QUERY_VIDEO_MEMORY_INFO videoMemoryInfo;
+		ZeroMemory(&videoMemoryInfo, sizeof(videoMemoryInfo));
+
+		HRESULT result = adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
+		if (SUCCEEDED(result)) {
+			this->gpuMemoryMb = videoMemoryInfo.CurrentUsage * BYTES_TO_MB;
+			this->gpuBudgetMb = videoMemoryInfo.Budget       * BYTES_TO_MB;
+		}
 	}
 public:
 	void update(float deltaTime) {
@@ -36,7 +57,11 @@ public:
 		if (deltaTime < this->minFrameTime) this->minFrameTime = deltaTime;
 		if (deltaTime > this->maxFrameTime) this->maxFrameTime = deltaTime;
 
-		this->workingSetMegabytes = queryWorkingSetMb();
+		this->memoryQueryTimer += deltaTime;
+		if (this->memoryQueryTimer >= MEMORY_QUERY_INTERVAL) {
+			this->updateMemoryUsage();
+			this->memoryQueryTimer = 0.0f;
+		}
 	}
 };
 
@@ -52,7 +77,8 @@ void DebugTextHandler::initialize() {
 		const int uptime = static_cast<int>(ImGui::GetTime());
 		stream.print("Uptime     = %02d:%02d:%02d (frame %d)", uptime / 3600, uptime / 60 % 60, uptime % 60, ImGui::GetFrameCount());
 
-		stream.print("Memory     = %.1f MB", stats.workingSetMegabytes);
+		stream.print("CPU Memory = %.2f MB", stats.cpuMemoryMb);
+		stream.print("GPU Memory = %.2f MB / %.2f MB", stats.gpuMemoryMb, stats.gpuBudgetMb);
 		stream.print("Display    = %.0fx%.0f @ %.2fx", io.DisplaySize.x, io.DisplaySize.y, io.DisplayFramebufferScale.x);
 
 		if (ImGui::IsMousePosValid())

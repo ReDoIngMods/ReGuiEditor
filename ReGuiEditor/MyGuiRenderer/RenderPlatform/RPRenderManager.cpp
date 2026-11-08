@@ -33,10 +33,6 @@
 #include <string>
 #include <utility>
 
-struct alignas(16) ConstantBuffer {
-	float uvScale[2] = { 1.0f, 1.0f };
-};
-
 static rend::RefCountPtr<rend::InputLayout> createGuiInputLayout(rend::ResourceManager& resourceManager, const rend::RefCountPtr<rend::VertexShader>& vertexShader, bool textured) {
 	rend::InputLayoutDesc desc;
 	desc.addElement("POSITION", 0, rend::Format::R32G32B32_FLOAT);
@@ -92,13 +88,6 @@ bool RPRenderManager::initialise() {
 	}
 	this->depthStencilState_->setDebugName("MyGUI::DepthStencilState");
 
-	this->uvScaleBuffer_ = resourceManager.createConstantBuffer(sizeof(ConstantBuffer));
-	if (!this->uvScaleBuffer_) {
-		CONSOLE_ERROR("RPRenderManager::initialise: Failed to create UV scale constant buffer.");
-		return false;
-	}
-	this->uvScaleBuffer_->setDebugName("MyGUI::UvScaleBuffer");
-
 	this->pipelineContext_ = resourceManager.createPipelineContext();
 	if (!this->pipelineContext_) {
 		CONSOLE_ERROR("RPRenderManager::initialise: Failed to create pipeline context.");
@@ -140,7 +129,6 @@ void RPRenderManager::shutdown() {
 	this->shaderTextured.reset();
 	this->shaderPlain.reset();
 
-	this->uvScaleBuffer_.reset();
 	this->pipelineContext_.reset();
 	this->renderView_.reset();
 
@@ -279,20 +267,12 @@ void RPRenderManager::drawBatch(rend::PipelineContext& context, MyGUI::IVertexBu
 	context.setPixelShader(shader.pixelShader);
 
 	if (isTextured) {
-		ConstantBuffer constants;
-		constants.uvScale[0] = static_cast<float>(texture->getWidth()) / static_cast<float>(texture->getTextureWidth());
-		constants.uvScale[1] = static_cast<float>(texture->getHeight()) / static_cast<float>(texture->getTextureHeight());
-
-		if (!this->uvScaleBuffer_->writeRawBuffer(&constants, sizeof(ConstantBuffer)))
-			CONSOLE_ERROR("RPRenderManager::drawBatch: Failed to update UV scale buffer.");
-
 		context.setShaderResourceViews<rend::ShaderStage::Pixel>(texture->getTexture());
 		context.setSamplerStates<rend::ShaderStage::Pixel>(this->samplerState_);
-		context.setConstantBuffers<rend::ShaderStage::Pixel>(this->uvScaleBuffer_.get());
-	} else {
+	}
+	else {
 		context.clearShaderResourceViews<rend::ShaderStage::Pixel>();
 		context.clearSamplerStates<rend::ShaderStage::Pixel>();
-		context.clearConstantBuffers<rend::ShaderStage::Pixel>();
 	}
 
 	context.setVertexBuffers(buffer->getBuffer().get());

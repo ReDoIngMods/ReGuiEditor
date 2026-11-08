@@ -116,14 +116,5 @@ void BlurrySubSkin::updateComposite(const rend::ShaderResourceView* backdropView
 	backdropUV.right = (absoluteLeft + width) / static_cast<float>(canvasWidth);
 	backdropUV.bottom = (absoluteTop + height) / static_cast<float>(canvasHeight);
 
-	const float atlasScaleX = static_cast<float>(this->atlasTexture_->getWidth()) / static_cast<float>(this->atlasTexture_->getTextureWidth());
-	const float atlasScaleY = static_cast<float>(this->atlasTexture_->getHeight()) / static_cast<float>(this->atlasTexture_->getTextureHeight());
-
-	MyGUI::FloatRect atlasUV = this->mCurrentTexture;
-	atlasUV.left *= atlasScaleX;
-	atlasUV.right *= atlasScaleX;
-	atlasUV.top *= atlasScaleY;
-	atlasUV.bottom *= atlasScaleY;
-
-	BlurrySubSkinRenderer::getInstance().composite(backdropView, backdropUV, this->atlasTexture_->getTexture().get(), atlasUV, this->compositeTexture_.getRenderView(), width, height);
+	BlurrySubSkinRenderer::getInstance().composite(backdropView, backdropUV, this->atlasTexture_->getTexture().get(), this->mCurrentTexture, this->compositeTexture_.getRenderView(), width, height);
 }

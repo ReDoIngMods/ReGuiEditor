@@ -1,14 +1,12 @@
 #pragma once
 #include <GUI/View.hpp>
 
-#include <UGCManager/UGCMod.hpp>
-
 #include <filesystem>
-#include <memory>
+#include <string>
 
 class LayoutManagerView : public View {
 	std::filesystem::path lastOpenedLayoutPath;
-	std::shared_ptr<struct UGCMod> lastOpenedLayoutMod;
+	std::string lastOpenedLayoutContentPath;
 
 	void openLayout(bool force);
 public:

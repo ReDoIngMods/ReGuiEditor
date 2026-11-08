@@ -10,7 +10,9 @@
 class RPVertexBuffer : public MyGUI::IVertexBuffer {
 	rend::RefCountPtr<rend::VertexBuffer> buffer_;
 	size_t vertexCount_ = 0;
-	uint32_t id_ = 0; // Only used for debug names
+
+	uint32_t id_ = 0;
+
 	MyGUI::Vertex* mappedData_ = nullptr;
 public:
 	~RPVertexBuffer() override;

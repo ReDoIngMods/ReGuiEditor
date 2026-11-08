@@ -1,8 +1,9 @@
 #pragma once
 #include "../View.hpp"
 
-#include <Filesystem/FilesystemManager.hpp>
 #include <UGCManager/UGCMod.hpp>
+
+#include <Filesystem/FilesystemManager.hpp>
 
 #include <filesystem>
 #include <memory>
@@ -22,7 +23,7 @@ class FilePickerView : public View {
 	bool pathInputInitialized_ = false;
 	std::string pathMessage_;
 
-	std::shared_ptr<UGCMod> selectedMod_ = nullptr;
+	std::string selectedContentPath_;
 	std::filesystem::path currentFilePath_;
 
 	std::filesystem::path listedPath_;
@@ -40,7 +41,7 @@ class FilePickerView : public View {
 		this->syncedPathInput_.clear();
 		this->pathInputInitialized_ = false;
 		this->pathMessage_.clear();
-		this->selectedMod_ = nullptr;
+		this->selectedContentPath_.clear();
 		this->currentFilePath_.clear();
 		this->selectedFile_.clear();
 		this->selectedVisibleFile_.clear();
@@ -50,17 +51,18 @@ class FilePickerView : public View {
 	}
 
 	std::filesystem::path getFullFilePath() const {
-		if (!this->selectedMod_)
+		if (this->selectedContentPath_.empty())
 			return {};
 
-		return std::filesystem::path(this->selectedMod_->contentPath) / this->currentFilePath_;
+		return std::filesystem::path(this->selectedContentPath_) / this->currentFilePath_;
 	}
 
 	void showMessage(const char* message, const WidgetGrid& grid);
 
 	bool drawImageIconButton(const char* imagePath, const char* fallback, bool isDisabled = false);
 
-	void drawModListEntries(const char* header, const std::vector<std::shared_ptr<UGCMod>>& mods);
+	void drawModListEntries(const char* header, const std::vector<std::shared_ptr<UgcMod>>& mods, bool local);
+	void drawGameDirectoryEntries(const char* header);
 	void drawModSearchBar(const WidgetGrid& grid);
 	void drawModList(const WidgetGrid& grid);
 

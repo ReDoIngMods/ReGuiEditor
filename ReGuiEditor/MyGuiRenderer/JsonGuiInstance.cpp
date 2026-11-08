@@ -102,14 +102,19 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 	}
 
 	const std::string type = JsonGui::getString(node, "Type", "Widget");
-	const std::string skin = JsonGui::getString(node, "Skin");
 	const std::string name = JsonGui::getString(node, "Name");
+
+	JSONValue subLayout;
+	const bool hasSubLayout = type == "SubLayout" && loadSubLayout(JsonGui::getString(node, "SubLayoutPath"), depth, subLayout);
+
+	const std::string skin = hasSubLayout ? "PanelEmpty" : JsonGui::getString(node, "Skin");
+	const JSONValue& sizeSource = hasSubLayout ? subLayout : node;
 
 	MyGUI::IntCoord coord(
 		node.at("x").getOrDefault(0),
 		node.at("y").getOrDefault(0),
-		node.at("width").getOrDefault(0),
-		node.at("height").getOrDefault(0)
+		sizeSource.at("width").getOrDefault(0),
+		sizeSource.at("height").getOrDefault(0)
 	);
 
 	coord.width = static_cast<int>(std::ceil(coord.width * 1.5f));
@@ -139,8 +144,7 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 			childNodes.push_back(&child);
 	}
 
-	JSONValue subLayout;
-	if (type == "SubLayout" && loadSubLayout(JsonGui::getString(node, "SubLayoutPath"), depth, subLayout))
+	if (hasSubLayout)
 		childNodes.push_back(&subLayout);
 
 	std::vector<JsonGui::FlowItem> flow;
@@ -149,11 +153,16 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 		if (!built || child->at("Anchor").is<std::string>())
 			continue;
 
-		flow.emplace_back(built, MyGUI::IntPoint(child->at("x").getOrDefault(0), child->at("y").getOrDefault(0)));
+		flow.emplace_back(built, built->getPosition());
 	}
 
 	const JSONValue& gridItemSize = node.at("GridItemSize");
-	JsonGui::applyLayout(widget, JsonGui::toLayoutRule(JsonGui::getString(node, "LayoutRule")), flow, MyGUI::IntSize(gridItemSize.at("width").getOrDefault(0), gridItemSize.at("height").getOrDefault(0)));
+	const MyGUI::IntSize gridSize(
+		static_cast<int>(std::ceil(gridItemSize.at("width").getOrDefault(0) * 1.5f)),
+		static_cast<int>(std::ceil(gridItemSize.at("height").getOrDefault(0) * 1.5f))
+	);
+
+	JsonGui::applyLayout(widget, JsonGui::toLayoutRule(JsonGui::getString(node, "LayoutRule")), flow, gridSize);
 
 	return widget;
 }
