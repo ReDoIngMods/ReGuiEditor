@@ -4,8 +4,8 @@
 
 #include <GUI/ViewsManager.hpp>
 
+#include <LuaManager/LuaClassInstance.hpp>
 #include <LuaManager/LuaManager.hpp>
-#include <LuaManager/LuaVM.hpp>
 
 #include <LuaJIT/lua.h>
 
@@ -19,36 +19,34 @@ void LayoutManager::initialize() {
 }
 
 bool LayoutManager::loadLayout(const std::string& layoutName) {
-	LuaVM* vm = LuaManager::getInstance().getReGuiVM();
-	if (!vm->getField("LoadLayout")) {
-		CONSOLE_ERROR("Failed to get 'LoadLayout' function from Lua VM.");
+	LuaManager& luaManager = LuaManager::getInstance();
+	LuaClassInstance* loader = luaManager.getLoaderClassInstance();
+	if (!loader || !loader->exists()) {
+		CONSOLE_ERROR("No Loader class is loaded.");
 		return false;
 	}
 
-	lua_State* L = vm->getState();
-	if (!lua_isfunction(L, -1)) {
-		CONSOLE_ERROR("'LoadLayout' is not a function in Lua VM.");
-
-		lua_pop(vm->getState(), 1);
+	lua_State* vm = loader->getVM().getState();
+	if (!vm) {
+		CONSOLE_ERROR("No valid Lua state found.");
 		return false;
 	}
 
-	lua_pushstring(L, layoutName.c_str());
-
-	if (!vm->protectedCall(1, 1)) {
-		CONSOLE_ERROR("Failed to call 'LoadLayout' function in Lua VM.");
+	lua_pushstring(vm, layoutName.c_str());
+	if (!loader->callMethod("loadLayout", 1, 1)) {
+		CONSOLE_ERROR("Failed to call 'loadLayout' method in Lua VM.");
 		return false;
 	}
 
-	if (!lua_isboolean(L, -1)) {
-		CONSOLE_ERROR("'LoadLayout' did not return a boolean value.");
-
-		lua_pop(L, 1);
+	if (!lua_isboolean(vm, -1)) {
+		CONSOLE_ERROR("'loadLayout' did not return a boolean value.");
+	
+		lua_pop(vm, 1);
 		return false;
 	}
 
-	bool result = lua_toboolean(L, -1);
-	lua_pop(L, 1);
+	const bool result = lua_toboolean(vm, -1);
+	lua_pop(vm, 1);
 
 	return result;
 }

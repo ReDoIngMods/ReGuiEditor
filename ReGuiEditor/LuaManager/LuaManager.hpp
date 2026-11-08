@@ -1,5 +1,7 @@
 #pragma once
+#include "LuaClassInstance.hpp"
 #include "LuaVM.hpp"
+
 #include "UserdataManager.hpp"
 
 #include <UTILS/Singleton.hpp>
@@ -16,17 +18,13 @@ class LuaManager : public UTILS::Singleton<LuaManager> {
 
 	std::shared_ptr<UserdataManager> userdataManager_ = nullptr;
 
-	LuaVM* reGuiVM_ = nullptr;
+	LuaClassInstance* loader_ = nullptr;
 
-	LuaVM* createVM(const std::string& modLocalId, const std::string& entryScript);
+	LuaVM* createVM(const std::string& modLocalId);
+	LuaClassInstance* loadMod(const std::string& modLocalId);
 public:
 	LuaManager() = default;
 	~LuaManager() { this->cleanup(); }
-
-	LuaManager(const LuaManager&) = delete;
-	LuaManager& operator=(const LuaManager&) = delete;
-	LuaManager(LuaManager&&) = delete;
-	LuaManager& operator=(LuaManager&&) = delete;
 
 	bool initialize();
 	void cleanup();
@@ -34,6 +32,8 @@ public:
 	void update(float deltaTime);
 	void tick();
 
+	[[nodiscard]] LuaClassInstance* getLoaderClassInstance() const { return this->loader_; }
+
 	[[nodiscard]] LuaVM* getVM(const std::string& modLocalId) const;
-	[[nodiscard]] LuaVM* getReGuiVM() const { return this->reGuiVM_; }
+	[[nodiscard]] LuaVM* getReGuiVM() const { return this->loader_ ? &this->loader_->getVM() : nullptr; }
 };

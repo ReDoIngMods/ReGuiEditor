@@ -31,7 +31,7 @@
 #include <cstdint>
 #include <string>
 
-constexpr int DEFAULT_CANVAS_WIDTH = 1920;
+constexpr int DEFAULT_CANVAS_WIDTH = 2560;
 constexpr int DEFAULT_CANVAS_HEIGHT = 1080;
 
 constexpr auto SEARCH_DIRECTORIES = std::to_array<const char*>({
@@ -121,8 +121,10 @@ bool GuiSystemManager::initializeRenderTarget(uint32_t& canvasWidth, uint32_t& c
 	PROFILE_SCOPE("GuiSystemManager::initialize - CreateRenderTarget");
 
 	ConfigManager& configManager = ConfigManager::getInstance();
-	canvasWidth = static_cast<uint32_t>(configManager.getConfigVariableWithDefault("mygui.canvas.width", DEFAULT_CANVAS_WIDTH));
-	canvasHeight = static_cast<uint32_t>(configManager.getConfigVariableWithDefault("mygui.canvas.height", DEFAULT_CANVAS_HEIGHT));
+	//canvasWidth = static_cast<uint32_t>(configManager.getConfigVariableWithDefault("mygui.canvas.width", DEFAULT_CANVAS_WIDTH));
+	//canvasHeight = static_cast<uint32_t>(configManager.getConfigVariableWithDefault("mygui.canvas.height", DEFAULT_CANVAS_HEIGHT));
+	canvasWidth = DEFAULT_CANVAS_WIDTH;
+	canvasHeight = DEFAULT_CANVAS_HEIGHT;
 
 	if (!this->createRenderTarget(canvasWidth, canvasHeight)) {
 		CONSOLE_ERROR("Failed to create render target for MyGUI.");

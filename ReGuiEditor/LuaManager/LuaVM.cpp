@@ -1,17 +1,19 @@
 #include "LuaVM.hpp"
 
+#include "LuaClassInstance.hpp"
 #include "LuaError.hpp"
 #include "LuaUtil.hpp"
 
-#include <Filesystem/DirectoryManager.hpp> // VCIC-Excluded
+#include <Filesystem/DirectoryManager.hpp>
 #include <Filesystem/FilesystemManager.hpp>
-
-#include <string>
-#include <utility>
-#include <vector>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
+
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 constexpr const char* VM_REGISTRY_KEY = "VMPtr";
 constexpr float SCRIPT_POLL_INTERVAL = 0.5f;
@@ -98,6 +100,11 @@ void LuaVM::createEnvironment() {
 void LuaVM::destroyEnvironment() {
 	lua_State* L = this->state_;
 
+	for (const auto& classInstance : this->classInstances_)
+		classInstance->destroy();
+
+	this->classInstances_.clear();
+
 	luaL_unref(L, LUA_REGISTRYINDEX, this->errorHandlerRef_);
 	this->errorHandlerRef_ = LUA_NOREF;
 
@@ -110,7 +117,7 @@ void LuaVM::destroyEnvironment() {
 	this->pollTimer_ = 0.0f;
 }
 
-bool LuaVM::initialize(const std::string& entryScript) {
+bool LuaVM::initialize() {
 	if (this->isInitialized())
 		return true;
 
@@ -118,19 +125,24 @@ bool LuaVM::initialize(const std::string& entryScript) {
 
 	this->createEnvironment();
 	
-	std::string resolvedPath = entryScript;
+	return true;
+}
+
+LuaClassInstance* LuaVM::loadClass(LuaClassType type, const std::string& scriptPath, const std::string& className) {
+	std::string resolvedPath = scriptPath;
 	if (!DirectoryManager::getInstance().resolveContentData(resolvedPath, this->modLocalId_)) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to resolve entry script path '%s' for mod %s.", entryScript.c_str(), this->modLocalId_.c_str());
+		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to resolve script path '%s' for mod %s.", scriptPath.c_str(), this->modLocalId_.c_str());
 	
-		this->cleanup();
-		return false;
+		return nullptr;
 	}
 
-	if (this->doFile(resolvedPath) || KEEP_ALIVE_ON_ENTRY_FAILURE)
-		return true;
+	LuaClassInstance& classInstance = *this->classInstances_.emplace_back(std::make_unique<LuaClassInstance>(this, type, className));
 
-	this->cleanup();
-	return false;
+	if ((this->doFile(resolvedPath) && classInstance.create()) || KEEP_ALIVE_ON_ENTRY_FAILURE)
+		return &classInstance;
+
+	this->classInstances_.pop_back();
+	return nullptr;
 }
 
 void LuaVM::cleanup() {
@@ -147,30 +159,6 @@ void LuaVM::update(float deltaTime) {
 		return;
 
 	this->updateScriptWatcher(deltaTime);
-
-	if (this->pushHook("OnUpdate")) {
-		lua_pushnumber(this->state_, deltaTime);
-		(void)this->protectedCall(1, 0);
-	}
-}
-
-void LuaVM::tick() {
-	if (this->pushHook("OnTick"))
-		(void)this->protectedCall(0, 0);
-}
-
-bool LuaVM::pushHook(const char* name) {
-	if (!this->isInitialized())
-		return false;
-
-	if(!this->getField(name))
-		return false;
-
-	if (lua_isfunction(this->state_, -1))
-		return true;
-
-	lua_pop(this->state_, 1);
-	return false;
 }
 
 void LuaVM::updateScriptWatcher(float deltaTime) {
@@ -180,10 +168,19 @@ void LuaVM::updateScriptWatcher(float deltaTime) {
 
 	this->pollTimer_ = 0.0f;
 
+	bool reloaded = false;
 	for (const std::string& path : this->scriptWatcher_.collectChangedFiles()) {
-		if (!this->doFile(path))
+		if (this->doFile(path))
+			reloaded = true;
+		else
 			CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to reload changed script '%s'.", path.c_str());
 	}
+
+	if (!reloaded)
+		return;
+
+	for (const auto& classInstance : this->classInstances_)
+		(void)classInstance->refresh();
 }
 
 int LuaVM::loadFile(const std::string& path) {
@@ -295,8 +292,8 @@ bool LuaVM::callFunction(const std::string& functionName, int argCount, int resu
 
 	if (!lua_isfunction(L, -1)) {
 		lua_pop(L, argCount + 1);
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Field %s is not a function in the LuaVM.", functionName.c_str());
 
+		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Field %s is not a function in the LuaVM.", functionName.c_str());
 		return false;
 	}
 

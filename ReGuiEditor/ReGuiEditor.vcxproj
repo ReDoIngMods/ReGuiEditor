@@ -221,6 +221,7 @@ exit /b 0</Command>
     <ClCompile Include="MyGuiRenderer\GuiSystemManagerInit.cpp" />
     <ClCompile Include="GUI\ImageManager.cpp" />
     <ClCompile Include="GUI\NotificationManager.cpp" />
+    <ClCompile Include="LuaManager\LuaClassInstance.cpp" />
     <ClCompile Include="LuaManager\LuaManager.cpp" />
     <ClCompile Include="LuaManager\LuaScriptWatcher.cpp" />
     <ClCompile Include="LuaManager\LuaUtil.cpp" />
@@ -555,6 +556,7 @@ exit /b 0</Command>
     <ClInclude Include="MyGuiRenderer\GuiSystemManager.hpp" />
     <ClInclude Include="GUI\ImageManager.hpp" />
     <ClInclude Include="GUI\NotificationManager.hpp" />
+    <ClInclude Include="LuaManager\LuaClassInstance.hpp" />
     <ClInclude Include="LuaManager\LuaError.hpp" />
     <ClInclude Include="LuaManager\LuaManager.hpp" />
     <ClInclude Include="LuaManager\LuaScriptWatcher.hpp" />

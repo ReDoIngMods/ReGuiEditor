@@ -19,6 +19,7 @@
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -154,8 +155,13 @@ static int jsonGui_getViewSize(lua_State* L) {
 		return 2;
 	}
 
-	lua_pushinteger(L, static_cast<lua_Integer>(std::llround(VIEW_HEIGHT * width / height)));
-	lua_pushinteger(L, static_cast<lua_Integer>(VIEW_HEIGHT));
+	const double scale = static_cast<double>(width) / static_cast<double>(height) / (16.0 / 9.0);
+
+	const double viewWidth = VIEW_HEIGHT * std::max(scale, 1.0);
+	const double viewHeight = VIEW_HEIGHT * std::max(1.0 / scale, 1.0);
+
+	lua_pushinteger(L, static_cast<lua_Integer>(std::llround(viewWidth)));
+	lua_pushinteger(L, static_cast<lua_Integer>(std::llround(viewHeight)));
 	return 2;
 }
 
