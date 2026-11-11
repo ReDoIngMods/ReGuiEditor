@@ -1,10 +1,10 @@
 #include "UGCMod.hpp"
 
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
+#include <JSON/JSON.hpp>
 
 #include <UTILS/Uuid.hpp>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -53,25 +53,35 @@ std::shared_ptr<UgcMod> UgcMod::createFromPath(std::filesystem::path modPath, bo
 		return nullptr;
 	}
 
-	auto json = JSONParser::parseJson(descriptionData);
-	if (!json) {
-		CONSOLE_ERROR("Failed to parse description.json for mod at path '%s'.", modPath.string().c_str());
+	JSONValue document;
+	JSONParserResult result = JSONValue::parse(descriptionData, document);
+	if (!result) {
+		CONSOLE_ERROR("Failed to parse description.json for mod at path '%s': %s", modPath.string().c_str(), result.createErrorMessage().c_str());
 		return nullptr;
 	}
 
-	const std::string* name = json->at("name").tryGet<std::string>();
-	if (!name) {
+	if (!document.isObject()) {
+		CONSOLE_ERROR("description.json is not a valid JSON object for mod at path '%s'.", modPath.string().c_str());
+		return nullptr;
+	}
+
+	const JSONObject& jsonObject = document.asObject();
+
+	const auto nameIterator = jsonObject.find("name");
+	if (nameIterator == jsonObject.end() || !nameIterator->second.isString()) {
 		CONSOLE_ERROR("description.json is missing the 'name' field for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
-	const std::string* localIdPtr = json->at("localId").tryGet<std::string>();
-	if (!localIdPtr) {
+	const auto localIdIterator = jsonObject.find("localId");
+	if (localIdIterator == jsonObject.end() || !localIdIterator->second.isString()) {
 		CONSOLE_ERROR("description.json is missing the 'localId' field for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
-	auto localIdOpt = UTILS::UUID::fromString(*localIdPtr);
+	const std::string& name = nameIterator->second.asString();
+
+	auto localIdOpt = UTILS::UUID::fromString(localIdIterator->second.asString());
 	if (!localIdOpt) {
 		CONSOLE_ERROR("description.json has an invalid 'localId' field for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
@@ -79,9 +89,9 @@ std::shared_ptr<UgcMod> UgcMod::createFromPath(std::filesystem::path modPath, bo
 
 	UgcModType type = UgcModType::Blueprint;
 
-	const std::string* typeStr = json->at("type").tryGet<std::string>();
-	if (typeStr) {
-		type = stringToUgcModType(typeStr->c_str());
+	const auto typeIterator = jsonObject.find("type");
+	if (typeIterator != jsonObject.end() && typeIterator->second.isString()) {
+		type = stringToUgcModType(typeIterator->second.asString().c_str());
 
 		if (type == UgcModType::COUNT) {
 			CONSOLE_ERROR("description.json has an invalid 'type' field for mod at path '%s'.", modPath.string().c_str());
@@ -91,13 +101,13 @@ std::shared_ptr<UgcMod> UgcMod::createFromPath(std::filesystem::path modPath, bo
 
 	std::shared_ptr<UgcMod> mod = std::make_shared<UgcMod>();
 	mod->type_ = type;
-	mod->version_ = static_cast<UgcModVersion>(json->at("version").getOrDefault(0));
+	mod->version_ = static_cast<UgcModVersion>(jsonObject.contains("version") ? jsonObject.at("version").getInteger().value_or(0) : 0);
 	mod->isLocal_ = isLocal;
-	mod->name_ = *name;
+	mod->name_ = name;
 	mod->localId_ = *localIdOpt;
 	mod->contentPath_ = "$CONTENT_" + mod->localId_.toAStr();
-	mod->fileId_ = json->at("fileId").getOrDefault(0);
-	mod->thumbnail_.path_ = mod->contentPath_ + "/" + findThumbnailFilenameDirectly(modPath, *name);
+	mod->fileId_ = jsonObject.contains("fileId") ? static_cast<uint64_t>(jsonObject.at("fileId").getDouble().value_or(0.0)) : 0;
+	mod->thumbnail_.path_ = mod->contentPath_ + "/" + findThumbnailFilenameDirectly(modPath, name);
 
 	return mod;
 }

@@ -1,7 +1,7 @@
 #pragma once
 #include "JsonGui/JsonGuiTypes.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <MyGui/MyGUI_EditBox.h>
 #include <MyGui/MyGUI_MouseButton.h>

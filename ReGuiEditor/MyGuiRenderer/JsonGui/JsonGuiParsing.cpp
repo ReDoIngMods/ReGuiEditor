@@ -2,7 +2,7 @@
 
 #include "JsonGuiTypes.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <algorithm>
 #include <array>
@@ -59,20 +59,31 @@ bool JsonGui::toEventType(std::string_view key, GuiEventType& type) {
 bool JsonGui::toPropertyValue(const JSONValue& value, std::string& output) {
 	switch (value.getType()) {
 	case JSONType::String:
-		output = value.get<std::string>();
+		output = value.asString();
 		return true;
 	case JSONType::Boolean:
-		output = value.get<bool>() ? "true" : "false";
+		output = value.asBoolean() ? "true" : "false";
 		return true;
-	case JSONType::Number:
-		output = std::format("{}", value.get<double>());
+	case JSONType::Integer:
+	case JSONType::FloatingPoint:
+		output = std::format("{}", value.getDouble().value());
 		return true;
 	default:
 		return false;
 	}
 }
 
+const JSONValue& JsonGui::getValue(const JSONValue& node, std::string_view key) {
+	static const JSONValue none;
+	if (!node.isObject())
+		return none;
+
+	const JSONObject& object = node.asObject();
+	const auto iterator = object.find(std::string(key));
+	return iterator != object.end() ? iterator->second : none;
+}
+
 std::string JsonGui::getString(const JSONValue& node, std::string_view key, std::string_view fallback) {
-	const std::string* value = node.at(key).tryGet<std::string>();
-	return value ? *value : std::string(fallback);
+	const JSONValue& value = JsonGui::getValue(node, key);
+	return value.isString() ? value.asString() : std::string(fallback);
 }

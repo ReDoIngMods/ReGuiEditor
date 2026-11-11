@@ -8,7 +8,7 @@
 #include "JsonGui/JsonGuiOverlay.hpp"
 #include "JsonGui/JsonGuiParsing.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <MyGui/MyGUI_Align.h>
 #include <MyGui/MyGUI_Gui.h>
@@ -40,26 +40,26 @@ using EventBinding = std::pair<std::string_view, const JSONValue*>;
 }
 
 static void applyAlignment(MyGUI::Widget* widget, const JSONValue& node) {
-	const JSONValue& horizontalAlign = node.at("HorizontalAlign");
-	const JSONValue& verticalAlign = node.at("VerticalAlign");
-	if (!horizontalAlign.is<std::string>() && !verticalAlign.is<std::string>())
+	const JSONValue& horizontalAlign = JsonGui::getValue(node, "HorizontalAlign");
+	const JSONValue& verticalAlign = JsonGui::getValue(node, "VerticalAlign");
+	if (!horizontalAlign.isString() && !verticalAlign.isString())
 		return;
 
 	widget->setAlign(JsonGui::toAlign(JsonGui::getString(node, "HorizontalAlign"), JsonGui::getString(node, "VerticalAlign")));
 }
 
 static void applyNodeAnchor(MyGUI::Widget* widget, const JSONValue& node, MyGUI::Widget* parent, const MyGUI::IntCoord& coord) {
-	const std::string* anchor = node.at("Anchor").tryGet<std::string>();
-	if (!anchor)
+	const JSONValue& anchor = JsonGui::getValue(node, "Anchor");
+	if (!anchor.isString())
 		return;
 
 	const MyGUI::IntSize parentSize = parent ? parent->getClientCoord().size() : MyGUI::RenderManager::getInstance().getViewSize();
-	JsonGui::applyAnchor(widget, *anchor, parentSize, coord.point());
+	JsonGui::applyAnchor(widget, anchor.asString(), parentSize, coord.point());
 }
 
 static void applyProperties(MyGUI::Widget* widget, const JSONValue& node, const std::string& name, std::vector<EventBinding>& events) {
 	std::string propertyValue;
-	for (const auto& [key, value] : node.get<JSONObject>()) {
+	for (const auto& [key, value] : node.asObject()) {
 		if (JsonGui::isReservedKey(key) || JsonGui::isHandledKey(key))
 			continue;
 
@@ -101,7 +101,7 @@ bool JsonGuiInstance::loadSubLayout(const std::string& path, int depth, JSONValu
 }
 
 MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* parent, int depth) {
-	if (!node.is<JSONObject>()) {
+	if (!node.isObject()) {
 		CONSOLE_ERROR("JsonGui: widget node is not an object.");
 		return nullptr;
 	}
@@ -116,11 +116,11 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 	const JSONValue& sizeSource = hasSubLayout ? subLayout : node;
 
 	MyGUI::IntCoord coord(
-		node.at("x").getOrDefault(0),
-		node.at("y").getOrDefault(0),
+		JsonGui::getValue(node, "x").getInteger().value_or(0),
+		JsonGui::getValue(node, "y").getInteger().value_or(0),
 
-		sizeSource.at("width").getOrDefault(0),
-		sizeSource.at("height").getOrDefault(0)
+		JsonGui::getValue(sizeSource, "width").getInteger().value_or(0),
+		JsonGui::getValue(sizeSource, "height").getInteger().value_or(0)
 	);
 
 	GuiSystemManager& guiSystemManager = GuiSystemManager::getInstance();
@@ -152,8 +152,9 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 		this->bindEvent(widget, name, key, *value, depth == 0);
 
 	std::vector<const JSONValue*> childNodes;
-	if (const JSONArray* childs = node.at("Childs").tryGet<JSONArray>()) {
-		for (const JSONValue& child : *childs)
+	const JSONValue& childs = JsonGui::getValue(node, "Childs");
+	if (childs.isArray()) {
+		for (const JSONValue& child : childs.asArray())
 			childNodes.push_back(&child);
 	}
 
@@ -163,16 +164,16 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 	std::vector<JsonGui::FlowItem> flow;
 	for (const JSONValue* child : childNodes) {
 		MyGUI::Widget* built = this->build(*child, widget, depth + 1);
-		if (!built || child->at("Anchor").is<std::string>())
+		if (!built || JsonGui::getValue(*child, "Anchor").isString())
 			continue;
 
 		flow.emplace_back(built, built->getPosition());
 	}
 
-	const JSONValue& gridItemSize = node.at("GridItemSize");
+	const JSONValue& gridItemSize = JsonGui::getValue(node, "GridItemSize");
 	const MyGUI::IntSize gridSize(
-		static_cast<int>(std::ceil(gridItemSize.at("width").getOrDefault(0) * scaleX)),
-		static_cast<int>(std::ceil(gridItemSize.at("height").getOrDefault(0) * scaleY))
+		static_cast<int>(std::ceil(JsonGui::getValue(gridItemSize, "width").getInteger().value_or(0) * scaleX)),
+		static_cast<int>(std::ceil(JsonGui::getValue(gridItemSize, "height").getInteger().value_or(0) * scaleY))
 	);
 
 	JsonGui::applyLayout(widget, JsonGui::toLayoutRule(JsonGui::getString(node, "LayoutRule")), flow, gridSize);

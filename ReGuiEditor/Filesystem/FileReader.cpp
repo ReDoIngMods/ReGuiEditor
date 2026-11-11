@@ -2,8 +2,7 @@
 
 #include "DirectoryManager.hpp"
 
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
+#include <JSON/JSON.hpp>
 
 #include <UTILS/UnicodeDecoder.hpp>
 
@@ -108,5 +107,12 @@ std::optional<JSONValue> Filesystem::readFileJson(const std::filesystem::path& p
 	if (!text)
 		return std::nullopt;
 
-	return JSONParser::parseJson(text.value());
+	JSONValue jsonValue;
+	JSONParserResult result = JSONValue::parse(text.value(), jsonValue);
+	if (!result) {
+		CONSOLE_ERROR("Failed to parse JSON file '%s': %s", path.string().c_str(), result.createErrorMessage().c_str());
+		return std::nullopt;
+	}
+
+	return jsonValue;
 }

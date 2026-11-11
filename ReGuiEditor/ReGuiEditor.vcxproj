@@ -208,8 +208,8 @@ exit /b 0</Command>
     <ClCompile Include="GUI\Views\FilePickerView.cpp" />
     <ClCompile Include="GUI\Views\PropertiesView.cpp" />
     <ClCompile Include="GUI\Views\UIRenderView.cpp" />
+    <ClCompile Include="JSON\JSONDumper.cpp" />
     <ClCompile Include="JSON\JSONParser.cpp" />
-    <ClCompile Include="JSON\JSONWriter.cpp" />
     <ClCompile Include="LayoutManager\LayoutManager.cpp" />
     <ClCompile Include="LayoutManager\LayoutManagerView.cpp" />
     <ClCompile Include="GUI\ImGuiFontManager.cpp" />
@@ -543,14 +543,13 @@ exit /b 0</Command>
     <ClInclude Include="GUI\Views\DecorationView.hpp" />
     <ClInclude Include="GUI\Views\ExplorerView.hpp" />
     <ClInclude Include="GUI\Views\FilePickerView.hpp" />
+    <ClInclude Include="JSON\JSONSerializable.hpp" />
     <ClInclude Include="LayoutManager\LayoutManagerView.hpp" />
     <ClInclude Include="GUI\Views\PropertiesView.hpp" />
     <ClInclude Include="GUI\Views\RenderCamera.hpp" />
     <ClInclude Include="GUI\Views\UIRenderView.hpp" />
     <ClInclude Include="GUI\WidgetGrid.hpp" />
-    <ClInclude Include="JSON\JSONObject.hpp" />
-    <ClInclude Include="JSON\JSONParser.hpp" />
-    <ClInclude Include="JSON\JSONWriter.hpp" />
+    <ClInclude Include="JSON\JSON.hpp" />
     <ClInclude Include="LayoutManager\LayoutManager.hpp" />
     <ClInclude Include="GUI\ImGuiFontManager.hpp" />
     <ClInclude Include="LuaManager\wrap_sm\wrap_sm_jsonGui.hpp" />

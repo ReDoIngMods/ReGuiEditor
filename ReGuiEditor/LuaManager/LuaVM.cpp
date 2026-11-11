@@ -122,7 +122,7 @@ bool LuaVM::initialize() {
 	if (this->isInitialized())
 		return true;
 
-	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Initializing Lua VM for mod %s...", this->modLocalId_.toAStr());
+	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Initializing Lua VM for mod %s...", this->modLocalId_.toAStr().c_str());
 
 	this->createEnvironment();
 	
@@ -142,7 +142,7 @@ void LuaVM::cleanup() {
 	if (!this->isInitialized())
 		return;
 
-	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Cleaning up Lua VM for mod %s...", this->modLocalId_.toAStr());
+	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Cleaning up Lua VM for mod %s...", this->modLocalId_.toAStr().c_str());
 
 	this->destroyEnvironment();
 }

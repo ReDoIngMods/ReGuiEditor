@@ -1,5 +1,5 @@
 #pragma once
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <LuaJIT/lua.h>
 

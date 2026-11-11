@@ -7,7 +7,7 @@
 #include "../LuaVM.hpp"
 #include "../UserdataManager.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <MyGuiRenderer/GuiSystemManager.hpp>
 #include <MyGuiRenderer/JsonGui/JsonGuiTypes.hpp>

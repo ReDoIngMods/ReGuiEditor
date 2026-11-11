@@ -11,7 +11,7 @@
 #include <MyGui/MyGUI_DataManager.h>
 #include <MyGui/MyGUI_ResourceManager.h>
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -26,31 +26,35 @@ bool ResolutionManager::initialize() {
 		return false;
 	}
 
-	const JSONObject* jsonData = jsonContent->tryGet<JSONObject>();
-	if (!jsonData) {
+	if (!jsonContent->isObject()) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: root is not an object.");
 		return false;
 	}
 
-	const JSONArray* resolutionList = jsonData->at("resolutionList").tryGet<JSONArray>();
-	if (!resolutionList) {
+	const JSONObject& jsonData = jsonContent->asObject();
+
+	const auto resolutionListIterator = jsonData.find("resolutionList");
+	if (resolutionListIterator == jsonData.end() || !resolutionListIterator->second.isArray()) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: 'resolutionList' is not an array.");
 		return false;
 	}
 
-	this->resolutions_.clear();
-	this->resolutions_.reserve(resolutionList->size());
+	const JSONArray& resolutionList = resolutionListIterator->second.asArray();
 
-	for (const JSONValue& resolutionEntry : *resolutionList) {
-		const JSONObject* resolutionObject = resolutionEntry.tryGet<JSONObject>();
-		if (!resolutionObject) {
+	this->resolutions_.clear();
+	this->resolutions_.reserve(resolutionList.size());
+
+	for (const JSONValue& resolutionEntry : resolutionList) {
+		if (!resolutionEntry.isObject()) {
 			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid resolution entry in Resolutions.json: not an object.");
 			continue;
 		}
 
-		int width = resolutionEntry.at("w").getOrDefault<int>(0);
-		int height = resolutionEntry.at("h").getOrDefault<int>(0);
-		std::string folder = resolutionEntry.at("folder").getOrDefault<std::string>("");
+		const JSONObject& resolutionObject = resolutionEntry.asObject();
+
+		int width = resolutionObject.contains("w") ? resolutionObject.at("w").getInteger().value_or(0) : 0;
+		int height = resolutionObject.contains("h") ? resolutionObject.at("h").getInteger().value_or(0) : 0;
+		std::string folder = resolutionObject.contains("folder") ? resolutionObject.at("folder").getString().value_or("") : "";
 		if (width == 0 || height == 0 || folder.empty()) {
 			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid resolution entry in Resolutions.json: missing or invalid fields.");
 			continue;
@@ -59,23 +63,24 @@ bool ResolutionManager::initialize() {
 		this->resolutions_.emplace_back(width, height, folder);
 	}
 
-	const JSONArray* resourceList = jsonData->at("resources").tryGet<JSONArray>();
-	if (!resourceList) {
+	const auto resourceListIterator = jsonData.find("resources");
+	if (resourceListIterator == jsonData.end() || !resourceListIterator->second.isArray()) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: 'resources' is not an array.");
 		return false;
 	}
 
-	this->resources_.clear();
-	this->resources_.reserve(resourceList->size());
+	const JSONArray& resourceList = resourceListIterator->second.asArray();
 
-	for (const JSONValue& resourceEntry : *resourceList) {
-		const std::string* resourcePath = resourceEntry.tryGet<std::string>();
-		if (!resourcePath) {
+	this->resources_.clear();
+	this->resources_.reserve(resourceList.size());
+
+	for (const JSONValue& resourceEntry : resourceList) {
+		if (!resourceEntry.isString()) {
 			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid resource entry in Resolutions.json: not a string.");
 			continue;
 		}
 	
-		this->resources_.push_back(*resourcePath);
+		this->resources_.push_back(resourceEntry.asString());
 	}
 
 	return true;

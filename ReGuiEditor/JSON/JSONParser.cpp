@@ -1,351 +1,468 @@
-#include "JSONParser.hpp"
+#include "JSON.hpp"
 
-#include "JSONObject.hpp"
-
-#include <cctype>
-#include <charconv>
 #include <cstdint>
-#include <optional>
+#include <cstdio>
+#include <format>
+#include <istream>
+#include <limits>
+#include <sstream>
 #include <string>
-#include <string_view>
-#include <system_error>
 #include <utility>
 
-inline static void appendUTF8Character(std::string& output, uint32_t codePoint) {
-	if (codePoint <= 0x7F) {
-		output += static_cast<char>(codePoint);
-	} else if (codePoint <= 0x7FF) {
-		output += static_cast<char>(0xC0 | (codePoint >> 6));
-		output += static_cast<char>(0x80 | (codePoint & 0x3F));
-	} else if (codePoint <= 0xFFFF) {
-		output += static_cast<char>(0xE0 | (codePoint >> 12));
-		output += static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
-		output += static_cast<char>(0x80 | (codePoint & 0x3F));
-	} else {
-		output += static_cast<char>(0xF0 | (codePoint >> 18));
-		output += static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F));
-		output += static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
-		output += static_cast<char>(0x80 | (codePoint & 0x3F));
+inline static uint8_t fromHexCharacter(const char character) {
+	if (character >= '0' && character <= '9') return static_cast<uint8_t>(character - '0');
+	else if (character >= 'a' && character <= 'f') return static_cast<uint8_t>(character - 'a' + 10);
+	else if (character >= 'A' && character <= 'F') return static_cast<uint8_t>(character - 'A' + 10);
+
+	return 0;
+}
+
+inline static const char toHexCharacter(const uint8_t value) {
+	if (value < 10) return static_cast<char>('0' + value);
+	if (value < 16) return static_cast<char>('A' + (value - 10));
+	return '0';
+}
+
+inline static bool isHexCharacter(const char character) {
+	return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F');
+}
+
+inline static void appendCodepoint(std::string& str, const uint32_t codepoint) {
+	if (codepoint <= 0x7F) {
+		str += static_cast<char>(codepoint);
+	} else if (codepoint <= 0x7FF) {
+		str += static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F));
+		str += static_cast<char>(0x80 | (codepoint & 0x3F));
+	} else if (codepoint <= 0xFFFF) {
+		str += static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F));
+		str += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+		str += static_cast<char>(0x80 | (codepoint & 0x3F));
+	} else if (codepoint <= 0x10FFFF) {
+		str += static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07));
+		str += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+		str += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+		str += static_cast<char>(0x80 | (codepoint & 0x3F));
 	}
 }
 
-void JSONParser::skipWhitespace() noexcept {
-	while (this->position_ < this->input_.size()) {
-		const char character = this->input_[this->position_];
-		if (character == ' ' || character == '\t' || character == '\n' || character == '\r') {
-			++this->position_;
-			continue;
+struct JSONParserContext {
+	std::istream& stream;
+
+	int line = 1;
+	int column = 1;
+	int position = 0;
+
+	JSONParserResult parseResult = JSONParserResult::success();
+	bool isError = false;
+
+	JSONParserContext(std::istream& stream) noexcept : stream(stream) {}
+	JSONParserContext(JSONParserContext&& other) noexcept 
+		: stream(other.stream), line(other.line), column(other.column), position(other.position), parseResult(other.parseResult), isError(other.isError) {}
+
+	void setErrorMessage(const std::string& message) {
+		if (!this->isError) {
+			this->parseResult = JSONParserResult::error(this->line, this->column, this->position, message);
+		}
+		this->isError = true;
+	}
+
+	template<typename... Args>
+	void setErrorMessage(const std::string& format, Args&&... args) {
+		this->setErrorMessage(std::vformat(format, std::make_format_args(args...)));
+	}
+
+	const char peekCharacter() {
+		int character = this->stream.peek();
+		if (character == EOF)
+			return '\0';
+
+		return static_cast<char>(character);
+	}
+
+	const char consumeCharacter() {
+		int character = this->stream.get();
+		if (character == EOF)
+			return '\0';
+
+		char charValue = static_cast<char>(character);
+		if (charValue == '\n') {
+			++this->line;
+			this->column = 1;
+		}
+		else {
+			++this->column;
 		}
 
-		if (character == '/' && this->skipComment())
-			continue;
-
-		break;
+		++this->position;
+		return charValue;
 	}
-}
 
-bool JSONParser::skipComment() noexcept {
-	const std::string_view remaining = this->input_.substr(this->position_);
-	if (remaining.substr(0, 2) == "//") {
-		const std::size_t end = remaining.find('\n');
-		this->position_ = end == std::string_view::npos ? this->input_.size() : this->position_ + end;
+	bool expectCharacter(char expectedCharacter) {
+		char character = this->consumeCharacter();
+		if (character != expectedCharacter) {
+			this->setErrorMessage("Expected character '{}', but got '{}'", expectedCharacter, character == '\0' ? "EOF" : std::string(1, character));
+			return false;
+		}
 
 		return true;
 	}
 
-	if (remaining.substr(0, 2) == "/*") {
-		const std::size_t end = remaining.find("*/", 2);
-		if (end == std::string_view::npos)
-			return false;
-
-		this->position_ += end + 2;
-		return true;
-	}
-
-	return false;
-}
-
-bool JSONParser::consumeCharacter(const char character) noexcept {
-	if (this->position_ < this->input_.size() && this->input_[this->position_] == character) {
-		++this->position_;
-		return true;
-	}
-
-	return false;
-}
-
-bool JSONParser::expectCharacter(const char character) {
-	if (!this->consumeCharacter(character)) {
-		CONSOLE_ERROR("Expected character '%c' at position %zu", character, this->position_);
-		return false;
-	}
-
-	return true;
-}
-
-bool JSONParser::matchText(std::string_view text) noexcept {
-	if (this->input_.substr(this->position_, text.size()) != text)
-		return false;
-
-	this->position_ += text.size();
-	return true;
-}
-
-std::size_t JSONParser::skipDigits() noexcept {
-	const std::size_t start = this->position_;
-	while (this->position_ < this->input_.size() && std::isdigit(static_cast<unsigned char>(this->input_[this->position_])))
-		++this->position_;
-
-	return this->position_ - start;
-}
-
-bool JSONParser::parseHex4(uint32_t& codePoint) {
-	codePoint = 0;
-
-	for (int index = 0; index < 4; ++index) {
-		if (this->position_ >= this->input_.size())
-			return false;
-		
-		const char character = this->input_[this->position_++];
-		codePoint <<= 4;
-		if (character >= '0' && character <= '9')
-			codePoint |= character - '0';
-		else if (character >= 'a' && character <= 'f')
-			codePoint |= character - 'a' + 10;
-		else if (character >= 'A' && character <= 'F')
-			codePoint |= character - 'A' + 10;
-		else
-			return false;
-	}
-
-	return true;
-}
-
-bool JSONParser::parseStringRaw(std::string& result) {
-	if (!this->expectCharacter('"'))
-		return false;
-	while (this->position_ < this->input_.size()) {
-		const char character = this->input_[this->position_++];
-		if (character == '"')
-			return true;
-
-		if (character == '\\') {
-			if (this->position_ >= this->input_.size())
+	bool matchString(const std::string& expectedString) {
+		for (const char expectedCharacter : expectedString) {
+			if (this->consumeCharacter() != expectedCharacter)
 				return false;
+		}
 
-			const char escaped = this->input_[this->position_++];
-			switch (escaped) {
-			case '"': result += '"'; break;
-			case '\\': result += '\\'; break;
-			case '/': result += '/'; break;
-			case 'b': result += '\b'; break;
-			case 'f': result += '\f'; break;
-			case 'n': result += '\n'; break;
-			case 'r': result += '\r'; break;
-			case 't': result += '\t'; break;
-			case 'u': {
-				uint32_t codePoint;
-				if (!this->parseHex4(codePoint))
-					return false;
+		return true;
+	}
 
-				if (codePoint >= 0xD800 && codePoint <= 0xDBFF) {
-					if (this->input_.substr(this->position_, 2) != "\\u")
+	bool expectString(const std::string& expectedString) {
+		if (!this->matchString(expectedString)) {
+			this->setErrorMessage("Expected string '{}'", expectedString);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool skipWhitespace() {
+		while (true) {
+			const char character = this->peekCharacter();
+			if (character == '\0')
+				break;
+
+			if (character == ' ' || character == '\t' || character == '\n' || character == '\r') {
+				this->consumeCharacter();
+				continue;
+			}
+
+			if (character == '/') {
+				this->consumeCharacter();
+				const char nextCharacter = this->peekCharacter();
+
+				if (nextCharacter == '/') {
+					this->consumeCharacter();
+					while (true) {
+						const char character = this->peekCharacter();
+						if (character == '\0' || character == '\n' || character == '\r')
+							break;
+
+						this->consumeCharacter();
+					}
+
+					continue;
+				} else if (nextCharacter == '*') {
+					this->consumeCharacter();
+
+					bool closed = false;
+					while (this->peekCharacter() != '\0') {
+						const char character = this->consumeCharacter();
+						if (character == '*') {
+							if (this->peekCharacter() == '/') {
+								this->consumeCharacter();
+
+								closed = true;
+								break;
+							}
+						}
+					}
+
+					if (!closed) {
+						this->setErrorMessage("Unterminated multi-line comment");
 						return false;
+					}
 
-					this->position_ += 2;
-					uint32_t lowSurrogate;
-					if (!this->parseHex4(lowSurrogate))
-						return false;
+					continue;
+				} else {
+					this->stream.unget();
+					--this->position;
+					--this->column;
+					break;
+				}
+			}
 
-					if (lowSurrogate < 0xDC00 || lowSurrogate > 0xDFFF)
-						return false;
+			break;
+		}
 
-					codePoint = 0x10000 + ((codePoint - 0xD800) << 10) + (lowSurrogate - 0xDC00);
-				} else if (codePoint >= 0xDC00 && codePoint <= 0xDFFF) {
+		return !this->isError;
+	}
+
+	bool parseNull(JSONValue& output) {
+		if (!this->expectString("null"))
+			return false;
+
+		output = nullptr;
+		return true;
+	}
+
+	bool parseBoolean(JSONValue& output) {
+		const char character = this->peekCharacter();
+		if (character == 't') {
+			if (!this->matchString("true")) {
+				this->setErrorMessage("Expected 'true', but got '{}'", character);
+				return false;
+			}
+
+			output = true;
+			return true;
+		} else if (character == 'f') {
+			if (!this->matchString("false")) {
+				this->setErrorMessage("Expected 'false', but got '{}'", character);
+				return false;
+			}
+
+			output = false;
+			return true;
+		}
+
+		this->setErrorMessage("Expected 'true' or 'false', but got '{}'", character);
+		return false;
+	}
+
+	bool parseStringInto(std::string& result) {
+		if (!this->expectCharacter('"')) return false;
+
+		result.clear();
+		while (true) {
+			const char character = this->consumeCharacter();
+			if (character == '\0') {
+				this->setErrorMessage("Unterminated string");
+				return false;
+			}
+
+			if (character == '"')
+				break;
+
+			if (character == '\\') {
+				const char escapeCharacter = this->consumeCharacter();
+				if (escapeCharacter == '\0') {
+					this->setErrorMessage("Unterminated escape sequence in string");
 					return false;
 				}
 
-				appendUTF8Character(result, codePoint);
-				break;
+				switch (escapeCharacter) {
+				case '"':  result += '"';  break;
+				case '\\': result += '\\'; break;
+				case '/':  result += '/';  break;
+				case 'b':  result += '\b'; break;
+				case 'f':  result += '\f'; break;
+				case 'n':  result += '\n'; break;
+				case 'r':  result += '\r'; break;
+				case 't':  result += '\t'; break;
+				case 'u': {
+					std::string hexDigits;
+					for (int index = 0; index < 4; ++index) {
+						const char hexCharacter = this->consumeCharacter();
+						if (!isHexCharacter(hexCharacter)) {
+							this->setErrorMessage("Invalid Unicode escape sequence");
+							return false;
+						}
+
+						hexDigits += hexCharacter;
+					}
+
+					uint32_t codePoint = 0;
+					for (const char hexCharacter : hexDigits)
+						codePoint = (codePoint << 4) | fromHexCharacter(hexCharacter);
+
+					appendCodepoint(result, codePoint);
+					break;
+				}
+				default:
+					this->setErrorMessage("Invalid escape character '{}'", escapeCharacter);
+					return false;
+				}
+			} else if (static_cast<unsigned char>(character) < 0x20) {
+				this->setErrorMessage("Invalid control character in string");
+				return false;
+			} else {
+				result += character;
 			}
-			default:
+		}
+		return true;
+	}
+
+	bool parseString(JSONValue& output) {
+		std::string result;
+		if (!this->parseStringInto(result))
+			return false;
+
+		output = std::move(result);
+		return true;
+	}
+
+	bool parseNumber(JSONValue& output) {
+		std::string numberStr;
+		bool isFloating = false;
+
+		while (true) {
+			const char character = this->peekCharacter();
+
+			if ((character >= '0' && character <= '9') || character == '-' || character == '+' || character == '.' || character == 'e' || character == 'E') {
+				if (character == '.' || character == 'e' || character == 'E')
+					isFloating = true;
+
+				numberStr += character;
+				this->consumeCharacter();
+
+				continue;
+			}
+
+			break;
+		}
+
+		if (numberStr.empty()) {
+			this->setErrorMessage("Expected number");
+			return false;
+		}
+
+		try {
+			size_t index = 0;
+			if (isFloating) {
+				double value = std::stod(numberStr, &index);
+				if (index != numberStr.size()) {
+					this->setErrorMessage("Invalid number format '{}'", numberStr);
+					return false;
+				}
+				output = value;
+			} else {
+				long long value = std::stoll(numberStr, &index);
+				if (index != numberStr.size()) {
+					this->setErrorMessage("Invalid number format '{}'", numberStr);
+					return false;
+				}
+
+				if (value >= std::numeric_limits<int>::min() && value <= std::numeric_limits<int>::max())
+					output = static_cast<int>(value);
+				else
+					output = static_cast<double>(value);
+			}
+
+			return true;
+		} catch (...) {
+			this->setErrorMessage("Invalid number format '{}'", numberStr);
+			return false;
+		}
+	}
+
+	bool parseArray(JSONValue& output) {
+		if (!this->expectCharacter('[')) return false;
+		if (!this->skipWhitespace()) return false;
+
+		if (this->peekCharacter() == ']') {
+			this->consumeCharacter();
+
+			output = JSONArray{};
+			return true;
+		}
+
+		JSONArray array;
+		while (true) {
+			if (!this->skipWhitespace())
+				return false;
+
+			JSONValue element;
+			if (!this->parse(element)) return false;
+
+			array.push_back(std::move(element));
+			if (!this->skipWhitespace()) return false;
+
+			const char character = this->peekCharacter();
+			if (character == ']') {
+				this->consumeCharacter();
+				break;
+			} else if (character == ',') {
+				this->consumeCharacter();
+			} else {
+				this->setErrorMessage("Expected ',' or ']' in array, got '{}'", character == '\0' ? "EOF" : std::string(1, character));
 				return false;
 			}
-		} else if (static_cast<unsigned char>(character) < 0x20) {
-			return false;
-		} else {
-			result += character;
 		}
-	}
 
-	return false;
-}
-
-bool JSONParser::parseString(JSONValue& value) {
-	std::string result;
-	if (!this->parseStringRaw(result))
-		return false;
-
-	value = std::move(result);
-	return true;
-}
-
-bool JSONParser::parseNumber(JSONValue& value) {
-	const std::size_t start = this->position_;
-	this->consumeCharacter('-');
-	if (this->consumeCharacter('0')) {
-		if (this->position_ < this->input_.size() && std::isdigit(static_cast<unsigned char>(this->input_[this->position_])))
-			return false;
-	} else if (this->skipDigits() == 0) {
-		return false;
-	}
-
-	if (this->consumeCharacter('.') && this->skipDigits() == 0)
-		return false;
-
-	if (this->consumeCharacter('e') || this->consumeCharacter('E')) {
-		if (!this->consumeCharacter('+'))
-			this->consumeCharacter('-');
-
-		if (this->skipDigits() == 0)
-			return false;
-	}
-	const char* first = this->input_.data() + start;
-	const char* last = this->input_.data() + this->position_;
-
-	double numberValue = 0.0;
-	const auto [end, errorCode] = std::from_chars(first, last, numberValue);
-	if (errorCode != std::errc() || end != last)
-		return false;
-
-	value = numberValue;
-	return true;
-}
-
-bool JSONParser::parseArray(JSONValue& value) {
-	if (!this->expectCharacter('['))
-		return false;
-
-	JSONArray array;
-	this->skipWhitespace();
-
-	if (this->consumeCharacter(']')) {
-		value = std::move(array);
+		output = std::move(array);
 		return true;
 	}
 
-	while (true) {
-		JSONValue element;
-		if (!this->parseValue(element))
-			return false;
+	bool parseObject(JSONValue& output) {
+		if (!this->expectCharacter('{')) return false;
+		if (!this->skipWhitespace()) return false;
 
-		array.push_back(std::move(element));
-		this->skipWhitespace();
+		if (this->peekCharacter() == '}') {
+			this->consumeCharacter();
 
-		if (this->consumeCharacter(']')) {
-			value = std::move(array);
+			output = JSONObject{};
 			return true;
 		}
 
-		if (!this->expectCharacter(','))
-			return false;
-	}
-}
+		JSONObject object;
+		while (true) {
+			if (!this->skipWhitespace())
+				return false;
 
-bool JSONParser::parseObject(JSONValue& value) {
-	if (!this->expectCharacter('{'))
-		return false;
+			if (this->peekCharacter() != '"') {
+				const char ch = this->peekCharacter();
+				this->setErrorMessage("Expected string key in object, got '{}'", ch == '\0' ? "EOF" : std::string(1, ch));
+				return false;
+			}
 
-	JSONObject object;
-	this->skipWhitespace();
+			std::string key;
+			if (!this->parseStringInto(key)) return false;
 
-	if (this->consumeCharacter('}')) {
-		value = std::move(object);
+			if (!this->skipWhitespace()) return false;
+			if (!this->expectCharacter(':')) return false;
+			if (!this->skipWhitespace()) return false;
+
+			JSONValue value;
+			if (!this->parse(value))
+				return false;
+
+			object.insert(key, std::move(value));
+			if (!this->skipWhitespace())
+				return false;
+
+			const char character = this->peekCharacter();
+			if (character == '}') {
+				this->consumeCharacter();
+				break;
+			} else if (character == ',') {
+				this->consumeCharacter();
+			} else {
+				this->setErrorMessage("Expected ',' or '}' in object, got '{}'", character == '\0' ? "EOF" : std::string(1, character));
+				return false;
+			}
+		}
+
+		output = std::move(object);
 		return true;
 	}
 
-	while (true) {
-		this->skipWhitespace();
-
-		std::string key;
-		if (!this->parseStringRaw(key))
+	bool parse(JSONValue& output) {
+		if (!this->skipWhitespace())
 			return false;
 
-		this->skipWhitespace();
-		if (!this->expectCharacter(':'))
-			return false;
+		const char character = this->peekCharacter();
+		if (character == 'n') return this->parseNull(output);
+		if (character == 't') return this->parseBoolean(output);
+		if (character == 'f') return this->parseBoolean(output);
+		if (character == '"') return this->parseString(output);
+		if (character == '[') return this->parseArray(output);
+		if (character == '{') return this->parseObject(output);
+		if ((character >= '0' && character <= '9') || character == '-') return this->parseNumber(output);
 
-		JSONValue element;
-		if (!this->parseValue(element))
-			return false;
-
-		object[key] = std::move(element);
-		this->skipWhitespace();
-
-		if (this->consumeCharacter('}')) {
-			value = std::move(object);
-			return true;
-		}
-
-		if (!this->expectCharacter(','))
-			return false;
-	}
-}
-
-bool JSONParser::parseValue(JSONValue& value) {
-	this->skipWhitespace();
-
-	if (this->position_ >= this->input_.size())
+		this->setErrorMessage("Unexpected character '{}' while parsing JSON", character == '\0' ? "EOF" : std::string(1, character));
 		return false;
-
-	const char character = this->input_[this->position_];
-	switch (character) {
-	case 'n':
-		if (this->matchText("null")) {
-			value = nullptr;
-			return true;
-		}
-
-		break;
-	case 't':
-		if (this->matchText("true")) {
-			value = true;
-			return true;
-		}
-
-		break;
-	case 'f':
-		if (this->matchText("false")) {
-			value = false;
-			return true;
-		}
-
-		break;
-	case '"':
-		return this->parseString(value);
-	case '[':
-		return this->parseArray(value);
-	case '{':
-		return this->parseObject(value);
-	default:
-		if (character == '-' || (character >= '0' && character <= '9'))
-			return this->parseNumber(value);
-
-		break;
 	}
+};
 
-	return false;
+JSONParserResult JSONValue::parse(std::istream& stream, JSONValue& output) {
+	JSONParserContext parser(stream);
+	if (!parser.parse(output))
+		return parser.parseResult;
+
+	return JSONParserResult::success();
 }
 
-std::optional<JSONValue> JSONParser::parseJson(std::string_view input) {
-	JSONParser parser(input);
-	JSONValue value;
-	if (!parser.parseValue(value))
-		return std::nullopt;
-
-	parser.skipWhitespace();
-	if (parser.position_ != input.size())
-		return std::nullopt;
-
-	return value;
+JSONParserResult JSONValue::parse(const std::string& jsonStr, JSONValue& output) {
+	std::stringstream stream(jsonStr);
+	return JSONValue::parse(stream, output);
 }

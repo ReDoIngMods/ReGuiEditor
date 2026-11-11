@@ -3,7 +3,7 @@
 #include "JsonGuiParsing.hpp"
 #include "JsonGuiTypes.hpp"
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <MyGui/MyGUI_Delegate.h>
 #include <MyGui/MyGUI_EditBox.h>
@@ -28,7 +28,7 @@ struct PendingEvent {
 }
 
 void JsonGuiInstance::bindEvent(MyGUI::Widget* widget, const std::string& name, std::string_view key, const JSONValue& value, bool isRoot) {
-	const std::string* handler = value.tryGet<std::string>();
+	const std::string* handler = value.isString() ? &value.asString() : nullptr;
 	if (!handler || handler->empty()) {
 		CONSOLE_WARNING("JsonGui: event '%s' of widget '%s' must be the name of a Lua function.", std::string(key).c_str(), name.c_str());
 		return;

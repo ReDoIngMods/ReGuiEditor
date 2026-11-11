@@ -9,17 +9,20 @@
 #include "wrap_global.hpp"
 #include "wrap_sm/wrap_sm.hpp"
 
-#include <LuaJIT/lauxlib.h>
-#include <LuaJIT/lua.h>
-#include <LuaJIT/lualib.h>
-
 #include <Filesystem/DirectoryManager.hpp>
 #include <Filesystem/FileReader.hpp>
 
 #include <MyGuiRenderer/JsonGuiInstance.hpp>
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
+#include <JSON/JSONSerializable.hpp>
+
 #include <UTILS/Uuid.hpp>
+
+#include <LuaJIT/lauxlib.h>
+#include <LuaJIT/lua.h>
+#include <LuaJIT/lualib.h>
+
 #include <algorithm>
 #include <filesystem>
 #include <memory>
@@ -31,8 +34,6 @@ static const UTILS::UUID REGUI_MOD_LOCALID = "0e0779e3-a4ae-46c7-89db-1596a93518
 
 constexpr const char* ENV_SCRIPT_PATH = "$RGE_DATA/Scripts/EnvVars.lua";
 constexpr const char* MOD_CONFIG_PATH = "$CONTENT_DATA/reguieditor.config.json";
-
-constexpr int MOD_CONFIG_VERSION = 1;
 
 static int luaPanic(lua_State* L) {
 	const char* message = lua_tostring(L, 1);
@@ -198,58 +199,63 @@ LuaVM* LuaManager::getVM(const UTILS::UUID& modLocalId) const {
 	return (iterator != this->luaVMs_.end()) ? iterator->get() : nullptr;
 }
 
-struct ModConfig {
-	LuaClassType type = LuaClassType::Addon;
+struct ModConfigScript : public JSONSerializable {
 	std::string filename;
 	std::string classname;
+
+	JSONValue serialize() const override {
+		JSONObject object;
+		object["filename"] = this->filename;
+		object["classname"] = this->classname;
+		
+		return std::move(object);
+	}
+
+	bool deserialize(const JSONValue& value) override {
+		if (!this->getValue(value, "filename", this->filename)) return false;
+		if (!this->getValue(value, "classname", this->classname)) return false;
+		return true;
+	}
 };
 
-static bool parseModConfig(const JSONValue& json, ModConfig& config) {
-	const JSONObject* root = json.tryGet<JSONObject>();
-	if (!root) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Mod config is not a valid JSON object.");
-		return false;
+struct ModConfig : public JSONSerializable {
+	constexpr static int VERSION = 1;
+
+	LuaClassType type = LuaClassType::Addon;
+	ModConfigScript script;
+
+	JSONValue serialize() const override {
+		JSONObject object;
+		object["version"] = VERSION;
+		object["type"] = (this->type == LuaClassType::Loader) ? "Loader" : "Addon";
+		object["script"] = this->script.serialize();
+
+		return std::move(object);
 	}
 
-	const double* version = root->at("version").tryGet<double>();
-	if (!version || *version != MOD_CONFIG_VERSION) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Mod config 'version' is missing or unsupported.");
-		return false;
+	bool deserialize(const JSONValue& value) override {
+		if (!value.isObject())
+			return false;
+
+		if (!this->verifyValue(value, "version", VERSION)) return false;
+		
+		std::string typeStr;
+		if (!this->getValue(value, "type", typeStr))
+			return false;
+
+		if (typeStr == "Loader")
+			this->type = LuaClassType::Loader;
+		else if (typeStr == "Addon")
+			this->type = LuaClassType::Addon;
+		else
+			return false;
+
+		if (!this->getValue(value, "script", this->script))
+			return false;
+
+		return true;
 	}
-
-	const std::string* type = root->at("type").tryGet<std::string>();
-	if (!type) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Missing 'type' in mod config or it is not a valid string.");
-		return false;
-	}
-
-	if (*type == "Loader")
-		config.type = LuaClassType::Loader;
-	else if (*type == "Addon")
-		config.type = LuaClassType::Addon;
-	else {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Unknown mod config type '%s'.", type->c_str());
-		return false;
-	}
-
-	const JSONObject* script = root->at("script").tryGet<JSONObject>();
-	if (!script) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Missing 'script' in mod config or it is not a valid object.");
-		return false;
-	}
-
-	const std::string* filename = script->at("filename").tryGet<std::string>();
-	const std::string* classname = script->at("classname").tryGet<std::string>();
-	if (!filename || !classname) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Mod config 'script' needs a string 'filename' and 'classname'.");
-		return false;
-	}
-
-	config.filename = *filename;
-	config.classname = *classname;
-
-	return true;
-}
+};
 
 LuaClassInstance* LuaManager::loadMod(const UTILS::UUID& modLocalId) {
 	std::filesystem::path configPath = MOD_CONFIG_PATH;
@@ -263,7 +269,7 @@ LuaClassInstance* LuaManager::loadMod(const UTILS::UUID& modLocalId) {
 	}
 
 	ModConfig config;
-	if (!parseModConfig(configJson.value(), config)) {
+	if (!config.deserialize(configJson.value())) {
 		CONSOLE_ERROR("Invalid config for mod %s.", modLocalId.toAStr().c_str());
 		return nullptr;
 	}
@@ -277,9 +283,9 @@ LuaClassInstance* LuaManager::loadMod(const UTILS::UUID& modLocalId) {
 	if (!vm)
 		return nullptr;
 
-	LuaClassInstance* classInstance = vm->loadClass(config.type, config.filename, config.classname);
+	LuaClassInstance* classInstance = vm->loadClass(config.type, config.script.filename, config.script.classname);
 	if (!classInstance) {
-		CONSOLE_ERROR("Failed to load class %s for mod %s.", config.classname.c_str(), modLocalId.toAStr().c_str());
+		CONSOLE_ERROR("Failed to load class %s for mod %s.", config.script.classname.c_str(), modLocalId.toAStr().c_str());
 
 		this->luaVMs_.pop_back();
 		return nullptr;

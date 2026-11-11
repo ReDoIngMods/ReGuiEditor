@@ -3,7 +3,7 @@
 #include <Filesystem/DirectoryListing.hpp>
 #include <Filesystem/FileReader.hpp>
 
-#include <JSON/JSONObject.hpp>
+#include <JSON/JSON.hpp>
 
 #include <UTILS/Strings.hpp>
 
@@ -20,20 +20,20 @@ bool LanguageManager::initialize(const std::string& defaultLanguage) {
 		return false;
 	}
 
-	if (!jsonData->is<JSONObject>()) {
+	if (!jsonData->isObject()) {
 		CONSOLE_ERROR("Invalid format in languages.json: root is not an object.");
 		return false;
 	}
 
-	for (const auto& [languageKey, languageValue] : jsonData->get<JSONObject>()) {
-		if (!languageValue.is<std::string>()) {
+	for (const auto& [languageKey, languageValue] : jsonData->asObject()) {
+		if (!languageValue.isString()) {
 			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid language entry in languages.json: value is not a string for key '%s'", languageKey.c_str());
 			continue;
 		}
 
 		LanguageEntry languageEntry;
 		languageEntry.name = languageKey;
-		languageEntry.folderName = languageValue.get<std::string>();
+		languageEntry.folderName = languageValue.asString();
 
 		const std::string languageFolderPath = UTILS::formatString("$GAME_DATA/Gui/Language/%s", languageEntry.folderName.c_str());
 

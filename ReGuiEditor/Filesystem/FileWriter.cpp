@@ -2,8 +2,7 @@
 
 #include "DirectoryManager.hpp"
 
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONWriter.hpp>
+#include <JSON/JSON.hpp>
 
 #include <UTILS/ByteStreamWriter.hpp>
 
@@ -93,6 +92,6 @@ bool Filesystem::writeFile(const std::filesystem::path& path, const UTILS::ByteS
 	return Filesystem::writeFile(path, writer.toVector());
 }
 
-bool Filesystem::writeFile(const std::filesystem::path& path, const JSONValue& data, bool prettyPrint) {
-	return Filesystem::writeFile(path, JSONWriter::writeJson(data, prettyPrint));
+bool Filesystem::writeFile(const std::filesystem::path& path, const JSONValue& data, bool prettyPrint, const char indentCharacter) {
+	return Filesystem::writeFile(path, data.dump(prettyPrint, indentCharacter));
 }

@@ -6,9 +6,7 @@
 #include <Filesystem/FileReader.hpp>
 #include <Filesystem/FileWriter.hpp>
 
-#include <JSON/JSONObject.hpp>
-#include <JSON/JSONParser.hpp>
-#include <JSON/JSONWriter.hpp>
+#include <JSON/JSON.hpp>
 
 #include <UTILS/Strings.hpp>
 
@@ -17,7 +15,6 @@
 
 #include <filesystem>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -32,9 +29,25 @@ inline static int raiseError(lua_State* L, std::string& error) {
 
 inline static void pushJson(lua_State* L, const JSONValue& value) {
 	switch (value.getType()) {
-	case JSONType::Object: {
-		const JSONObject& object = value.get<JSONObject>();
+	case JSONType::None:
+	case JSONType::Null:
+		lua_pushnil(L);
+		break;
+	case JSONType::Boolean:
+		lua_pushboolean(L, value.asBoolean());
+		break;
+	case JSONType::FloatingPoint:
+		lua_pushnumber(L, value.asDouble());
+		break;
+	case JSONType::Integer:
+		lua_pushinteger(L, value.asInteger());
+		break;
 
+	case JSONType::String:
+		lua_pushstring(L, value.asString().c_str());
+		break;
+	case JSONType::Object: {
+		const JSONObject& object = value.asObject();
 		lua_createtable(L, 0, static_cast<int>(object.size()));
 
 		for (const auto& [key, child] : object) {
@@ -49,7 +62,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 		break;
 	}
 	case JSONType::Array: {
-		const JSONArray& array = value.get<JSONArray>();
+		const JSONArray& array = value.asArray();
 
 		lua_createtable(L, static_cast<int>(array.size()), 0);
 		for (size_t index = 0; index < array.size(); ++index) {
@@ -59,16 +72,6 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 
 		break;
 	}
-	case JSONType::String:
-		lua_pushstring(L, value.get<std::string>().c_str());
-		break;
-	case JSONType::Boolean:
-		lua_pushboolean(L, value.get<bool>());
-		break;
-	case JSONType::Number:
-		lua_pushnumber(L, value.get<double>());
-		break;
-	case JSONType::Null:
 	default:
 		lua_pushnil(L);
 		break;
@@ -158,7 +161,7 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 	if (!toJson(L, index, document, error))
 		return false;
 
-	output = JSONWriter::writeJson(document, pretty);
+	document.dump(output, pretty, '\t');
 	return true;
 }
 
@@ -215,15 +218,16 @@ static int sm_json_open(lua_State* L) {
 static int sm_json_parseJsonString(lua_State* L) {
 	size_t length = 0;
 	const char* str = luaL_checklstring(L, 1, &length);
-	std::string_view jsonString(str, length);
+	std::string jsonString(str, length);
 
-	auto document = JSONParser::parseJson(jsonString);
-	if (!document) {
-		std::string error = "Failed to parse JSON string.";
-		return raiseError(L, error);
+	JSONValue document;
+	JSONParserResult result = JSONValue::parse(jsonString, document);
+	if (!result) {
+		std::string errorMessage = result.createErrorMessage();
+		return raiseError(L, errorMessage);
 	}
-	
-	pushJson(L, document.value());
+
+	pushJson(L, document);
 	return 1;
 }
 
