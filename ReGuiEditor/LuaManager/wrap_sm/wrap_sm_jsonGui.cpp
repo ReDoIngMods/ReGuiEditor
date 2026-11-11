@@ -16,6 +16,8 @@
 #include <MyGui/MyGUI_Types.h>
 #include <MyGui/MyGUI_Widget.h>
 
+#include <UTILS/Uuid.hpp>
+
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
@@ -25,8 +27,6 @@
 #include <memory>
 #include <string>
 #include <utility>
-
-static constexpr double VIEW_HEIGHT = 720.0;
 
 struct JsonGuiHandle {
 	std::shared_ptr<JsonGuiInstance> gui;
@@ -69,7 +69,7 @@ inline static JsonGuiInstance& checkGui(lua_State* L, int index) {
 	return *UserdataManager::getInstance().check<JsonGuiHandle>(L, index).gui;
 }
 
-static void dispatchGuiEvent(const std::string& modLocalId, const GuiEvent& event) {
+static void dispatchGuiEvent(const UTILS::UUID& modLocalId, const GuiEvent& event) {
 	LuaVM* vm = LuaManager::getInstance().getVM(modLocalId);
 	if (!vm || !vm->isInitialized())
 		return;
@@ -111,18 +111,18 @@ static int jsonGui_createGui(lua_State* L) {
 	if (!lua_isnoneornil(L, 1)) {
 		luaL_checktype(L, 1, LUA_TTABLE);
 
-		readBool(L, 1, "isHud", settings.isHud);
-		readBool(L, 1, "isInteractive", settings.isInteractive);
-		readBool(L, 1, "needsCursor", settings.needsCursor);
-		readBool(L, 1, "hidesHotbar", settings.hidesHotbar);
-		readBool(L, 1, "isOverlapped", settings.isOverlapped);
+		readBool(L, 1, "isHud",          settings.isHud);
+		readBool(L, 1, "isInteractive",  settings.isInteractive);
+		readBool(L, 1, "needsCursor",    settings.needsCursor);
+		readBool(L, 1, "hidesHotbar",    settings.hidesHotbar);
+		readBool(L, 1, "isOverlapped",   settings.isOverlapped);
 		readBool(L, 1, "openCloseAudio", settings.openCloseAudio);
 
 		readNumber(L, 1, "backgroundAlpha", settings.backgroundAlpha);
 
 		readString(L, 1, "handleKeySetup", settings.handleKeySetup);
-		readString(L, 1, "name", settings.name);
-		readString(L, 1, "layer", settings.layer);
+		readString(L, 1, "name",           settings.name);
+		readString(L, 1, "layer",          settings.layer);
 	}
 
 	const LuaVM* creator = LuaUtils::getLuaVM(L);
@@ -131,7 +131,7 @@ static int jsonGui_createGui(lua_State* L) {
 
 	auto gui = std::make_shared<JsonGuiInstance>(std::move(settings));
 	if (creator) {
-		gui->setEventSink([modLocalId = creator->getModLocalId()](const GuiEvent& event) {
+		gui->setEventSink([modLocalId = creator->getModLocalId()](const GuiEvent& event) -> void {
 			dispatchGuiEvent(modLocalId, event);
 		});
 	}
@@ -157,8 +157,8 @@ static int jsonGui_getViewSize(lua_State* L) {
 
 	const double scale = static_cast<double>(width) / static_cast<double>(height) / (16.0 / 9.0);
 
-	const double viewWidth = VIEW_HEIGHT * std::max(scale, 1.0);
-	const double viewHeight = VIEW_HEIGHT * std::max(1.0 / scale, 1.0);
+	const double viewWidth  = 720 * std::max(scale,       1.0);
+	const double viewHeight = 720 * std::max(1.0 / scale, 1.0);
 
 	lua_pushinteger(L, static_cast<lua_Integer>(std::llround(viewWidth)));
 	lua_pushinteger(L, static_cast<lua_Integer>(std::llround(viewHeight)));
@@ -254,7 +254,7 @@ void wrap_sm_jsonGui(lua_State* L) {
 	CONSOLE_LOG(LEVEL_LUA, COLOR_CYAN, "Wrapping 'sm.jsonGui' library...");
 
 	static const luaL_Reg functions[] = {
-		{"createGui", jsonGui_createGui},
+		{"createGui",   jsonGui_createGui  },
 		{"getViewSize", jsonGui_getViewSize},
 
 		{nullptr, nullptr}
@@ -265,14 +265,14 @@ void wrap_sm_jsonGui(lua_State* L) {
 	UserdataDefinition* guiDefinition = userdataManager.createDefinition("JsonGui", 1018);
 	guiDefinition->bind<JsonGuiHandle>();
 
-	guiDefinition->addMethod("render", jsonGui_render);
-	guiDefinition->addMethod("isActive", jsonGui_isActive);
-	guiDefinition->addMethod("close", jsonGui_close);
-	guiDefinition->addMethod("setHidden", jsonGui_setHidden);
-	guiDefinition->addMethod("isHidden", jsonGui_isHidden);
-	guiDefinition->addMethod("clearOnCloseCallback", jsonGui_clearOnCloseCallback);
+	guiDefinition->addMethod("render",                    jsonGui_render);
+	guiDefinition->addMethod("isActive",                  jsonGui_isActive);
+	guiDefinition->addMethod("close",                     jsonGui_close);
+	guiDefinition->addMethod("setHidden",                 jsonGui_setHidden);
+	guiDefinition->addMethod("isHidden",                  jsonGui_isHidden);
+	guiDefinition->addMethod("clearOnCloseCallback",      jsonGui_clearOnCloseCallback);
 	guiDefinition->addMethod("getWidgetAbsolutePosition", jsonGui_getWidgetAbsolutePosition);
-	guiDefinition->addMethod("getWidget", jsonGui_getWidget);
+	guiDefinition->addMethod("getWidget",                 jsonGui_getWidget);
 
 	UserdataDefinition* widgetDefinition = userdataManager.createDefinition("JsonWidget", 1019);
 	widgetDefinition->bind<JsonWidgetHandle>();

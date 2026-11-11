@@ -2,14 +2,16 @@
 
 #include "UgcMod.hpp"
 
+#include <Filesystem/DirectoryListing.hpp>
 #include <Filesystem/DirectoryManager.hpp>
-#include <Filesystem/FilesystemManager.hpp>
+
+#include <UTILS/Strings.hpp>
+#include <UTILS/Uuid.hpp>
 
 #include <steam/isteamremotestorage.h>
 #include <steam/isteamugc.h>
 #include <steam/steamtypes.h>
 
-#include <UTILS/Uuid.hpp>
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
@@ -51,19 +53,18 @@ void UGCManager::onItemUnsubscribed(RemoteStoragePublishedFileUnsubscribed_t* ca
 }
 
 void UGCManager::loadUgcModsFromPath(std::filesystem::path directoryPath, bool isLocal) {
-	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(directoryPath.generic_string(), resolvedPath))
+	auto resolvedPath = DirectoryManager::resolveDirectoryStatic(directoryPath.generic_string());
+	if (!resolvedPath)
 		return;
 
-	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
-	auto entries = filesystemManager.listDirectory(directoryPath.generic_string(), false, true);
-	if (!entries.has_value()) {
+	auto entries = Filesystem::listDirectory(directoryPath.generic_string(), false, true);
+	if (!entries) {
 		CONSOLE_ERROR("Failed to list directory: %s", directoryPath.string().c_str());
 		return;
 	}
 
 	for (const auto& entry : entries.value())
-		(void)this->addMod(resolvedPath / entry.name, isLocal);
+		(void)this->addMod(resolvedPath.value() / entry.name, isLocal);
 }
 
 void UGCManager::loadWorkshopMods() {
@@ -90,11 +91,13 @@ void UGCManager::loadWorkshopMods() {
 bool UGCManager::initialize() {
 	CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Initializing UGCManager...");
 
-	this->loadUgcModsFromPath("$RGE_USER_DATA/Blueprints", true);
+	// Speed up loading by only loading the Mods folder for now.
+
+	//this->loadUgcModsFromPath("$RGE_USER_DATA/Blueprints", true);
 	this->loadUgcModsFromPath("$RGE_USER_DATA/Mods", true);
-	this->loadUgcModsFromPath("$RGE_USER_DATA/Challenges", true);
-	this->loadUgcModsFromPath("$RGE_USER_DATA/Tiles", true);
-	this->loadUgcModsFromPath("$RGE_USER_DATA/Worlds", true);
+	//this->loadUgcModsFromPath("$RGE_USER_DATA/Challenges", true);
+	//this->loadUgcModsFromPath("$RGE_USER_DATA/Tiles", true);
+	//this->loadUgcModsFromPath("$RGE_USER_DATA/Worlds", true);
 
 	this->loadWorkshopMods();
 
@@ -122,7 +125,7 @@ std::shared_ptr<UgcMod> UGCManager::addMod(const std::filesystem::path& modPath,
 		return nullptr;
 	}
 
-	if (!DirectoryManager::getInstance().addDirectory(mod->getContentPath(), modPath)) {
+	if (!DirectoryManager::getInstance().addDirectory(UTILS::toWideString(mod->getContentPath()), modPath)) {
 		CONSOLE_ERROR("UgcMod already registered: %s", mod->getContentPath().c_str());
 		return nullptr;
 	}

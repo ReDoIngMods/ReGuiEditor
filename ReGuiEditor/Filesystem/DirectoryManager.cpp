@@ -2,10 +2,13 @@
 
 #include <UTILS/EnvVars.hpp>
 #include <UTILS/Strings.hpp>
+#include <UTILS/Uuid.hpp>
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -49,11 +52,11 @@ inline static bool getUserProfilePath(std::filesystem::path& userProfilePath) {
 	return true;
 }
 
-bool DirectoryManager::splitKey(const std::string& path, std::string& key, std::string& rest) const {
-	const size_t slash = path.find_first_of("/\\");
-	if (slash == std::string::npos) {
+bool DirectoryManager::splitKey(const std::wstring& path, std::wstring& key, std::wstring& rest) const {
+	const size_t slash = path.find_first_of(L"/\\");
+	if (slash == std::wstring::npos) {
 		key = path;
-		rest = "";
+		rest = L"";
 		return true;
 	}
 
@@ -62,7 +65,7 @@ bool DirectoryManager::splitKey(const std::string& path, std::string& key, std::
 	return true;
 }
 
-bool DirectoryManager::resolveKey(const std::string& key, const std::string& rest, std::filesystem::path& resolvedPath) const {
+bool DirectoryManager::resolveKey(const std::wstring& key, const std::wstring& rest, std::filesystem::path& resolvedPath) const {
 	const auto iterator = this->directories_.find(key);
 	if (iterator == directories_.end()) {
 		CONSOLE_ERROR("Failed to resolve path: %s/%s", key.data(), rest.data());
@@ -88,14 +91,47 @@ bool DirectoryManager::initialize() {
 		return false;
 	}
 
-	this->addDirectory("$CHALLENGE_DATA", installPath / "ChallengeData");
-	this->addDirectory("$GAME_DATA", installPath / "Data");
-	this->addDirectory("$PARTICLE_EDITOR_DATA", installPath / "ParticleEditorData");
-	this->addDirectory("$SURVIVAL_DATA", installPath / "Survival");
+	this->addDirectory(L"$CHALLENGE_DATA", installPath / "ChallengeData");
+	this->addDirectory(L"$GAME_DATA", installPath / "Data");
+	this->addDirectory(L"$PARTICLE_EDITOR_DATA", installPath / "ParticleEditorData");
+	this->addDirectory(L"$SURVIVAL_DATA", installPath / "Survival");
+	this->addDirectory(L"$SHADER_DATA", "../Data/Shaders");
 
-	this->addDirectory("$RGE_DATA", "../Data");
-	this->addDirectory("$RGE_CACHE_DATA", "../Cache");
-	this->addDirectory("$RGE_USER_DATA", userProfilePath);
+	this->addDirectory(L"$RGE_DATA", "../Data");
+	this->addDirectory(L"$RGE_CACHE_DATA", "../Cache");
+	this->addDirectory(L"$RGE_USER_DATA", userProfilePath);
 
 	return true;
+}
+
+std::optional<std::filesystem::path> DirectoryManager::resolveDirectory(const std::filesystem::path& path) const {
+	std::wstring key, rest;
+	if (!this->splitKey(path.wstring(), key, rest))
+		return std::nullopt;
+
+	std::filesystem::path resolvedPath;
+	if (!this->resolveKey(key, rest, resolvedPath))
+		return std::nullopt;
+
+	return resolvedPath;
+}
+
+std::optional<std::filesystem::path> DirectoryManager::resolveDirectory(const std::filesystem::path& path, const UTILS::UUID localId) const {
+	std::filesystem::path resolvedPath = path;
+	this->resolveContentData(resolvedPath, localId);
+
+	return this->resolveDirectory(resolvedPath);
+}
+
+void DirectoryManager::resolveContentData(std::filesystem::path& path, const UTILS::UUID localId) const {
+	constexpr const wchar_t* CONTENT_DATA_PREFIX = L"$CONTENT_DATA";
+	constexpr const size_t CONTENT_DATA_PREFIX_LENGTH = std::char_traits<wchar_t>::length(CONTENT_DATA_PREFIX);
+
+	const std::wstring pathStr = path.wstring();
+	if (pathStr.compare(0, CONTENT_DATA_PREFIX_LENGTH, CONTENT_DATA_PREFIX) == 0) {
+		const std::wstring localIdStr = localId.toWStr();
+		const std::wstring newPrefix = L"$CONTENT_" + localIdStr;
+
+		path = newPrefix + pathStr.substr(CONTENT_DATA_PREFIX_LENGTH);
+	}
 }

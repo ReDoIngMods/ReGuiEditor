@@ -1,6 +1,7 @@
 #include "LanguageManager.hpp"
 
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/DirectoryListing.hpp>
+#include <Filesystem/FileReader.hpp>
 
 #include <JSON/JSONObject.hpp>
 
@@ -13,20 +14,18 @@
 #include <vector>
 
 bool LanguageManager::initialize(const std::string& defaultLanguage) {
-	FilesystemManager& filesystemManager = FilesystemManager::getInstance();
-	
-	JSONValue jsonData;
-	if (!filesystemManager.readFile("$GAME_DATA/Gui/Language/languages.json", jsonData)) {
-		CONSOLE_ERROR("Failed to read languages.json");
+	auto jsonData = Filesystem::readFileJson("$GAME_DATA/Gui/Language/languages.json");
+	if (!jsonData) {
+		CONSOLE_ERROR("Failed to read or parse languages.json");
 		return false;
 	}
 
-	if (!jsonData.is<JSONObject>()) {
+	if (!jsonData->is<JSONObject>()) {
 		CONSOLE_ERROR("Invalid format in languages.json: root is not an object.");
 		return false;
 	}
 
-	for (const auto& [languageKey, languageValue] : jsonData.get<JSONObject>()) {
+	for (const auto& [languageKey, languageValue] : jsonData->get<JSONObject>()) {
 		if (!languageValue.is<std::string>()) {
 			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Skipping invalid language entry in languages.json: value is not a string for key '%s'", languageKey.c_str());
 			continue;
@@ -38,7 +37,7 @@ bool LanguageManager::initialize(const std::string& defaultLanguage) {
 
 		const std::string languageFolderPath = UTILS::formatString("$GAME_DATA/Gui/Language/%s", languageEntry.folderName.c_str());
 
-		auto entries = filesystemManager.listDirectory(languageFolderPath, true, false);
+		auto entries = Filesystem::listDirectory(languageFolderPath, true, false);
 		if (!entries.has_value()) {
 			CONSOLE_LOG(LEVEL_WARNING, COLOR_YELLOW, "Failed to list directory for language: %s", languageFolderPath.c_str());
 			continue;

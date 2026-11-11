@@ -1,20 +1,23 @@
-
 #include "wrap_sm_json.hpp" // VCIC-Excluded
 
 #include "../LuaUtil.hpp"
 
-#include <Filesystem/DirectoryManager.hpp>
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/FileInfo.hpp>
+#include <Filesystem/FileReader.hpp>
+#include <Filesystem/FileWriter.hpp>
 
 #include <JSON/JSONObject.hpp>
 #include <JSON/JSONParser.hpp>
 #include <JSON/JSONWriter.hpp>
+
+#include <UTILS/Strings.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -155,40 +158,34 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 	if (!toJson(L, index, document, error))
 		return false;
 
-	output = JSONWriter::stringify(document, pretty);
+	output = JSONWriter::writeJson(document, pretty);
 	return true;
 }
 
 [[nodiscard]] inline static bool openJson(lua_State* L, const char* path, std::string& error) {
-	std::string resolvedPath = path;
-	if (!LuaUtils::resolveContentDataPath(L, resolvedPath)) {
-		error = "Failed to resolve content data path.";
+	std::filesystem::path contentDataPath = path;
+	LuaUtils::resolveContentDataPath(L, contentDataPath);
+
+	auto document = Filesystem::readFileJson(contentDataPath);
+	if (!document) {
+		error = UTILS::formatString("Failed to read or parse JSON file '%s'.", contentDataPath.c_str());
 		return false;
 	}
 
-	JSONValue document;
-	if (!FilesystemManager::getInstance().readFile(resolvedPath, document)) {
-		error = "Failed to read or parse JSON file '" + resolvedPath + "'.";
-		return false;
-	}
-
-	pushJson(L, document);
+	pushJson(L, document.value());
 	return true;
 }
 
 [[nodiscard]] inline static bool saveJson(lua_State* L, int index, const char* path, std::string& error) {
-	std::string resolvedPath = path;
-	if (!LuaUtils::resolveContentDataPath(L, resolvedPath)) {
-		error = "Failed to resolve content data path.";
-		return false;
-	}
+	std::filesystem::path resolvedPath = path;
+	LuaUtils::resolveContentDataPath(L, resolvedPath);
 
 	std::string output;
 	if (!stringifyJson(L, index, false, output, error))
 		return false;
 
-	if (!FilesystemManager::getInstance().writeFile(resolvedPath, output)) {
-		error = "Failed to write file '" + resolvedPath + "'.";
+	if (!Filesystem::writeFile(resolvedPath, output)) {
+		error = UTILS::formatString("Failed to write JSON file '%s'.", resolvedPath.c_str());
 		return false;
 	}
 
@@ -196,21 +193,12 @@ inline static void pushJson(lua_State* L, const JSONValue& value) {
 }
 
 static int sm_json_fileExists(lua_State* L) {
-	std::string path = luaL_checkstring(L, 1);
+	std::filesystem::path path = luaL_checkstring(L, 1);
 
 	std::string error;
-	if (!LuaUtils::resolveContentDataPath(L, path)) {
-		error = "Failed to resolve content data path.";
-		return raiseError(L, error);
-	}
+	LuaUtils::resolveContentDataPath(L, path);
 
-	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(path, resolvedPath)) {
-		lua_pushboolean(L, false);
-		return 1;
-	}
-
-	lua_pushboolean(L, std::filesystem::exists(resolvedPath));
+	lua_pushboolean(L, Filesystem::exists(path));
 	return 1;
 }
 
@@ -227,14 +215,15 @@ static int sm_json_open(lua_State* L) {
 static int sm_json_parseJsonString(lua_State* L) {
 	size_t length = 0;
 	const char* str = luaL_checklstring(L, 1, &length);
+	std::string_view jsonString(str, length);
 
-	JSONValue document;
-	if (!JSONParser::parseJson(str, length, document)) {
+	auto document = JSONParser::parseJson(jsonString);
+	if (!document) {
 		std::string error = "Failed to parse JSON string.";
 		return raiseError(L, error);
 	}
-
-	pushJson(L, document);
+	
+	pushJson(L, document.value());
 	return 1;
 }
 

@@ -14,11 +14,12 @@
 constexpr std::array<std::string_view, 8> RESERVED_KEYS = { "Type", "Skin", "Name", "x", "y", "width", "height", "Childs" };
 
 constexpr auto HANDLED_KEYS = std::to_array<std::string_view>({
-	"Anchor", "LayoutRule", "GridItemSize", "HorizontalAlign", "VerticalAlign",
-	"RenderDepth", "Layer", "Hotbar", "ToolTip", "Popup", "Cursor", "DisableOnFocusSound",
-	"HeightFromText", "BottomAnchored", "GridScrollOffset", "NeedScroll",
-	"CropEffect", "CroppingWidget", "Effects", "ContainerData", "BlueprintPreview", "ItemPreview", "SubLayoutPath",
-	"RotatingSkinAngle", "RotatingSkinCenterX", "RotatingSkinCenterY"
+	"Anchor",             "LayoutRule",          "GridItemSize",   "HorizontalAlign",   "VerticalAlign",
+	"RenderDepth",        "Layer",               "Hotbar",         "ToolTip",           "Popup",
+	"Cursor",             "DisableOnFocusSound", "HeightFromText", "BottomAnchored",    "GridScrollOffset",
+	"NeedScroll",         "CropEffect",          "CroppingWidget", "Effects",           "ContainerData",
+	"BlueprintPreview",   "ItemPreview",         "SubLayoutPath",  "RotatingSkinAngle", "RotatingSkinCenterX",
+	"RotatingSkinCenterY"
 });
 
 struct EventKey {

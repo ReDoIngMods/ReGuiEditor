@@ -1,6 +1,6 @@
 #include "ImageManager.hpp"
 
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/FileReader.hpp>
 
 #include <rend/Common/Format.hpp>
 #include <rend/Common/RefCounter.hpp>
@@ -88,13 +88,11 @@ inline static rend::Texture2DHandle createTextureFromBGRA(const void* pixels, ui
 }
 
 static FIBITMAP* decodeBitmap(const std::string& path) {
-	std::vector<uint8_t> fileContent;
-	if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
-		CONSOLE_ERROR("Failed to read image file '%s'.", path.c_str());
+	auto fileContent = Filesystem::readFileBinary(path);
+	if (!fileContent)
 		return nullptr;
-	}
 
-	FIMEMORY* memory = FreeImage_OpenMemory(fileContent.data(), static_cast<DWORD>(fileContent.size()));
+	FIMEMORY* memory = FreeImage_OpenMemory(fileContent->data(), static_cast<DWORD>(fileContent->size()));
 	if (!memory) {
 		CONSOLE_ERROR("Failed to open image memory for '%s'.", path.c_str());
 		return nullptr;
@@ -267,9 +265,9 @@ ImagePtr ImageManager::findOrLoadImage(const std::string& path) {
 	return image;
 }
 
-bool ImageManager::renderSVG(const std::vector<char>& svg, uint32_t& width, uint32_t& height, ImU32 color, std::vector<uint8_t>& pixels) {
+bool ImageManager::renderSVG(const std::vector<uint8_t>& svg, uint32_t& width, uint32_t& height, ImU32 color, std::vector<uint8_t>& pixels) {
 	rend::RefCountPtr<IStream> stream = nullptr;
-	stream.attach(SHCreateMemStream(reinterpret_cast<const BYTE*>(svg.data()), static_cast<UINT>(svg.size())));
+	stream.attach(SHCreateMemStream(svg.data(), static_cast<UINT>(svg.size())));
 	if (!stream) {
 		CONSOLE_ERROR("Failed to create IStream from SVG data.");
 		return false;
@@ -400,20 +398,18 @@ ImagePtr ImageManager::findOrLoadImageSVG(const std::string& path, uint32_t widt
 	entry.unusedFrames = 0;
 
 	this->enqueue([this, image, path, width, height, color]() mutable -> void {
-		std::vector<char> fileContent;
-		if (!FilesystemManager::getInstance().readFile(path, fileContent)) {
-			CONSOLE_ERROR("Failed to read SVG file '%s'.", path.c_str());
+		auto fileContent = Filesystem::readFileBinary(path);
+		if (!fileContent)
 			return image->fail();
-		}
 
 		std::vector<uint8_t> pixels;
-		if (!this->renderSVG(fileContent, width, height, color, pixels)) {
+		if (!this->renderSVG(fileContent.value(), width, height, color, pixels)) {
 			CONSOLE_ERROR("Failed to render SVG '%s'.", path.c_str());
 			return image->fail();
 		}
 
 		image->finishPixels(std::move(pixels), width, height);
-		});
+	});
 
 	return image;
 }

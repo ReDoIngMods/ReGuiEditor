@@ -193,8 +193,11 @@ exit /b 0</Command>
     <ClCompile Include="Dependencies\ImGui\imgui_tables.cpp" />
     <ClCompile Include="Dependencies\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Dependencies\ImGui\misc\cpp\imgui_stdlib.cpp" />
+    <ClCompile Include="Filesystem\DirectoryListing.cpp" />
     <ClCompile Include="Filesystem\DirectoryManager.cpp" />
-    <ClCompile Include="Filesystem\FilesystemManager.cpp" />
+    <ClCompile Include="Filesystem\FileInfo.cpp" />
+    <ClCompile Include="Filesystem\FileReader.cpp" />
+    <ClCompile Include="Filesystem\FileWriter.cpp" />
     <ClCompile Include="GUI\DebugTextHandler.cpp" />
     <ClCompile Include="GUI\FileIconHandler.cpp" />
     <ClCompile Include="GUI\FilePickerManager.cpp" />
@@ -205,6 +208,8 @@ exit /b 0</Command>
     <ClCompile Include="GUI\Views\FilePickerView.cpp" />
     <ClCompile Include="GUI\Views\PropertiesView.cpp" />
     <ClCompile Include="GUI\Views\UIRenderView.cpp" />
+    <ClCompile Include="JSON\JSONParser.cpp" />
+    <ClCompile Include="JSON\JSONWriter.cpp" />
     <ClCompile Include="LayoutManager\LayoutManager.cpp" />
     <ClCompile Include="LayoutManager\LayoutManagerView.cpp" />
     <ClCompile Include="GUI\ImGuiFontManager.cpp" />
@@ -217,8 +222,8 @@ exit /b 0</Command>
     <ClCompile Include="MyGuiRenderer\DataFileIndex.cpp" />
     <ClCompile Include="MyGuiRenderer\DataManager.cpp" />
     <ClCompile Include="MyGuiRenderer\DataStream.cpp" />
-    <ClCompile Include="MyGuiRenderer\FontCache.cpp" />
     <ClCompile Include="MyGuiRenderer\FontManager.cpp" />
+    <ClCompile Include="MyGuiRenderer\FreeTypeFont.cpp" />
     <ClCompile Include="MyGuiRenderer\GuiSystemManager.cpp" />
     <ClCompile Include="MyGuiRenderer\GuiSystemManagerInit.cpp" />
     <ClCompile Include="GUI\ImageManager.cpp" />
@@ -284,6 +289,7 @@ exit /b 0</Command>
     <ClCompile Include="UTILS\Profiler.cpp" />
     <ClCompile Include="UTILS\Strings.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="UTILS\UnicodeDecoder.cpp" />
     <ClCompile Include="UTILS\Uuid.cpp" />
     <ClCompile Include="Window\Splashscreen.cpp" />
     <ClCompile Include="Window\Window.cpp" />
@@ -524,6 +530,7 @@ exit /b 0</Command>
     <ClInclude Include="Dependencies\steam\steam_api_flat.h" />
     <ClInclude Include="Dependencies\steam\steam_api_internal.h" />
     <ClInclude Include="Dependencies\steam\steam_gameserver.h" />
+    <ClInclude Include="Filesystem\DirectoryListing.hpp" />
     <ClInclude Include="Filesystem\DirectoryManager.hpp" />
     <ClInclude Include="GUI\DebugTextHandler.hpp" />
     <ClInclude Include="GUI\FileIconHandler.hpp" />
@@ -556,8 +563,8 @@ exit /b 0</Command>
     <ClInclude Include="MyGuiRenderer\DataFileIndex.hpp" />
     <ClInclude Include="MyGuiRenderer\DataManager.hpp" />
     <ClInclude Include="MyGuiRenderer\DataStream.hpp" />
-    <ClInclude Include="MyGuiRenderer\FontCache.hpp" />
     <ClInclude Include="MyGuiRenderer\FontManager.hpp" />
+    <ClInclude Include="MyGuiRenderer\FreeTypeFont.hpp" />
     <ClInclude Include="MyGuiRenderer\GuiSystemManager.hpp" />
     <ClInclude Include="GUI\ImageManager.hpp" />
     <ClInclude Include="GUI\NotificationManager.hpp" />
@@ -638,6 +645,7 @@ exit /b 0</Command>
     <ClInclude Include="UTILS\Hashing.hpp" />
     <ClInclude Include="UTILS\Profiler.hpp" />
     <ClInclude Include="UTILS\Quaternion.hpp" />
+    <ClInclude Include="UTILS\UnicodeDecoder.hpp" />
     <ClInclude Include="UTILS\Uuid.hpp" />
     <ClInclude Include="UTILS\ValueAverager.hpp" />
     <ClInclude Include="UTILS\Vector3.hpp" />
@@ -646,7 +654,9 @@ exit /b 0</Command>
     <ClInclude Include="UTILS\ByteStreamReader.hpp" />
     <ClInclude Include="UTILS\ByteStreamWriter.hpp" />
     <ClInclude Include="UTILS\Console.hpp" />
-    <ClInclude Include="Filesystem\FilesystemManager.hpp" />
+    <ClInclude Include="Filesystem\FileInfo.hpp" />
+    <ClInclude Include="Filesystem\FileReader.hpp" />
+    <ClInclude Include="Filesystem\FileWriter.hpp" />
     <ClInclude Include="UTILS\EnvVars.hpp" />
     <ClInclude Include="UTILS\Singleton.hpp" />
     <ClInclude Include="UTILS\Strings.hpp" />

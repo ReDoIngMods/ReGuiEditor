@@ -5,11 +5,12 @@
 #include "LuaUtil.hpp"
 
 #include <Filesystem/DirectoryManager.hpp>
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/FileReader.hpp>
 
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <utility>
@@ -121,7 +122,7 @@ bool LuaVM::initialize() {
 	if (this->isInitialized())
 		return true;
 
-	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Initializing Lua VM for mod %s...", this->modLocalId_.c_str());
+	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Initializing Lua VM for mod %s...", this->modLocalId_.toAStr());
 
 	this->createEnvironment();
 	
@@ -129,16 +130,8 @@ bool LuaVM::initialize() {
 }
 
 LuaClassInstance* LuaVM::loadClass(LuaClassType type, const std::string& scriptPath, const std::string& className) {
-	std::string resolvedPath = scriptPath;
-	if (!DirectoryManager::getInstance().resolveContentData(resolvedPath, this->modLocalId_)) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to resolve script path '%s' for mod %s.", scriptPath.c_str(), this->modLocalId_.c_str());
-	
-		return nullptr;
-	}
-
 	LuaClassInstance& classInstance = *this->classInstances_.emplace_back(std::make_unique<LuaClassInstance>(this, type, className));
-
-	if ((this->doFile(resolvedPath) && classInstance.create()) || KEEP_ALIVE_ON_ENTRY_FAILURE)
+	if ((this->doFile(scriptPath) && classInstance.create()) || KEEP_ALIVE_ON_ENTRY_FAILURE)
 		return &classInstance;
 
 	this->classInstances_.pop_back();
@@ -149,7 +142,7 @@ void LuaVM::cleanup() {
 	if (!this->isInitialized())
 		return;
 
-	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Cleaning up Lua VM for mod %s...", this->modLocalId_.c_str());
+	CONSOLE_LOG(LEVEL_LUA, COLOR_GRAY, "Cleaning up Lua VM for mod %s...", this->modLocalId_.toAStr());
 
 	this->destroyEnvironment();
 }
@@ -184,22 +177,19 @@ void LuaVM::updateScriptWatcher(float deltaTime) {
 }
 
 int LuaVM::loadFile(const std::string& path) {
-	std::string resolvedPath = path;
-	if (!LuaUtils::resolveContentDataPath(this->state_, resolvedPath)) {
-		lua_pushfstring(this->state_, "cannot resolve path '%s'", path.c_str());
-		return LUA_ERRFILE;
-	}
+	std::filesystem::path resolvedPath = path;
+	DirectoryManager::resolveContentDataStatic(resolvedPath, this->modLocalId_);
 
-	this->scriptWatcher_.watchFile(resolvedPath);
+	this->scriptWatcher_.watchFile(resolvedPath.string());
 
-	std::vector<char> content;
-	if (!FilesystemManager::getInstance().readFile(resolvedPath, content)) {
+	auto fileContentOpt = Filesystem::readFileTextUTF8(resolvedPath);
+	if (!fileContentOpt) {
 		lua_pushfstring(this->state_, "cannot read file '%s'", path.c_str());
 		return LUA_ERRFILE;
 	}
 
-	const std::string chunkName = "@" + resolvedPath;
-	const int status = luaL_loadbufferx(this->state_, content.data(), content.size(), chunkName.c_str(), "t");
+	const std::string chunkName = "@" + resolvedPath.string();
+	const int status = luaL_loadbufferx(this->state_, fileContentOpt->data(), fileContentOpt->size(), chunkName.c_str(), "t");
 	if (status != LUA_OK)
 		return status;
 

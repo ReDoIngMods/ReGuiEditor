@@ -93,7 +93,7 @@ class ImageManager : public UTILS::Singleton<ImageManager> {
 	void enqueue(std::function<void()> task);
 	void workerLoop(std::stop_token stop);
 
-	bool renderSVG(const std::vector<char>& svg, uint32_t& width, uint32_t& height, ImU32 color, std::vector<uint8_t>& pixels);
+	bool renderSVG(const std::vector<uint8_t>& svg, uint32_t& width, uint32_t& height, ImU32 color, std::vector<uint8_t>& pixels);
 
 	bool getSVGNaturalSize(ID2D1SvgDocument* svgDocument, float& width, float& height);
 

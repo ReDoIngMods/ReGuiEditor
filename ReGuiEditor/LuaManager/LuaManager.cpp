@@ -14,18 +14,20 @@
 #include <LuaJIT/lualib.h>
 
 #include <Filesystem/DirectoryManager.hpp>
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/FileReader.hpp>
 
 #include <MyGuiRenderer/JsonGuiInstance.hpp>
 
 #include <JSON/JSONObject.hpp>
+#include <UTILS/Uuid.hpp>
 #include <algorithm>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-constexpr const char* REGUI_MOD_LOCALID = "0e0779e3-a4ae-46c7-89db-1596a935180d";
+static const UTILS::UUID REGUI_MOD_LOCALID = "0e0779e3-a4ae-46c7-89db-1596a935180d";
 
 constexpr const char* ENV_SCRIPT_PATH = "$RGE_DATA/Scripts/EnvVars.lua";
 constexpr const char* MOD_CONFIG_PATH = "$CONTENT_DATA/reguieditor.config.json";
@@ -41,13 +43,11 @@ static int luaPanic(lua_State* L) {
 }
 
 static bool defineEnvironment(lua_State* L) {
-	std::vector<char> content;
-	if (!FilesystemManager::getInstance().readFile(ENV_SCRIPT_PATH, content)) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to read environment script %s.", ENV_SCRIPT_PATH);
+	auto content = Filesystem::readFileTextUTF8(ENV_SCRIPT_PATH);
+	if (!content)
 		return false;
-	}
 
-	if (luaL_loadbufferx(L, content.data(), content.size(), ENV_SCRIPT_PATH, "t") != LUA_OK || lua_pcall(L, 0, 0, 0) != LUA_OK) {
+	if (luaL_loadbufferx(L, content->data(), content->size(), ENV_SCRIPT_PATH, "t") != LUA_OK || lua_pcall(L, 0, 0, 0) != LUA_OK) {
 		const char* message = lua_tostring(L, -1);
 		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "ERROR: %s", message ? message : "unknown error");
 
@@ -92,7 +92,7 @@ bool LuaManager::initialize() {
 		{"math",    LUA_MATHLIBNAME, luaopen_math   },
 		{"debug",   LUA_DBLIBNAME,   luaopen_debug  },
 		{"bit",     LUA_BITLIBNAME,  luaopen_bit    },
-		{"jit",     LUA_JITLIBNAME,  luaopen_jit    },
+		{"jit",     LUA_JITLIBNAME,  luaopen_jit    }, // KEEP! Otherwise we will not have JIT compilation!
 		{"ffi",     LUA_FFILIBNAME,  luaopen_ffi    },
 	};
 
@@ -138,19 +138,19 @@ bool LuaManager::initialize() {
 	return true;
 }
 
-LuaVM* LuaManager::createVM(const std::string& modLocalId) {
+LuaVM* LuaManager::createVM(const UTILS::UUID& modLocalId) {
 	auto iterator = std::find_if(this->luaVMs_.begin(), this->luaVMs_.end(), [&modLocalId](const std::unique_ptr<LuaVM>& vm) {
 		return vm->getModLocalId() == modLocalId;
 	});
 
 	if (iterator != this->luaVMs_.end()) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "Lua VM for mod %s already exists. Skipping creation.", modLocalId.c_str());
+		CONSOLE_LOG(LEVEL_LUA, COLOR_YELLOW, "Lua VM for mod %s already exists. Skipping creation.", modLocalId.toAStr().c_str());
 		return nullptr;
 	}
 
 	auto luaVM = std::make_unique<LuaVM>(this->state_, modLocalId);
 	if (!luaVM->initialize()) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to initialize Lua VM for mod %s.", modLocalId.c_str());
+		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to initialize Lua VM for mod %s.", modLocalId.toAStr().c_str());
 		return nullptr;
 	}
 
@@ -190,7 +190,7 @@ void LuaManager::tick() {
 	(void)this->loader_->callMethod("tick", 0, 0);
 }
 
-LuaVM* LuaManager::getVM(const std::string& modLocalId) const {
+LuaVM* LuaManager::getVM(const UTILS::UUID& modLocalId) const {
 	auto iterator = std::find_if(this->luaVMs_.begin(), this->luaVMs_.end(), [&modLocalId](const std::unique_ptr<LuaVM>& vm) {
 		return vm->getModLocalId() == modLocalId;
 	});
@@ -251,27 +251,25 @@ static bool parseModConfig(const JSONValue& json, ModConfig& config) {
 	return true;
 }
 
-LuaClassInstance* LuaManager::loadMod(const std::string& modLocalId) {
-	std::string configPath = MOD_CONFIG_PATH;
-	if (!DirectoryManager::getInstance().resolveContentData(configPath, modLocalId)) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to resolve config path for mod %s.", modLocalId.c_str());
-		return nullptr;
-	}
+LuaClassInstance* LuaManager::loadMod(const UTILS::UUID& modLocalId) {
+	std::filesystem::path configPath = MOD_CONFIG_PATH;
+	DirectoryManager::resolveContentDataStatic(configPath, modLocalId);
 
-	JSONValue configJson;
-	if (!FilesystemManager::getInstance().readFile(configPath, configJson)) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to read config for mod %s.", modLocalId.c_str());
+	auto configJson = Filesystem::readFileJson(configPath);
+	if (!configJson) {
+		//CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to read config for mod %s.", modLocalId.c_str());
+		CONSOLE_ERROR("Failed to read config for mod %s.", modLocalId.toAStr().c_str());
 		return nullptr;
 	}
 
 	ModConfig config;
-	if (!parseModConfig(configJson, config)) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Invalid config for mod %s.", modLocalId.c_str());
+	if (!parseModConfig(configJson.value(), config)) {
+		CONSOLE_ERROR("Invalid config for mod %s.", modLocalId.toAStr().c_str());
 		return nullptr;
 	}
 
 	if (config.type == LuaClassType::Loader && modLocalId != REGUI_MOD_LOCALID) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Mod %s cannot use the Loader type, it is reserved for sm.regui.", modLocalId.c_str());
+		CONSOLE_ERROR("Mod %s cannot use the Loader type, it is reserved for sm.regui.", modLocalId.toAStr().c_str());
 		return nullptr;
 	}
 
@@ -281,7 +279,7 @@ LuaClassInstance* LuaManager::loadMod(const std::string& modLocalId) {
 
 	LuaClassInstance* classInstance = vm->loadClass(config.type, config.filename, config.classname);
 	if (!classInstance) {
-		CONSOLE_LOG(LEVEL_LUA, COLOR_RED, "Failed to load class %s for mod %s.", config.classname.c_str(), modLocalId.c_str());
+		CONSOLE_ERROR("Failed to load class %s for mod %s.", config.classname.c_str(), modLocalId.toAStr().c_str());
 
 		this->luaVMs_.pop_back();
 		return nullptr;

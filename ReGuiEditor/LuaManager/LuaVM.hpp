@@ -3,6 +3,8 @@
 #include "LuaError.hpp"
 #include "LuaScriptWatcher.hpp"
 
+#include <UTILS/Uuid.hpp>
+
 #include <LuaJIT/lauxlib.h>
 #include <LuaJIT/lua.h>
 
@@ -12,7 +14,7 @@
 
 class LuaVM {
 	lua_State* state_ = nullptr;
-	std::string modLocalId_;
+	UTILS::UUID modLocalId_;
 	std::string envKey_;
 	std::vector<std::unique_ptr<LuaClassInstance>> classInstances_;
 	bool initialized_ = false;
@@ -32,7 +34,7 @@ class LuaVM {
 
 	static int errorHandler(lua_State* L);
 public:
-	LuaVM(lua_State* state, const std::string& modLocalId) : state_(state), modLocalId_(modLocalId), envKey_("env." + modLocalId) {}
+	LuaVM(lua_State* state, const UTILS::UUID& modLocalId) : state_(state), modLocalId_(modLocalId), envKey_("env." + modLocalId.toAStr()) {}
 	~LuaVM() { this->cleanup(); }
 
 	LuaVM(LuaVM&) = delete;
@@ -48,7 +50,7 @@ public:
 
 	[[nodiscard]] lua_State* getState() const { return this->state_; }
 	[[nodiscard]] bool isInitialized() const { return this->initialized_; }
-	[[nodiscard]] const std::string& getModLocalId() const { return this->modLocalId_; }
+	[[nodiscard]] const UTILS::UUID& getModLocalId() const { return this->modLocalId_; }
 	[[nodiscard]] const std::vector<std::unique_ptr<LuaClassInstance>>& getClassInstances() const { return this->classInstances_; }
 
 	[[nodiscard]] int loadFile(const std::string& path);

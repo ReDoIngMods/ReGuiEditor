@@ -8,6 +8,7 @@
 #include <LuaJIT/lua.h>
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -113,18 +114,12 @@ bool LuaUtils::getCallerPath(lua_State* L, std::string& output) {
 	return false;
 }
 
-bool LuaUtils::resolveContentDataPath(lua_State* L, std::string& path) {
-	if (path.empty())
-		return false;
-
-	if (!path.starts_with("$CONTENT_DATA"))
-		return true;
-
+void LuaUtils::resolveContentDataPath(lua_State* L, std::filesystem::path& path) {
 	LuaVM* luaVM = LuaUtils::getLuaVM(L);
 	if (!luaVM)
-		return false;
+		return;
 
-	return DirectoryManager::getInstance().resolveContentData(path, luaVM->getModLocalId().c_str());
+	DirectoryManager::resolveContentDataStatic(path, luaVM->getModLocalId());
 }
 
 LuaVM* LuaUtils::getLuaVM(lua_State* L) {

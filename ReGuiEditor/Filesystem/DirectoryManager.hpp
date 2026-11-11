@@ -1,55 +1,45 @@
 #pragma once
 #include <UTILS/Singleton.hpp>
+#include <UTILS/Uuid.hpp>
 
 #include <filesystem>
+#include <optional>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
 
 class DirectoryManager : public UTILS::Singleton<DirectoryManager> {
-	std::unordered_map<std::string, std::filesystem::path> directories_;
+	std::unordered_map<std::wstring, std::filesystem::path> directories_;
+	mutable std::shared_mutex mutex_;
 
-	bool splitKey(const std::string& path, std::string& key, std::string& rest) const;
-
-	bool resolveKey(const std::string& key, const std::string& rest, std::filesystem::path& resolvedPath) const;
+	bool splitKey(const std::wstring& path, std::wstring& key, std::wstring& rest) const;
+	bool resolveKey(const std::wstring& key, const std::wstring& rest, std::filesystem::path& resolvedPath) const;
 public:
 	bool initialize();
 
-	bool addDirectory(const std::string& name, const std::filesystem::path& path) {
+	bool addDirectory(const std::wstring& name, const std::filesystem::path& path) {
 		return this->directories_.try_emplace(name, std::filesystem::absolute(path)).second;
 	}
 
-	bool removeDirectory(const std::string& name) {
+	bool removeDirectory(const std::wstring& name) {
 		return this->directories_.erase(name) != 0;
 	}
 
-	[[nodiscard]] bool resolveDirectory(const std::string& path, std::filesystem::path& resolvedPath) const {
-		if (path.empty())
-			return false;
+	[[nodiscard]] std::optional<std::filesystem::path> resolveDirectory(const std::filesystem::path& path) const;
+	[[nodiscard]] std::optional<std::filesystem::path> resolveDirectory(const std::filesystem::path& path, const UTILS::UUID localId) const;
 
-		const std::filesystem::path inputPath(path);
-		if (inputPath.is_absolute())
-			return false;
+	[[nodiscard]] void resolveContentData(std::filesystem::path& path, const UTILS::UUID localId) const;
 
-		std::string key, rest;
-		if (!this->splitKey(path, key, rest))
-			return false;
-
-		return this->resolveKey(key, rest, resolvedPath);
+	[[nodiscard]] static std::optional<std::filesystem::path> resolveDirectoryStatic(const std::filesystem::path& path) {
+		return DirectoryManager::getInstance().resolveDirectory(path);
 	}
 
-	[[nodiscard]] bool resolveContentData(std::string& path, const std::string& localId) const {
-		if (path.empty())
-			return false;
+	[[nodiscard]] static std::optional<std::filesystem::path> resolveDirectoryStatic(const std::filesystem::path& path, const UTILS::UUID localId) {
+		return DirectoryManager::getInstance().resolveDirectory(path, localId);
+	}
 
-		std::string key, rest;
-		if (!this->splitKey(path, key, rest))
-			return false;
-
-		if (key != "$CONTENT_DATA")
-			return true;
-
-		path = "$CONTENT_" + localId + "/" + rest;
-		return true;
+	[[nodiscard]] static void resolveContentDataStatic(std::filesystem::path& path, const UTILS::UUID localId) {
+		DirectoryManager::getInstance().resolveContentData(path, localId);
 	}
 };

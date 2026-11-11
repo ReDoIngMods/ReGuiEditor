@@ -5,6 +5,7 @@
 #include <MyGui/MyGUI_ITexture.h>
 #include <MyGui/MyGUI_RenderFormat.h>
 
+#include <rend/Common/Format.hpp>
 #include <rend/Resources/Texture2D.hpp>
 
 #include <cstdint>
@@ -24,15 +25,16 @@ class RPTexture : public MyGUI::ITexture {
 	int width_ = 0;
 	int height_ = 0;
 
+	MyGUI::PixelFormat format_ = MyGUI::PixelFormat::R8G8B8A8;
 	MyGUI::TextureUsage usage_ = MyGUI::TextureUsage::Default;
 	std::string name_;
 	std::string shaderName_;
 
-	static std::string getCacheFilepath(const std::string& _filename);
+	std::string getCacheFilepath(const std::string& _filename) const;
 	bool loadCache(const std::string& _filename);
 	bool storeCache(const std::string& _filename, const uint8_t* _pixels);
 
-	bool createBacking(int _width, int _height, rend::Texture2DFlags _flags);
+	bool createBacking(int _width, int _height, rend::Texture2DFlags _flags, rend::Format _format);
 
 	bool upload(const uint8_t* _pixels, size_t _size);
 public:
@@ -54,14 +56,13 @@ public:
 	int getWidth() const override { return this->width_; }
 	int getHeight() const override { return this->height_; }
 
-	MyGUI::PixelFormat getFormat() const override { return MyGUI::PixelFormat::R8G8B8A8; }
+	MyGUI::PixelFormat getFormat() const override { return this->format_; }
 	MyGUI::TextureUsage getUsage() const override { return this->usage_; }
-	size_t getNumElemBytes() const override { return 4; }
+	size_t getNumElemBytes() const override { return this->format_ == MyGUI::PixelFormat::L8 ? 1 : 4; }
 
 	MyGUI::IRenderTarget* getRenderTarget() override;
 
 	rend::Texture2DHandle getTexture() const { return this->texture_; }
 
-	// Empty means the default shader.
 	const std::string& getShaderName() const { return this->shaderName_; }
 };

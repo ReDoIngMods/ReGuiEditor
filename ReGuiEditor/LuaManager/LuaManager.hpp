@@ -5,11 +5,11 @@
 #include "UserdataManager.hpp"
 
 #include <UTILS/Singleton.hpp>
+#include <UTILS/Uuid.hpp>
 
 #include <LuaJIT/lua.h>
 
 #include <memory>
-#include <string>
 #include <vector>
 
 class LuaManager : public UTILS::Singleton<LuaManager> {
@@ -20,8 +20,8 @@ class LuaManager : public UTILS::Singleton<LuaManager> {
 
 	LuaClassInstance* loader_ = nullptr;
 
-	LuaVM* createVM(const std::string& modLocalId);
-	LuaClassInstance* loadMod(const std::string& modLocalId);
+	LuaVM* createVM(const UTILS::UUID& modLocalId);
+	LuaClassInstance* loadMod(const UTILS::UUID& modLocalId);
 public:
 	LuaManager() = default;
 	~LuaManager() { this->cleanup(); }
@@ -34,6 +34,6 @@ public:
 
 	[[nodiscard]] LuaClassInstance* getLoaderClassInstance() const { return this->loader_; }
 
-	[[nodiscard]] LuaVM* getVM(const std::string& modLocalId) const;
+	[[nodiscard]] LuaVM* getVM(const UTILS::UUID& modLocalId) const;
 	[[nodiscard]] LuaVM* getReGuiVM() const { return this->loader_ ? &this->loader_->getVM() : nullptr; }
 };

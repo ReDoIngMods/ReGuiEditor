@@ -55,7 +55,6 @@ class RPRenderManager : public MyGUI::RenderManager, public MyGUI::IRenderTarget
 		}
 	} shaderPlain, shaderTextured;
 
-	// Shaders added through registerShader(), selected per texture via ITexture::setShader().
 	std::map<std::string, Shader> registeredShaders_;
 
 	const Shader& getTexturedShader(const RPTexture& texture) const;
@@ -95,7 +94,7 @@ public:
 
 	virtual const MyGUI::IntSize& getViewSize() const override { return this->viewSize; }
 	virtual MyGUI::VertexColourType getVertexFormat() const override { return this->vertexFormat; }
-	virtual bool isFormatSupported(MyGUI::PixelFormat _format, MyGUI::TextureUsage _usage) override { return _format == MyGUI::PixelFormat::R8G8B8A8; }
+	virtual bool isFormatSupported(MyGUI::PixelFormat _format, MyGUI::TextureUsage _usage) override { return _format == MyGUI::PixelFormat::R8G8B8A8 || (_format == MyGUI::PixelFormat::L8 && !_usage.isValue(MyGUI::TextureUsage::RenderTarget)); }
 
 	virtual void begin() override;
 	virtual void end() override;

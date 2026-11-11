@@ -10,7 +10,12 @@ void JsonGuiInstance::registerWidgetFactories() {
 	MyGUI::FactoryManager& factories = MyGUI::FactoryManager::getInstance();
 	factories.registerFactory<MyGUI::ScrollView>("Widget", "ScrollViewPanel");
 
-	for (const char* type : { "SubLayout", "EffectBox", "PreviewBox", "JsonContainerBox", "EditorMenu", "HorizontalSliderBox" })
+	const char* types[] = {
+		"SubLayout",        "EffectBox",  "PreviewBox",
+		"JsonContainerBox", "EditorMenu", "HorizontalSliderBox"
+	};
+
+	for (const char* type : types)
 		factories.registerFactory<MyGUI::Widget>("Widget", type);
 }
 

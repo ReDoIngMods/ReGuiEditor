@@ -3,7 +3,7 @@
 #include <UGCManager/UGCManager.hpp>
 #include <UGCManager/UGCMod.hpp>
 
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/DirectoryListing.hpp>
 
 #include <GUI/FilePickerManager.hpp>
 #include <GUI/FilePickerRequest.hpp>
@@ -299,7 +299,7 @@ void FilePickerView::drawModListEntries(const char* header, const std::vector<st
 				if (ImGui::BeginTable("##modInfo", 2, ImGuiTableFlags_SizingFixedFit)) {
 					tooltipRow("Content Path", mod->getContentPath());
 					tooltipRow("File ID", std::to_string(mod->getFileId()));
-					tooltipRow("Local ID", mod->getLocalId().toString());
+					tooltipRow("Local ID", mod->getLocalId().toAStr());
 
 					ImGui::EndTable();
 				}
@@ -491,7 +491,7 @@ void FilePickerView::handlePathInput() {
 	}
 
 	const std::filesystem::path candidatePath = std::filesystem::path(enteredRoot) / relativePath;
-	if (!FilesystemManager::getInstance().listDirectory(candidatePath.string())) {
+	if (!Filesystem::listDirectory(candidatePath.string())) {
 		this->pathMessage_ = "Folder does not exist or cannot be accessed.";
 		return;
 	}
@@ -535,7 +535,7 @@ void FilePickerView::drawFileList(const WidgetGrid& grid) {
 		this->selectedFile_.clear();
 		this->selectedVisibleFile_.clear();
 
-		auto listing = FilesystemManager::getInstance().listDirectory(currentPath.string());
+		auto listing = Filesystem::listDirectory(currentPath.string());
 		this->listingValid_ = listing.has_value();
 		this->entries_ = listing ? std::move(*listing) : std::vector<FilesystemListEntry>{};
 	}

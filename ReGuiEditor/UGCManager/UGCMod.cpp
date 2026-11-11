@@ -53,27 +53,33 @@ std::shared_ptr<UgcMod> UgcMod::createFromPath(std::filesystem::path modPath, bo
 		return nullptr;
 	}
 
-	JSONValue json;
-	if (!JSONParser::parseJson(descriptionData, json)) {
+	auto json = JSONParser::parseJson(descriptionData);
+	if (!json) {
 		CONSOLE_ERROR("Failed to parse description.json for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
-	const std::string* name = json["name"].tryGet<std::string>();
+	const std::string* name = json->at("name").tryGet<std::string>();
 	if (!name) {
 		CONSOLE_ERROR("description.json is missing the 'name' field for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
-	const std::string* localIdPtr = json["localId"].tryGet<std::string>();
+	const std::string* localIdPtr = json->at("localId").tryGet<std::string>();
 	if (!localIdPtr) {
 		CONSOLE_ERROR("description.json is missing the 'localId' field for mod at path '%s'.", modPath.string().c_str());
 		return nullptr;
 	}
 
+	auto localIdOpt = UTILS::UUID::fromString(*localIdPtr);
+	if (!localIdOpt) {
+		CONSOLE_ERROR("description.json has an invalid 'localId' field for mod at path '%s'.", modPath.string().c_str());
+		return nullptr;
+	}
+
 	UgcModType type = UgcModType::Blueprint;
 
-	const std::string* typeStr = json["type"].tryGet<std::string>();
+	const std::string* typeStr = json->at("type").tryGet<std::string>();
 	if (typeStr) {
 		type = stringToUgcModType(typeStr->c_str());
 
@@ -85,17 +91,12 @@ std::shared_ptr<UgcMod> UgcMod::createFromPath(std::filesystem::path modPath, bo
 
 	std::shared_ptr<UgcMod> mod = std::make_shared<UgcMod>();
 	mod->type_ = type;
-	mod->version_ = static_cast<UgcModVersion>(json["version"].getOrDefault(0));
+	mod->version_ = static_cast<UgcModVersion>(json->at("version").getOrDefault(0));
 	mod->isLocal_ = isLocal;
-
 	mod->name_ = *name;
-	if (!UTILS::UUID::fromString(*localIdPtr, mod->localId_)) {
-		CONSOLE_ERROR("description.json has an invalid 'localId' field for mod at path '%s'.", modPath.string().c_str());
-		return nullptr;
-	}
-
-	mod->contentPath_ = "$CONTENT_" + mod->localId_.toString();
-	mod->fileId_ = json["fileId"].getOrDefault(0);
+	mod->localId_ = *localIdOpt;
+	mod->contentPath_ = "$CONTENT_" + mod->localId_.toAStr();
+	mod->fileId_ = json->at("fileId").getOrDefault(0);
 	mod->thumbnail_.path_ = mod->contentPath_ + "/" + findThumbnailFilenameDirectly(modPath, *name);
 
 	return mod;

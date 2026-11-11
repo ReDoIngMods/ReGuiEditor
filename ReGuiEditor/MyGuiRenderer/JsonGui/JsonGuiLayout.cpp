@@ -66,6 +66,8 @@ void JsonGui::applyLayout(MyGUI::Widget* parent, LayoutRule rule, const std::vec
 			widget->setSize(gridItemSize);
 		else if (rule == JsonGui::LayoutRule::Vertical && widget->getAlign().isHStretch())
 			widget->setSize(parentSize.width - offset.left, widget->getHeight());
+		else if (rule == JsonGui::LayoutRule::Horizontal && widget->getAlign().isVStretch())
+			widget->setSize(widget->getWidth(), parentSize.height - offset.top);
 
 		const MyGUI::IntSize size = widget->getSize();
 

@@ -6,7 +6,6 @@
 #include "UGCManager/UGCManager.hpp"
 
 #include "Filesystem/DirectoryManager.hpp"
-#include "Filesystem/FilesystemManager.hpp"
 
 #include "LayoutManager/LayoutManager.hpp"
 
@@ -38,7 +37,6 @@ public:
 
 	std::shared_ptr<ConfigManager> configManager = nullptr;
 	std::shared_ptr<DirectoryManager> directoryManager = nullptr;
-	std::shared_ptr<FilesystemManager> filesystemManager = nullptr;
 	std::shared_ptr<UGCManager> ugcManager = nullptr;
 	
 	std::shared_ptr<GuiSystemManager> guiSystemManager = nullptr;

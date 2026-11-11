@@ -3,7 +3,7 @@
 
 #include <UGCManager/UGCMod.hpp>
 
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/DirectoryListing.hpp>
 
 #include <filesystem>
 #include <memory>

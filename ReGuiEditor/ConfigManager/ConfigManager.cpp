@@ -1,6 +1,8 @@
 #include "ConfigManager.hpp"
 
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/FileInfo.hpp>
+#include <Filesystem/FileReader.hpp>
+#include <Filesystem/FileWriter.hpp>
 
 #include <UTILS/ByteStreamReader.hpp>
 #include <UTILS/ByteStreamWriter.hpp>
@@ -37,17 +39,16 @@ ConfigManager::~ConfigManager() {
 }
 
 bool ConfigManager::loadConfig() {
-	FilesystemManager& fsManager = FilesystemManager::getInstance();
-	if (!fsManager.exists(CONFIG_FILE_PATH))
+	if (!Filesystem::exists(CONFIG_FILE_PATH))
 		return false;
 
-	std::string configContent;
-	if (!fsManager.readFile(CONFIG_FILE_PATH, configContent)) {
+	auto configContent = Filesystem::readFileBinary(CONFIG_FILE_PATH);
+	if (!configContent) {
 		CONSOLE_ERROR("Failed to read config file.");
 		return false;
 	}
 
-	UTILS::ByteStreamReader reader(configContent.data(), configContent.size());
+	UTILS::ByteStreamReader reader(configContent->data(), configContent->size());
 
 	{ // Identifier check
 		char identifier[4];
@@ -129,7 +130,7 @@ bool ConfigManager::saveConfig() {
 		}
 	}
 
-	if (!FilesystemManager::getInstance().writeFile(CONFIG_FILE_PATH, writer.toString())) {
+	if (!Filesystem::writeFile(CONFIG_FILE_PATH, writer.toString())) {
 		CONSOLE_ERROR("Failed to write config file.");
 		return false;
 	}

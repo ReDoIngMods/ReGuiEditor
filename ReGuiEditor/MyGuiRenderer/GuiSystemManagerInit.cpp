@@ -20,19 +20,17 @@
 #include <UTILS/Profiler.hpp>
 
 #include <MyGui/MyGUI_Exception.h>
-#include <MyGui/MyGUI_FactoryManager.h>
 #include <MyGui/MyGUI_Gui.h>
 #include <MyGui/MyGUI_LogManager.h>
 #include <MyGui/MyGUI_LogSource.h>
 #include <MyGui/MyGUI_ResourceManager.h>
-#include <MyGui/MyGUI_ResourceTrueTypeFont.h>
 
 #include <array>
 #include <cstdint>
 #include <string>
 
-constexpr int DEFAULT_CANVAS_WIDTH = 2560;
-constexpr int DEFAULT_CANVAS_HEIGHT = 1080;
+constexpr int DEFAULT_CANVAS_WIDTH = 3840;
+constexpr int DEFAULT_CANVAS_HEIGHT = 2160;
 
 constexpr auto SEARCH_DIRECTORIES = std::to_array<const char*>({
 	"$GAME_DATA/Gui",
@@ -147,12 +145,6 @@ bool GuiSystemManager::initializeGui() {
 
 	CONSOLE_LOG(LEVEL_RENDER, COLOR_GREEN, "Initialized MyGUI Gui.");
 
-	{
-		PROFILE_SCOPE("GuiSystemManager::initialize - Register TTF factory");
-
-		MyGUI::FactoryManager::getInstance().registerFactory<MyGUI::ResourceTrueTypeFont>("Resource", "ResourceTrueTypeFont");
-	}
-
 	JsonGuiInstance::registerWidgetFactories();
 	JsonGuiInstance::registerOverlayShader();
 
@@ -186,6 +178,11 @@ bool GuiSystemManager::initializeFonts() {
 	PROFILE_SCOPE("GuiSystemManager::initialize - FontManager");
 
 	this->myGuiFontManager_ = FontManager::createInstance();
+	if (!this->myGuiFontManager_->initialize()) {
+		CONSOLE_ERROR("Failed to initialize FontManager.");
+		return false;
+	}
+
 	if (!this->myGuiFontManager_->loadFontXML("$GAME_DATA/Gui/Language/English/Fonts.xml")) {
 		CONSOLE_ERROR("Failed to load MyGUI fonts from XML.");
 		return false;
@@ -282,9 +279,10 @@ bool GuiSystemManager::initialize() {
 	if (!this->initializeGui()) return false;
 	if (!this->initializeBlurring(canvasWidth, canvasHeight)) return false;
 	if (!this->loadResourceFiles()) return false;
-	if (!this->initializeFonts()) return false;
 	if (!this->initializeLanguages()) return false;
 	if (!this->initializeResolution(canvasWidth, canvasHeight)) return false;
+	if (!this->initializeFonts()) return false;
+	if (!this->initializeBackground()) return false;
 
-	return this->initializeBackground();
+	return true;
 }

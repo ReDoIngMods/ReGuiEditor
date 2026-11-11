@@ -13,8 +13,6 @@
 #include <vector>
 
 std::vector<DataFileIndex::SearchFolder> DataManager::resolveSearchFolders() const {
-	DirectoryManager& directoryManager = DirectoryManager::getInstance();
-
 	std::vector<DataFileIndex::SearchFolder> folders;
 	folders.reserve(this->searchDirectories_.size());
 
@@ -23,9 +21,9 @@ std::vector<DataFileIndex::SearchFolder> DataManager::resolveSearchFolders() con
 		folder.configuredPath = searchDirectory.path;
 		folder.recursive = searchDirectory.recursive;
 
-		std::filesystem::path resolvedPath;
-		if (directoryManager.resolveDirectory(searchDirectory.path, resolvedPath))
-			folder.resolvedPath = resolvedPath.string();
+		auto resolvedPath = DirectoryManager::resolveDirectoryStatic(searchDirectory.path);
+		if (resolvedPath)
+			folder.resolvedPath = resolvedPath->string();
 
 		folders.push_back(std::move(folder));
 	}
@@ -45,11 +43,11 @@ MyGUI::IDataStream* DataManager::getData(const std::string& _name) const {
 	if (filepath.empty())
 		return nullptr;
 
-	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(filepath, resolvedPath))
+	auto resolvedPath = DirectoryManager::resolveDirectoryStatic(filepath);
+	if (!resolvedPath)
 		return nullptr;
 
-	return new DataStream(resolvedPath.string());
+	return new DataStream(resolvedPath->string());
 }
 
 bool DataManager::isDataExist(const std::string& _name) const {

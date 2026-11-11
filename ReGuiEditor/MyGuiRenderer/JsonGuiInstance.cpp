@@ -1,6 +1,8 @@
 #include "JsonGuiInstance.hpp"
 
-#include "../Filesystem/FilesystemManager.hpp"
+#include "../Filesystem/FileReader.hpp"
+
+#include "GuiSystemManager.hpp"
 
 #include "JsonGui/JsonGuiLayout.hpp"
 #include "JsonGui/JsonGuiOverlay.hpp"
@@ -14,6 +16,7 @@
 #include <MyGui/MyGUI_Types.h>
 #include <MyGui/MyGUI_Widget.h>
 
+#include <cmath>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -87,11 +90,13 @@ bool JsonGuiInstance::loadSubLayout(const std::string& path, int depth, JSONValu
 		return false;
 	}
 
-	if (!FilesystemManager::getInstance().readFile(path, output)) {
-		CONSOLE_ERROR("JsonGui: failed to load SubLayout '%s'.", path.c_str());
+	auto jsonContent = Filesystem::readFileJson(path);
+	if (!jsonContent) {
+		CONSOLE_ERROR("JsonGui: failed to read or parse SubLayout '%s'.", path.c_str());
 		return false;
 	}
 
+	output = std::move(jsonContent.value());
 	return true;
 }
 
@@ -113,14 +118,22 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 	MyGUI::IntCoord coord(
 		node.at("x").getOrDefault(0),
 		node.at("y").getOrDefault(0),
+
 		sizeSource.at("width").getOrDefault(0),
 		sizeSource.at("height").getOrDefault(0)
 	);
 
-	coord.width = static_cast<int>(std::ceil(coord.width * 1.5f));
-	coord.height = static_cast<int>(std::ceil(coord.height * 1.5f));
-	coord.left = static_cast<int>(std::ceil(coord.left * 1.5f));
-	coord.top = static_cast<int>(std::ceil(coord.top * 1.5f));
+	GuiSystemManager& guiSystemManager = GuiSystemManager::getInstance();
+	float screenWidth = static_cast<float>(guiSystemManager.getRenderTargetWidth());
+	float screenHeight = static_cast<float>(guiSystemManager.getRenderTargetHeight());
+
+	float scaleX = screenWidth / 1280;
+	float scaleY = screenHeight / 720;
+
+	coord.width = static_cast<int>(std::ceil(coord.width * scaleX));
+	coord.height = static_cast<int>(std::ceil(coord.height * scaleY));
+	coord.left = static_cast<int>(std::ceil(coord.left * scaleX));
+	coord.top = static_cast<int>(std::ceil(coord.top * scaleY));
 
 	MyGUI::Widget* widget = createWidget(parent, this->settings_.layer, type, skin, coord, name);
 	if (!widget)
@@ -158,8 +171,8 @@ MyGUI::Widget* JsonGuiInstance::build(const JSONValue& node, MyGUI::Widget* pare
 
 	const JSONValue& gridItemSize = node.at("GridItemSize");
 	const MyGUI::IntSize gridSize(
-		static_cast<int>(std::ceil(gridItemSize.at("width").getOrDefault(0) * 1.5f)),
-		static_cast<int>(std::ceil(gridItemSize.at("height").getOrDefault(0) * 1.5f))
+		static_cast<int>(std::ceil(gridItemSize.at("width").getOrDefault(0) * scaleX)),
+		static_cast<int>(std::ceil(gridItemSize.at("height").getOrDefault(0) * scaleY))
 	);
 
 	JsonGui::applyLayout(widget, JsonGui::toLayoutRule(JsonGui::getString(node, "LayoutRule")), flow, gridSize);

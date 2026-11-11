@@ -11,6 +11,11 @@ namespace UTILS {
 		seed ^= std::hash<T>{}(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 	}
 
+	template<typename T>
+	inline size_t hashValue(const T& value) {
+		return std::hash<T>{}(value);
+	}
+
 	std::array<uint8_t, 20> SHA1(const std::vector<uint8_t>& message);
 	std::array<uint8_t, 32> SHA256(const std::vector<uint8_t>& message);
 

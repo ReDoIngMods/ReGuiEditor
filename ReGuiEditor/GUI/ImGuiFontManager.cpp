@@ -8,14 +8,12 @@
 #include <string>
 
 bool ImGuiFontManager::addFont(const std::string& fontPath, float fontSize) {	
-	std::filesystem::path resolvedPath;
-	if (!DirectoryManager::getInstance().resolveDirectory(fontPath, resolvedPath)) {
-		CONSOLE_ERROR("Failed to resolve font path: %s", fontPath.c_str());
+	auto resolvedPath = DirectoryManager::resolveDirectoryStatic(fontPath);
+	if (!resolvedPath)
 		return false;
-	}
-	
+
 	ImGuiIO& io = ImGui::GetIO();
-	ImFont* font = io.Fonts->AddFontFromFileTTF(resolvedPath.string().c_str(), fontSize);
+	ImFont* font = io.Fonts->AddFontFromFileTTF(resolvedPath->string().c_str(), fontSize);
 	if (!font) {
 		CONSOLE_ERROR("Failed to load font: %s", fontPath.c_str());
 		return false;
@@ -23,7 +21,7 @@ bool ImGuiFontManager::addFont(const std::string& fontPath, float fontSize) {
 
 	CONSOLE_LOG(LEVEL_DEFAULT, COLOR_GRAY, "Loaded font: %s", fontPath.c_str());
 
-	this->fonts_[resolvedPath.stem().string()] = font;
+	this->fonts_[resolvedPath->stem().string()] = font;
 	return true;
 }
 

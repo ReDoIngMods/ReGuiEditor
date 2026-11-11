@@ -4,7 +4,9 @@
 #include "Resources/Shaders/ShaderBlob.hpp"
 #include "Resources/Shaders/ShaderResource.hpp"
 
-#include <Filesystem/FilesystemManager.hpp>
+#include <Filesystem/FileInfo.hpp>
+#include <Filesystem/FileReader.hpp>
+#include <Filesystem/FileWriter.hpp>
 
 #include <UTILS/ByteStreamWriter.hpp>
 
@@ -46,32 +48,29 @@ struct ShaderCacheHeader {
 
 class CustomIncludeHandler : public ID3DInclude {
 	std::vector<std::string> discoveredFiles_;
-	std::string baseDirectory_;
+	std::filesystem::path baseDirectory_;
 public:
-	CustomIncludeHandler(const std::string& baseDirectory) : baseDirectory_(baseDirectory) {}
+	CustomIncludeHandler(const std::filesystem::path& baseDirectory) : baseDirectory_(baseDirectory) {}
 
 	const std::vector<std::string>& getDiscoveredFiles() const {
 		return this->discoveredFiles_;
 	}
 
 	HRESULT Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID* ppData, UINT* pBytes) override {
-		const std::filesystem::path path = std::filesystem::path(this->baseDirectory_) / pFileName;
-		
-		std::vector<uint8_t> fileContent;
-		if (!FilesystemManager::getInstance().readFile(path.string(), fileContent)) {
-			CONSOLE_ERROR("Failed to read included shader file '%s'.", path.string().c_str());
+		const std::filesystem::path path = this->baseDirectory_ / pFileName;
+		auto fileContent = Filesystem::readFileBinary(path);
+		if (!fileContent)
 			return E_FAIL;
-		}
 
 		const std::string pathString = path.string();
 		if (std::find(this->discoveredFiles_.begin(), this->discoveredFiles_.end(), pathString) == this->discoveredFiles_.end())
 			this->discoveredFiles_.push_back(pathString);
 
-		uint8_t* buffer = new uint8_t[fileContent.size()];
-		memcpy(buffer, fileContent.data(), fileContent.size());
+		uint8_t* buffer = new uint8_t[fileContent->size()];
+		memcpy(buffer, fileContent->data(), fileContent->size());
 
 		*ppData = buffer;
-		*pBytes = static_cast<UINT>(fileContent.size());
+		*pBytes = static_cast<UINT>(fileContent->size());
 		
 		return S_OK;
 	}
@@ -114,25 +113,24 @@ bool rend::ShaderManager::loadFromCache(const ShaderData& shaderData) {
 	}
 
 	const std::string cacheFilepath = shaderData.generateCacheFilepath(shaderInfo.type);
-	const FilesystemManager& filesystemManager = FilesystemManager::getInstance();
-	if (!filesystemManager.exists(cacheFilepath))
+	if (!Filesystem::exists(cacheFilepath))
 		return false;
 
-	std::vector<uint8_t> cachedData;
-	if (!filesystemManager.readFile(cacheFilepath, cachedData))
+	auto cachedData = Filesystem::readFileBinary(cacheFilepath);
+	if (!cachedData)
 		return false;
-
-	if (cachedData.size() < sizeof(ShaderCacheHeader)) {
+	
+	if (cachedData->size() < sizeof(ShaderCacheHeader)) {
 		CONSOLE_WARNING("Shader cache file '%s' has an incomplete header.", cacheFilepath.c_str());
 		return false;
 	}
 
 	size_t offset = 0;
 	const auto readRaw = [&](void* destination, size_t size) {
-		if (cachedData.size() - offset < size)
+		if (cachedData->size() - offset < size)
 			return false;
 
-		std::memcpy(destination, cachedData.data() + offset, size);
+		std::memcpy(destination, cachedData->data() + offset, size);
 		offset += size;
 		return true;
 	};
@@ -150,7 +148,7 @@ bool rend::ShaderManager::loadFromCache(const ShaderData& shaderData) {
 	}
 
 	time_t shaderFileWriteTime = 0;
-	if (!filesystemManager.getFileWriteTime(shaderData.shaderPath, shaderFileWriteTime))
+	if (!Filesystem::getFileWriteTime(shaderData.shaderPath, shaderFileWriteTime))
 		return false;
 
 	if (static_cast<int64_t>(shaderFileWriteTime) != header.lastWriteTime) {
@@ -172,27 +170,27 @@ bool rend::ShaderManager::loadFromCache(const ShaderData& shaderData) {
 	for (uint32_t index = 0; index < includeCount; ++index) {
 		int64_t includeWriteTime = 0;
 		uint32_t pathLength = 0;
-		if (!readRaw(&includeWriteTime, sizeof(includeWriteTime)) || !readRaw(&pathLength, sizeof(pathLength)) || cachedData.size() - offset < pathLength) {
+		if (!readRaw(&includeWriteTime, sizeof(includeWriteTime)) || !readRaw(&pathLength, sizeof(pathLength)) || cachedData->size() - offset < pathLength) {
 			CONSOLE_WARNING("Corrupt include table in shader cache file '%s'.", cacheFilepath.c_str());
 			return false;
 		}
 
-		const std::string includePath(reinterpret_cast<const char*>(cachedData.data()) + offset, pathLength);
+		const std::string includePath(reinterpret_cast<const char*>(cachedData->data()) + offset, pathLength);
 		offset += pathLength;
 
 		time_t currentWriteTime = 0;
-		if (!filesystemManager.getFileWriteTime(includePath, currentWriteTime) || static_cast<int64_t>(currentWriteTime) != includeWriteTime) {
+		if (!Filesystem::getFileWriteTime(includePath, currentWriteTime) || static_cast<int64_t>(currentWriteTime) != includeWriteTime) {
 			CONSOLE_WARNING("Included file '%s' of shader '%s' is missing or modified. Cache is invalid.", includePath.c_str(), shaderData.shaderPath.c_str());
 			return false;
 		}
 	}
 
-	if (cachedData.size() - offset != header.compressedSize) {
+	if (cachedData->size() - offset != header.compressedSize) {
 		CONSOLE_WARNING("Invalid compressed shader data size in cache file '%s'.", cacheFilepath.c_str());
 		return false;
 	}
 
-	const char* compressedData = reinterpret_cast<const char*>(cachedData.data()) + offset;
+	const char* compressedData = reinterpret_cast<const char*>(cachedData->data()) + offset;
 
 	std::vector<char> uncompressedData(header.uncompressedSize);
 	const int decompressedSize = LZ4_decompress_safe(compressedData, uncompressedData.data(), static_cast<int>(header.compressedSize), static_cast<int>(header.uncompressedSize));
@@ -247,8 +245,7 @@ bool rend::ShaderManager::storeToCache(const ShaderData& shaderData, ID3DBlob* s
 	compressedData.resize(static_cast<size_t>(actualCompressedSize));
 
 	time_t shaderFileWriteTime = 0;
-	const FilesystemManager& filesystemManager = FilesystemManager::getInstance();
-	if (!filesystemManager.getFileWriteTime(shaderData.shaderPath, shaderFileWriteTime)) {
+	if (!Filesystem::getFileWriteTime(shaderData.shaderPath, shaderFileWriteTime)) {
 		CONSOLE_ERROR("Failed to get last write time for shader '%s'.", shaderData.shaderPath.c_str());
 		return false;
 	}
@@ -264,7 +261,7 @@ bool rend::ShaderManager::storeToCache(const ShaderData& shaderData, ID3DBlob* s
 	writer.write(static_cast<uint32_t>(includes.size()));
 	for (const std::string& includePath : includes) {
 		time_t includeWriteTime = 0;
-		if (!filesystemManager.getFileWriteTime(includePath, includeWriteTime)) {
+		if (!Filesystem::getFileWriteTime(includePath, includeWriteTime)) {
 			CONSOLE_ERROR("Failed to get last write time for included file '%s'.", includePath.c_str());
 			return false;
 		}
@@ -279,7 +276,7 @@ bool rend::ShaderManager::storeToCache(const ShaderData& shaderData, ID3DBlob* s
 	const std::string cacheFilepath = shaderData.generateCacheFilepath(shaderInfo.type);
 	const std::vector<char> cacheData = writer.toVector();
 
-	if (!filesystemManager.writeFile(cacheFilepath, cacheData)) {
+	if (!Filesystem::writeFile(cacheFilepath, cacheData)) {
 		CONSOLE_WARNING("Failed to write shader cache file '%s'.", cacheFilepath.c_str());
 		return false;
 	}
@@ -294,8 +291,8 @@ bool rend::ShaderManager::createBlob(const ShaderData& shaderData, rend::RefCoun
 		return false;
 	}
 
-	std::string shaderSource;
-	if (!FilesystemManager::getInstance().readFile(shaderData.shaderPath, shaderSource)) {
+	auto shaderSource = Filesystem::readFileTextUTF8(shaderData.shaderPath);
+	if (!shaderSource) {
 		CONSOLE_ERROR("Failed to read shader file '%s'.", shaderData.shaderPath.c_str());
 		return false;
 	}
@@ -307,7 +304,7 @@ bool rend::ShaderManager::createBlob(const ShaderData& shaderData, rend::RefCoun
 	rend::RefCountPtr<ID3DBlob> shaderBlob = nullptr;
 	rend::RefCountPtr<ID3DBlob> errorBlob = nullptr;
 
-	HRESULT result = D3DCompile(shaderSource.c_str(), shaderSource.size(), shaderData.shaderPath.c_str(), d3dMacros.data(), &includeHandler, shaderData.entrypoint.c_str(), shaderInfo.targetProfile, 0, 0, &shaderBlob, &errorBlob);
+	HRESULT result = D3DCompile(shaderSource->c_str(), shaderSource->size(), shaderData.shaderPath.c_str(), d3dMacros.data(), &includeHandler, shaderData.entrypoint.c_str(), shaderInfo.targetProfile, 0, 0, &shaderBlob, &errorBlob);
 	if (FAILED(result)) {
 		if (errorBlob)
 			CONSOLE_ERROR("Failed to compile shader '%s'\r\n%s", shaderData.shaderPath.c_str(), static_cast<const char*>(errorBlob->GetBufferPointer()));

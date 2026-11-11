@@ -1,10 +1,12 @@
 #include "Uuid.hpp"
 
 #include "Hashing.hpp"
+#include "Strings.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <random>
 #include <string>
 #include <string_view>
@@ -19,9 +21,16 @@ inline static const char fromHexValue(const char character) {
 	return -1;
 }
 
-bool UTILS::UUID::fromString(std::string_view text, UTILS::UUID& output) {
-	if (text.size() != 36)
-		return false;
+std::optional<UTILS::UUID> UTILS::UUID::fromString(std::string_view text) {
+	if (text.size() != 36 && text.size() != 38)
+		return std::nullopt;
+
+	if (text.size() == 38) {
+		if (text.front() != '{' || text.back() != '}')
+			return std::nullopt;
+	
+		text = text.substr(1, 36);
+	}
 
 	UTILS::UUID result;
 	size_t bytesIndex = 0;
@@ -32,20 +41,24 @@ bool UTILS::UUID::fromString(std::string_view text, UTILS::UUID& output) {
 				continue;
 			}
 
-			return false;
+			return std::nullopt;
 		}
 
 		const int high = fromHexValue(text[textIndex]);
 		const int low = fromHexValue(text[textIndex + 1]);
 		if (high < 0 || low < 0)
-			return false;
+			return std::nullopt;
 
 		result.bytes[bytesIndex++] = static_cast<uint8_t>(high << 4 | low);
 		textIndex += 2;
 	}
 
-	output = result;
-	return true;
+	return result;
+}
+
+std::optional<UTILS::UUID> UTILS::UUID::fromWString(std::wstring_view text) {
+	const std::wstring wstrText(text);
+	return UTILS::UUID::fromString(UTILS::toShortString(wstrText));
 }
 
 UTILS::UUID UTILS::UUID::generateRandom() {
@@ -74,9 +87,9 @@ UTILS::UUID UTILS::UUID::generateNamed(const UTILS::UUID& uuidNamespace, std::st
 }
 
 UTILS::UUID UTILS::UUID::generateNamed(std::string_view uuidNamespace, std::string_view name) {
-	UTILS::UUID namespaceUuid;
-	if (!UTILS::UUID::fromString(uuidNamespace, namespaceUuid))
+	auto namespaceUuid = UTILS::UUID::fromString(std::string(uuidNamespace));
+	if (!namespaceUuid)
 		return {};
 
-	return UTILS::UUID::generateNamed(namespaceUuid, name);
+	return UTILS::UUID::generateNamed(*namespaceUuid, name);
 }

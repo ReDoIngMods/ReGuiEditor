@@ -4,7 +4,7 @@
 
 #include <Application.hpp>
 
-#include <Filesystem/FilesystemManager.hpp> 
+#include <Filesystem/FileReader.hpp>
 
 #include <UTILS/Strings.hpp>
 
@@ -20,13 +20,13 @@
 #include <vector>
 
 bool ResolutionManager::initialize() {
-    JSONValue jsonContent;
-	if (!FilesystemManager::getInstance().readFile("$GAME_DATA/Gui/guiResolutions.json", jsonContent)) {
-		CONSOLE_ERROR("Failed to read Resolutions.json file.");
+	auto jsonContent = Filesystem::readFileJson("$GAME_DATA/Gui/guiResolutions.json");
+	if (!jsonContent) {
+		CONSOLE_ERROR("Failed to read or parse Resolutions.json file.");
 		return false;
 	}
 
-	const JSONObject* jsonData = jsonContent.tryGet<JSONObject>();
+	const JSONObject* jsonData = jsonContent->tryGet<JSONObject>();
 	if (!jsonData) {
 		CONSOLE_ERROR("Invalid format in Resolutions.json: root is not an object.");
 		return false;

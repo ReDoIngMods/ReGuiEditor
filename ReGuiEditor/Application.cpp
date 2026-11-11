@@ -5,7 +5,6 @@
 #include "UGCManager/UGCManager.hpp"
 
 #include "Filesystem/DirectoryManager.hpp"
-#include "Filesystem/FilesystemManager.hpp"
 
 #include "MyGuiRenderer/GuiSystemManager.hpp"
 
@@ -47,11 +46,9 @@ bool Application::initialize() {
 	if (!this->directoryManager->initialize())
 		return false;
 
-	this->filesystemManager = FilesystemManager::createInstance();
-
-	std::filesystem::path splashImagePath;
-	if (this->directoryManager->resolveDirectory("$RGE_DATA/Images/splash.png", splashImagePath))
-		this->splashscreen.show(splashImagePath);
+	auto splashImagePath = this->directoryManager->resolveDirectory("$RGE_DATA/Images/splash.png");
+	if (splashImagePath)
+		this->splashscreen.show(splashImagePath.value());
 
 	this->splashscreen.setStatus(L"Initializing renderer...");
 	this->renderer = rend::Renderer::createInstance();

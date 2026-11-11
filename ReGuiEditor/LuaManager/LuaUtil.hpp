@@ -1,6 +1,7 @@
 #pragma once
 #include <LuaJIT/lua.h>
 
+#include <filesystem>
 #include <string>
 
 // These are utility functions that are used across the LuaVM & wrappers. Its a lot neater like this... i think i don't know
@@ -12,7 +13,7 @@ namespace LuaUtils {
 	[[nodiscard]] const char* argsToString(lua_State* L, std::string& output);
 	[[nodiscard]] bool joinRelativePath(const std::string& baseFile, const std::string& relativePath, std::string& output);
 	[[nodiscard]] bool getCallerPath(lua_State* L, std::string& output);
-	[[nodiscard]] bool resolveContentDataPath(lua_State* L, std::string& path);
+	void resolveContentDataPath(lua_State* L, std::filesystem::path& path);
 
 	[[nodiscard]] LuaVM* getLuaVM(lua_State* L);
 	void setLuaVM(lua_State* L, LuaVM* vm);
